@@ -5,11 +5,11 @@ export type EmpDocument = Emp & Document;
 
 @Schema()
 export class Emp {
-  @Prop({ required: true })
-  firstName: string;
+  @Prop({ required: true, })
+  name: string;
 
   @Prop({ required: true })
-  lastName: string;
+  dob: Date;
 
   @Prop({ required: true, unique: true })
   phone: string;
@@ -17,13 +17,13 @@ export class Emp {
   @Prop({ required: true, unique: true })
   email: string;
 
-  @Prop({ required: true })
-  address: string;
+  @Prop({ required: false ,default: ()=>new Date() })
+  employment_date: Date;
 
   @Prop({ required: true })
   password: string;
-
-
+  @Prop({ required: true, ref: "JobTitles" })
+  job_id: Types.ObjectId
 }
 
 export const EmpSchema = SchemaFactory.createForClass(Emp);

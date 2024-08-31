@@ -1,13 +1,17 @@
 import { DatabaseModule } from "./modules/database/database.module";
 import { DatabaseService } from "./modules/database/database.service";
-import { UserModule } from "./modules/emp/emp.module";
 import { Module, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { DepartmentModule } from "./modules/department/depratment.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { JobTitlesModule } from "./modules/job-titles/job-titles.module";
 
 @Module(
   {
     imports: [
+      JobTitlesModule,
+      AuthModule,
       DatabaseModule,
-      UserModule
+      DepartmentModule,
     ],
   }
 )
