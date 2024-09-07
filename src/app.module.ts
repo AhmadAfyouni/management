@@ -4,10 +4,18 @@ import { Module, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { DepartmentModule } from "./modules/department/depratment.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { JobTitlesModule } from "./modules/job-titles/job-titles.module";
+import { ConfigModule } from "@nestjs/config";
+import { env } from "process";
 
 @Module(
   {
     imports: [
+      ConfigModule.forRoot(
+        {
+          envFilePath: ".env",
+          isGlobal:true,
+        }
+      ),
       JobTitlesModule,
       AuthModule,
       DatabaseModule,
