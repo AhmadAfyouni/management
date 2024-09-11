@@ -46,8 +46,7 @@ export class AuthService {
             expiresIn: '7d',
         });
     }
-
-
+    
     async refreshToken(token: string) {
         try {
             const payload = this.jwtService.verify(token, {

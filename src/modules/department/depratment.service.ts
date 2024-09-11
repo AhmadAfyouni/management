@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Department, DepartmentDocument } from './schema/department.schema';
@@ -8,7 +8,7 @@ import { CreateDepartmentDto } from './dto/create-department.dto';
 @Injectable()
 export class DepartmentService {
     constructor(
-        @InjectModel(Department.name) private readonly departmentModel: Model<DepartmentDocument>,
+        @InjectModel("Department") private readonly departmentModel: Model<DepartmentDocument>,
     ) { }
 
 
@@ -45,6 +45,40 @@ export class DepartmentService {
             return new GetDepartmentDto(dept);
         }
         return null;
+    }
+
+
+    async findSubDepartments(): Promise<GetDepartmentDto[]> {
+        try {
+            const departments = await this.departmentModel.find({
+                parent_department_id: { $ne: null }
+            }).exec();
+
+            return departments.map(dept => new GetDepartmentDto(dept));
+        } catch (error) {
+            console.error('Error finding departments with non-null parent_department_id:', error);
+            throw new Error('Failed to find departments with non-null parent_department_id');
+        }
+    }
+
+
+    async updateDept(id: string, deptDto: Partial<CreateDepartmentDto>): Promise<any> {
+        try {
+            const result = await this.departmentModel.findByIdAndUpdate(id, deptDto, {
+                new: true,
+                runValidators: true
+            }).exec();
+
+            if (!result) {
+                throw new NotFoundException(`Department with ID ${id} not found`);
+            }
+            return result;
+        } catch (error) {
+            if (error.name === 'CastError' && error.kind === 'ObjectId') {
+                throw new NotFoundException(`Department with ID ${id} not found`);
+            }
+            throw new InternalServerErrorException('Error updating department');
+        }
     }
 
 

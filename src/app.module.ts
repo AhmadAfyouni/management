@@ -4,10 +4,16 @@ import { Module, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { DepartmentModule } from "./modules/department/depratment.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { JobTitlesModule } from "./modules/job-titles/job-titles.module";
+import { EmpModule } from "./modules/emp/emp.module";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Department, DepartmentSchema } from "./modules/department/schema/department.schema";
+import { JobTitles, JobTitlesSchema } from "./modules/job-titles/schema/job-ttiles.schema";
+import { Emp, EmpSchema } from "./modules/emp/schema/emp.schema";
 
 @Module(
   {
     imports: [
+      EmpModule,
       JobTitlesModule,
       AuthModule,
       DatabaseModule,

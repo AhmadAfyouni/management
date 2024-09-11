@@ -24,6 +24,9 @@ export class Emp {
   password: string;
   @Prop({ required: true, ref: "JobTitles" })
   job_id: Types.ObjectId
+
+  @Prop({ required: true})
+  address: string;
 }
 
 export const EmpSchema = SchemaFactory.createForClass(Emp);

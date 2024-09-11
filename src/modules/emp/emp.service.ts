@@ -14,7 +14,7 @@ export class EmpService {
 
 
     async getAllEmp(): Promise<GetEmpDto[]> {
-        const emps = await this.empModel.find({}).populate("job_id department_id").exec();
+        const emps = await this.empModel.find({}).populate("job_id").exec();        
         return emps.map(emp => new GetEmpDto(emp));
     }
 
@@ -32,7 +32,7 @@ export class EmpService {
         }
         return null;
     }
-
+    
     async findById(id:string){
         const emp = await this.empModel.findById(id).exec();
         if (emp) {
