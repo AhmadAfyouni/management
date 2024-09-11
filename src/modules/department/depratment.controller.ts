@@ -5,6 +5,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { DepartmentService } from "./depratment.service";
 import { CreateDepartmentDto } from "./dto/create-department.dto";
 import { GetDepartmentDto } from "./dto/get-department.dto";
+import { UserRole } from "src/config/role.enum";
 
 
 @UseGuards(JwtAuthGuard, RolesGuard)
