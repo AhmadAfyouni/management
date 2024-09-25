@@ -12,6 +12,7 @@ export class GetTaskDto {
     createdAt: Date;
     updatedAt: Date;
     due_date: Date;
+    files?: string[];
 
     constructor(task: any) {
         this.name = task.name;
@@ -23,5 +24,6 @@ export class GetTaskDto {
         this.createdAt = task.createdAt;
         this.updatedAt = task.updatedAt;
         this.due_date = task.due_date;
+        this.files = task.files || [];
     }
 }

@@ -34,6 +34,9 @@ export class Task {
 
     @Prop({ type: Date, required: true })
     due_date: Date;
+    
+    @Prop({ type: [String], default: [] })
+    files: string[];
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

@@ -7,6 +7,7 @@ import { ConflictException, InternalServerErrorException, UnauthorizedException 
 import { UserRole } from "../../config/role.enum";
 import { CreateEmpDto } from "../emp/dto/create-emp.dto";
 import "dotenv/config"
+import { GetEmpDto } from "../emp/dto/get-emp.dto";
 
 @Injectable()
 export class AuthService {
@@ -28,16 +29,17 @@ export class AuthService {
     }
 
     async login(user: any) {
-        try {            
-            const payload: JwtPayload = { email: user._doc.email, sub: user._doc._id, role: UserRole.User };
+        try {
+            const payload: JwtPayload = { email: user._doc.email, sub: user._doc._id, role: UserRole.User, department: user._doc.department_id };
             return {
                 status: true,
                 message: 'Login successful',
                 access_token: this.jwtService.sign(payload),
                 refresh_token: this.generateRefreshToken(payload),
+                user: new GetEmpDto(user._doc),
             };
         } catch (error) {
-            throw new UnauthorizedException('Login failed'+error.message);
+            throw new UnauthorizedException('Login failed' + error.message);
         }
     }
     generateRefreshToken(payload: JwtPayload) {
@@ -46,7 +48,7 @@ export class AuthService {
             expiresIn: '7d',
         });
     }
-    
+
     async refreshToken(token: string) {
         try {
             const payload = this.jwtService.verify(token, {
@@ -71,7 +73,7 @@ export class AuthService {
                 const duplicateField = Object.keys(e.keyValue)[0];
                 throw new ConflictException(`${duplicateField.charAt(0).toUpperCase() + duplicateField.slice(1)} already exists.`);
             } else {
-                throw new InternalServerErrorException('An unexpected error occurred during registration.'+e.message);
+                throw new InternalServerErrorException('An unexpected error occurred during registration.' + e.message);
             }
         }
 

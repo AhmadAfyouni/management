@@ -1,7 +1,9 @@
-import { IsMongoId,IsDate, IsEmail, IsPhoneNumber } from "class-validator";
+import { IsMongoId, IsDate, IsEmail, IsPhoneNumber, IsString, IsNotEmpty } from "class-validator";
 import { Types } from "mongoose";
 
 export class CreateEmpDto {
+    @IsString()
+    @IsNotEmpty()
     name: string;
     @IsDate()
     dob: Date;
@@ -9,7 +11,9 @@ export class CreateEmpDto {
     phone: string;
     @IsEmail()
     email: string;
-    password:string;
+    password: string;
+    @IsString()
+    @IsNotEmpty()
     address: string;
     @IsMongoId()
     departmetn_id: Types.ObjectId;

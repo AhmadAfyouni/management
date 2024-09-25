@@ -23,7 +23,13 @@ export class TasksService {
 
     async getTasks(): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
-            const tasks = await this.taskModel.find().populate('task_type emp status').exec();
+            const tasks = await this.taskModel.find().populate('task_type status').populate({
+                path: "emp",
+                populate: {
+                    path: "job_id",
+                    model:"JobTitles"
+                }
+            }).exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
