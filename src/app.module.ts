@@ -11,6 +11,9 @@ import { TaskStatusModule } from "./modules/task status/task-stauts.module";
 import { CommentModule } from "./modules/comment/comment.module";
 import { ConfigModule } from "@nestjs/config";
 import { InternalCommunicationsModule } from "./modules/internal-communications/communications.module";
+import { APP_GUARD } from "@nestjs/core";
+import { RolesGuard } from "./common/guards/roles.guard";
+import { RolesPermissionsModule } from "./modules/permisssions/permission.module";
 
 @Module(
   {
@@ -21,6 +24,7 @@ import { InternalCommunicationsModule } from "./modules/internal-communications/
           isGlobal: true,
         }
       ),
+      RolesPermissionsModule,
       InternalCommunicationsModule,
       CommentModule,
       TaskModule,

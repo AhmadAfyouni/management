@@ -7,11 +7,12 @@ export class GetInternalCommunicationDto {
   @IsMongoId()
   emp: string;
 
+  sender_id:string;
   @IsString()
   department: string;
 
   @IsString()
-  message_body: string;
+  message: string;
 
   @IsDateString()
   date: Date;
@@ -19,11 +20,12 @@ export class GetInternalCommunicationDto {
   @IsArray()
   files: string[];
 
-  constructor(communication: any) {
+  constructor(communication: any) {    
     this._id = communication._id.toString();
     this.emp = communication.emp_id.name; 
+    this.sender_id = communication.emp_id._id.toString(); 
     this.department = communication.department_id.name; 
-    this.message_body = communication.message_body;
+    this.message = communication.message;
     this.date = communication.createdAt;
     this.files = communication.files || [];
   }

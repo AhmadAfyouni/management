@@ -9,7 +9,7 @@ import { GetCommentDto } from './dto/get-comment.dto';
 export class CommentService {
     constructor(@InjectModel(Comment.name) private commentModel: Model<CommentDocument>) {}
 
-    async createComment(createCommentDto: CreateCommentDto, userId: string): Promise<Comment> {
+    async createComment(createCommentDto: CreateCommentDto, userId: string): Promise<GetCommentDto> {
         try {
             const comment = new this.commentModel({
                 content: createCommentDto.content,
@@ -17,7 +17,10 @@ export class CommentService {
                 emp: userId,
                 files: createCommentDto.files || [],
             });
-            return await comment.save();
+            const c=await (await comment.save()).populate("emp");
+            console.log(c);
+            
+            return new GetCommentDto(c);
         } catch (error) {
             throw new InternalServerErrorException('Error creating comment', error.message);
         }

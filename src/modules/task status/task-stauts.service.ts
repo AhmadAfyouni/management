@@ -16,7 +16,7 @@ export class TaskStatusService {
     try {
       const newTaskStatus = new this.taskStatusModel(createTaskStatusDto);
       const savedTaskStatus = await newTaskStatus.save();
-      return { status: true, message: 'TaskStatus created successfully', data: savedTaskStatus };
+      return { status: true, message: 'TaskStatus created successfully', data: new GetTaskStatusDto(savedTaskStatus) };
     } catch (error) {
       throw new InternalServerErrorException('Failed to create TaskStatus');
     }
@@ -25,7 +25,8 @@ export class TaskStatusService {
   async findAll(): Promise<{ status: boolean, message: string, data: GetTaskStatusDto[] }> {
     try {
       const taskStatuses = await this.taskStatusModel.find().exec();
-      return { status: true, message: 'TaskStatuses retrieved successfully', data: taskStatuses };
+      const taskStatusDto = taskStatuses.map(taskStatus => new GetTaskStatusDto(taskStatus));
+      return { status: true, message: 'TaskStatuses retrieved successfully', data: taskStatusDto };
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve TaskStatuses');
     }
@@ -37,7 +38,7 @@ export class TaskStatusService {
       if (!taskStatus) {
         throw new NotFoundException(`TaskStatus with ID ${id} not found`);
       }
-      return { status: true, message: 'TaskStatus retrieved successfully', data: taskStatus };
+      return { status: true, message: 'TaskStatus retrieved successfully', data: new GetTaskStatusDto(taskStatus) };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -46,7 +47,7 @@ export class TaskStatusService {
     }
   }
 
-  async update(id: string, updateTaskStatusDto: UpdateTaskStatusDto): Promise<{ status: boolean, message: string, data: GetTaskStatusDto }> {
+  async update(id: string, updateTaskStatusDto: UpdateTaskStatusDto): Promise<{ status: boolean, message: string }> {
     try {
       const updatedTaskStatus = await this.taskStatusModel.findByIdAndUpdate(
         id,
@@ -57,7 +58,7 @@ export class TaskStatusService {
       if (!updatedTaskStatus) {
         throw new NotFoundException(`TaskStatus with ID ${id} not found`);
       }
-      return { status: true, message: 'TaskStatus updated successfully', data: updatedTaskStatus };
+      return { status: true, message: 'TaskStatus updated successfully' };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

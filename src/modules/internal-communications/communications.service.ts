@@ -11,12 +11,24 @@ export class InternalCommunicationsService {
         @InjectModel(InternalCommunications.name)
         private internalCommunicationsModel: Model<InternalCommunicationsDocument>,
     ) { }
+    async create(createInternalCommunicationDto: CreateInternalCommunicationDto, department_id: string, emp_id: string): Promise<GetInternalCommunicationDto> {
+        const communication = new this.internalCommunicationsModel({
+            ...createInternalCommunicationDto,
+            emp_id: emp_id,
+            department_id: department_id
+        });
 
-    async create(createInternalCommunicationDto: CreateInternalCommunicationDto): Promise<GetInternalCommunicationDto> {
-        const communication = new this.internalCommunicationsModel(createInternalCommunicationDto);
-        const savedCommunication = await (await communication.save()).populate("emp_id department_id");
-        return new GetInternalCommunicationDto(savedCommunication);
+        const savedCommunication = await communication.save();
+
+        const populatedCommunication = await this.internalCommunicationsModel
+            .findById(savedCommunication._id)
+            .populate('emp_id department_id')
+            .exec();
+        console.log(populatedCommunication);
+
+        return new GetInternalCommunicationDto(populatedCommunication);
     }
+
 
     async findAll(): Promise<GetInternalCommunicationDto[]> {
         const communications = await this.internalCommunicationsModel.find().populate('department_id emp_id').exec();
@@ -30,4 +42,19 @@ export class InternalCommunicationsService {
         }
         return new GetInternalCommunicationDto(communication);
     }
+    async findAllByDepartment(department_id: string): Promise<GetInternalCommunicationDto[]> {
+        const communications = await this.internalCommunicationsModel
+            .find({ department_id: department_id })
+            .populate('department_id emp_id')
+            .sort({ createdAt: 1 })
+            .exec();
+
+        if (!communications || communications.length === 0) {
+            throw new NotFoundException(`No communications found for department ID: ${department_id}`);
+        }
+
+        return communications.map(communication => new GetInternalCommunicationDto(communication));
+    }
+
+
 }

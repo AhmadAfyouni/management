@@ -3,11 +3,12 @@ import { GetTaskStatusDto } from 'src/modules/task status/dto/get-task-status.dt
 import { GetTaskTypeDto } from 'src/modules/task type/dto/get-task-type.dto';
 
 export class GetTaskDto {
+    id: string;
     name: string;
     description: string;
     task_type: GetTaskTypeDto;
     priority: number;
-    emp: GetEmpDto;
+    emp?: GetEmpDto;
     status: GetTaskStatusDto;
     createdAt: Date;
     updatedAt: Date;
@@ -15,6 +16,7 @@ export class GetTaskDto {
     files?: string[];
 
     constructor(task: any) {
+        this.id = task._id.toString();
         this.name = task.name;
         this.description = task.description;
         this.task_type = new GetTaskTypeDto(task.task_type);

@@ -42,6 +42,7 @@ export class AuthService {
             throw new UnauthorizedException('Login failed' + error.message);
         }
     }
+
     generateRefreshToken(payload: JwtPayload) {
         return this.jwtService.sign(payload, {
             secret: process.env.JWT_REFRESH_SECRET,
@@ -54,7 +55,7 @@ export class AuthService {
             const payload = this.jwtService.verify(token, {
                 secret: process.env.JWT_REFRESH_SECRET,
             });
-
+            
             const user = await this.empService.findById(payload.sub);
             if (!user) {
                 throw new UnauthorizedException();
@@ -64,6 +65,7 @@ export class AuthService {
             throw new UnauthorizedException('Invalid refresh token');
         }
     }
+
     async register(registerDto: CreateEmpDto) {
         try {
             await this.empService.createEmp(registerDto);
@@ -76,7 +78,5 @@ export class AuthService {
                 throw new InternalServerErrorException('An unexpected error occurred during registration.' + e.message);
             }
         }
-
     }
-
 }

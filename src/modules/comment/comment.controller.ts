@@ -5,7 +5,7 @@ import { CommentService } from './comment.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('comments')
+@Controller('comment')
 export class CommentController {
     constructor(private readonly commentService: CommentService) { }
 
@@ -15,7 +15,7 @@ export class CommentController {
         return this.commentService.createComment(createCommentDto,userId);
     }
 
-    @Get('task/:taskId')
+    @Get(':taskId')
     async getCommentsByTask(@Param('taskId') taskId: string) {
         return this.commentService.getCommentsByTask(taskId);
     }

@@ -22,7 +22,7 @@ export class CreateJobTitleDto {
   responsibilities: string[];
 
   @IsArray()
-  @IsString({ each: true })
+  @IsMongoId({ each: true })
   permissions: string[];
 
   @IsMongoId()

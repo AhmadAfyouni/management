@@ -11,12 +11,13 @@ export class CreateEmpDto {
     phone: string;
     @IsEmail()
     email: string;
-    password: string;
     @IsString()
     @IsNotEmpty()
     address: string;
+    @IsString()
+    password:string;
     @IsMongoId()
-    departmetn_id: Types.ObjectId;
+    department_id: Types.ObjectId;
     @IsMongoId()
     job_id: Types.ObjectId;
 }

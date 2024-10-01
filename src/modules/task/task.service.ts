@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
+import { EmpService } from '../emp/emp.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { GetTaskDto } from './dto/get-task.dto';
 import { Task, TaskDocument } from './schema/task.schema';
@@ -9,7 +10,32 @@ import { Task, TaskDocument } from './schema/task.schema';
 export class TasksService {
     constructor(
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
+        private readonly empService: EmpService,
     ) { }
+
+    async createTaskForDepartment(createTaskDto: CreateTaskDto) {
+        if (!createTaskDto.department_id) {
+            throw new BadRequestException('Department ID is required');
+        }
+        const emps = await this.empService.getEmpByDepartment(createTaskDto.department_id);
+        if (!emps || emps.length === 0) {
+            throw new NotFoundException('No employees found in this department');
+        }
+
+        const tasks = await Promise.all(
+            emps.map(async (emp) => {
+                const taskData = {
+                    ...createTaskDto,
+                    emp: emp._id,
+                    department_id: undefined,
+                };
+
+                const task = new this.taskModel(taskData);
+                return await task.save();
+            })
+        );
+        return tasks;
+    }
 
     async create(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         try {
@@ -25,10 +51,18 @@ export class TasksService {
         try {
             const tasks = await this.taskModel.find().populate('task_type status').populate({
                 path: "emp",
-                populate: {
-                    path: "job_id",
-                    model:"JobTitles"
-                }
+                model: "Emp",
+                populate: [
+                    {
+                        path: "job_id",
+                        model: "JobTitles",
+                    },
+                    {
+                        path: "department_id",
+                        model: "Department",
+
+                    }
+                ]
             }).exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -39,7 +73,14 @@ export class TasksService {
 
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
         try {
-            const task = await this.taskModel.findById(id).populate('task_type emp status').exec();
+            const task = await this.taskModel.findById(id).populate('task_type status').populate('task_type status').populate({
+                path: "emp",
+                model: "Emp",
+                populate: {
+                    path: "job_id",
+                    model: "JobTitles"
+                }
+            }).exec();
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
@@ -53,19 +94,19 @@ export class TasksService {
         }
     }
 
-    async updateTask(id: string, updateTaskDto: any): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
+    async updateTask(id: string, updateTaskDto: any): Promise<{ status: boolean, message: string }> {
         try {
             const updatedTask = await this.taskModel.findByIdAndUpdate(id, updateTaskDto, { new: true }).exec();
             if (!updatedTask) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
-            const task = new GetTaskDto(updatedTask);
-            return { status: true, message: 'Task updated successfully', data: task };
+            return { status: true, message: 'Task updated successfully' };
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw error;
             }
-            throw new InternalServerErrorException('Failed to update task');
+            console.log(error.message);
+            throw new InternalServerErrorException('Failed to update task', error.message);
         }
     }
 
@@ -82,5 +123,25 @@ export class TasksService {
             }
             throw new InternalServerErrorException('Failed to delete task');
         }
+    }
+
+    async getEmpTasks(empId: string): Promise<GetTaskDto[]> {
+        const objectId = new Types.ObjectId(empId);
+        const tasks = await this.taskModel.find({ emp: objectId }).populate('task_type status').populate({
+            path: "emp",
+            model: "Emp",
+            populate: [
+                {
+                    path: "job_id",
+                    model: "JobTitles",
+                },
+                {
+                    path: "department_id",
+                    model: "Department",
+
+                }
+            ]
+        }).lean().exec();
+        return tasks.map((task) => new GetTaskDto(task));
     }
 }

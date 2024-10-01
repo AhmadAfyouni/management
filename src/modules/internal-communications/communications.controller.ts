@@ -1,24 +1,34 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { InternalCommunicationsService } from './communications.service';
 import { CreateInternalCommunicationDto } from './dtos/create-internal-communication.dto';
 import { GetInternalCommunicationDto } from './dtos/get-internal-communication.dto';
 
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('internal-communications')
 export class InternalCommunicationsController {
   constructor(private readonly internalCommunicationsService: InternalCommunicationsService) {}
 
-  @Post()
-  async create(@Body() createInternalCommunicationDto: CreateInternalCommunicationDto) {
-    return this.internalCommunicationsService.create(createInternalCommunicationDto);
-  }
+  // @Post()
+  // async create(@Body() createInternalCommunicationDto: CreateInternalCommunicationDto) {
+  //   return this.internalCommunicationsService.create(createInternalCommunicationDto);
+  // }
   
   @Get()
   async findAll(): Promise<GetInternalCommunicationDto[]> {
     return this.internalCommunicationsService.findAll();
   }
 
-  @Get(':id')
-  async findOne(@Param('id') id: string): Promise<GetInternalCommunicationDto> {
-    return this.internalCommunicationsService.findOne(id);
+  // @Get('messa/:id')
+  // async findOne(@Param('id') id: string): Promise<GetInternalCommunicationDto> {
+  //   return this.internalCommunicationsService.findOne(id);
+  // }
+
+  @Get('/chats')
+  async findByDepartment(@Req() req): Promise<GetInternalCommunicationDto[]> {
+    console.log(req.user.department);
+    const department_id = req.user.department
+    return this.internalCommunicationsService.findAllByDepartment(department_id);
   }
 }

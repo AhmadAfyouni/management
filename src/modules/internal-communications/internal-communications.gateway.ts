@@ -1,3 +1,4 @@
+import { Req, UseGuards } from '@nestjs/common';
 import {
     WebSocketGateway,
     WebSocketServer,
@@ -6,44 +7,73 @@ import {
     OnGatewayDisconnect,
     SubscribeMessage,
 } from '@nestjs/websockets';
-import path from 'path';
 import { Server, Socket } from 'socket.io';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import * as jwt from 'jsonwebtoken'; // Import jsonwebtoken
 import { InternalCommunicationsService } from './communications.service';
 import { CreateInternalCommunicationDto } from './dtos/create-internal-communication.dto';
+import { JwtPayload } from 'src/config/jwt-payload.interface';
 
-@WebSocketGateway(
-    {
-        cors: {
-            origin: '*',
-
-        },
-    })
-export class InternalCommunicationsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+@WebSocketGateway({
+    cors: {
+        origin: '*',
+    },
+})
+export class InternalCommunicationsGateway
+    implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer() server: Server;
 
-    constructor(private readonly internalCommunicationsService: InternalCommunicationsService) { }
+    constructor(
+        private readonly internalCommunicationsService: InternalCommunicationsService,
+    ) { }
 
     afterInit(server: Server) {
         console.log('WebSocket Server Initialized');
     }
 
+
+    getPayloadFromClient(client: Socket) {
+        const handshake = client.handshake;
+        const authToken = handshake.headers?.authorization;
+        if (authToken) {
+            const token = authToken.split(' ')[1];
+            try {
+                return jwt.verify(token, process.env.JWT_SECRET || "defaultSecretKey") as JwtPayload;
+            } catch (error) {
+                console.log('Invalid token:', error.message);
+            }
+        }
+    }
+
+    @UseGuards(JwtAuthGuard)
     handleConnection(client: Socket) {
-        console.log(`Client connected: ${client.id}`);
+        const payload = this.getPayloadFromClient(client);
+        if (payload) {
+            client.join(payload.department);
+            console.log(`Client connected: ${client.id}`);
+        } else {
+            client.disconnect();
+            console.log('No Authorization header found');
+        }
     }
 
     handleDisconnect(client: Socket) {
         console.log(`Client disconnected: ${client.id}`);
     }
 
-    @SubscribeMessage('sendCommunication')
-    async handleSendCommunication(client: Socket, payload: CreateInternalCommunicationDto) {
-        const communication = await this.internalCommunicationsService.create(payload);
-        this.server.to(payload.department_id).emit('receiveCommunication', communication);
+    @SubscribeMessage('send-message')
+    async handleSendCommunication(
+        client: Socket,
+        createInternal: CreateInternalCommunicationDto,
+    ) {
+        console.log(createInternal);
+        const payload = this.getPayloadFromClient(client);
+        if (payload) {
+            const communication = await this.internalCommunicationsService.create(createInternal,payload.department,payload.sub);
+            this.server.to(payload.department!).emit('receiveCommunication', communication);
+        } else {
+            client.disconnect();
+        }
     }
 
-    @SubscribeMessage('joinDepartment')
-    handleJoinDepartment(client: Socket, body: { department_id: string }) {
-        client.join(body.department_id);
-        console.log(`Client joined department: ${body.department_id}`);
-    }
 }

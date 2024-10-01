@@ -16,7 +16,7 @@ export class TaskTypeService {
     try {
       const newTaskType = new this.taskTypeModel(createTaskTypeDto);
       const savedTaskType = await newTaskType.save();
-      return { status: true, message: 'Task Type created successfully', data: savedTaskType };
+      return { status: true, message: 'Task Type created successfully', data: new GetTaskTypeDto(savedTaskType) };
     } catch (error) {
       throw new InternalServerErrorException('Failed to create Task Type');
     }
@@ -25,7 +25,8 @@ export class TaskTypeService {
   async findAll(): Promise<{ status: boolean, message: string, data: GetTaskTypeDto[] }> {
     try {
       const taskTypes = await this.taskTypeModel.find().exec();
-      return { status: true, message: 'Task Types retrieved successfully', data: taskTypes };
+      const taskTypesDto = taskTypes.map((taskType) => new GetTaskTypeDto(taskType));
+      return { status: true, message: 'Task Types retrieved successfully', data: taskTypesDto };
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve Task Types');
     }
@@ -37,7 +38,7 @@ export class TaskTypeService {
       if (!taskType) {
         throw new NotFoundException(`Task Type with ID ${id} not found`);
       }
-      return { status: true, message: 'Task Type retrieved successfully', data: taskType };
+      return { status: true, message: 'Task Type retrieved successfully', data: new GetTaskTypeDto(taskType) };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -46,7 +47,7 @@ export class TaskTypeService {
     }
   }
 
-  async update(id: string, updateTaskTypeDto: UpdateTaskTypeDto): Promise<{ status: boolean, message: string, data: GetTaskTypeDto }> {
+  async update(id: string, updateTaskTypeDto: UpdateTaskTypeDto): Promise<{ status: boolean, message: string }> {
     try {
       const updatedTaskType = await this.taskTypeModel.findByIdAndUpdate(
         id,
@@ -57,7 +58,7 @@ export class TaskTypeService {
       if (!updatedTaskType) {
         throw new NotFoundException(`Task Type with ID ${id} not found`);
       }
-      return { status: true, message: 'Task Type updated successfully', data: updatedTaskType };
+      return { status: true, message: 'Task Type updated successfully' };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;

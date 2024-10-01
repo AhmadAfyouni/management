@@ -4,10 +4,13 @@ import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
 export class GetCommentDto {
     id: string;
     content?: string;
-    emp?: string;
     files?: string[];
     createdAt?: Date;
     updatedAt?: Date;
+    author: {
+        name: string,
+        id: string,
+    };
 
     constructor(comment: any) {
         this.id = comment._id.toString();
@@ -15,8 +18,13 @@ export class GetCommentDto {
         this.files = comment.files || [];
         this.createdAt = comment.createdAt;
         this.updatedAt = comment.updatedAt;
+        this.author = {
+            name: '',
+            id: ''
+        };
         if (comment.emp) {
-            this.emp = comment.emp.name;
+            this.author.name = comment.emp.name;
+            this.author.id = comment.emp._id.toString();
         }
     }
 }

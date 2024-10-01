@@ -68,7 +68,6 @@ export class DepartmentService {
                 new: true,
                 runValidators: true
             }).exec();
-
             if (!result) {
                 throw new NotFoundException(`Department with ID ${id} not found`);
             }

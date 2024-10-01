@@ -1,6 +1,7 @@
 import { GetDepartmentDto } from "../../../modules/department/dto/get-department.dto";
 
 export class GetJobTitlesDto {
+    id: string;
     name: string;
     title: string;
     grade_level: string;
@@ -9,6 +10,7 @@ export class GetJobTitlesDto {
     permissions: string[];
     department: GetDepartmentDto;
     constructor(jobTitles: any) {
+        this.id = jobTitles._id.toString();
         this.name = jobTitles.name;
         this.title = jobTitles.title;
         this.department = jobTitles.department;
@@ -18,5 +20,4 @@ export class GetJobTitlesDto {
         this.permissions = jobTitles.permissions;
         this.department = new GetDepartmentDto(jobTitles.department_id);
     }
-
 }

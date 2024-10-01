@@ -13,15 +13,16 @@ import { UserRole } from "src/config/role.enum";
 export class DepartmentController {
     constructor(private readonly departmentService: DepartmentService) { }
 
-    @Post("createDepartment")
+    @Post("create-department")
     async createDepartment(@Body() createDepartment: CreateDepartmentDto) {
         return await this.departmentService.createDept(createDepartment);
     }
 
-    @Get("getDepartments")
+    @Get("get-departments")
     async getDepartments(): Promise<GetDepartmentDto[]> {
         return await this.departmentService.getAllDepts();
     }
+
     @Get("find/:id")
     async findById(@Param("id") id: string): Promise<GetDepartmentDto | null> {
         return await this.departmentService.findById(id);
@@ -31,7 +32,6 @@ export class DepartmentController {
     async getSubDepartments(): Promise<GetDepartmentDto[]> {
         return await this.departmentService.findSubDepartments();
     }
-
 
     @Post("updateDepartment/:id")
     async updateDepartment(@Param('id') id: string,

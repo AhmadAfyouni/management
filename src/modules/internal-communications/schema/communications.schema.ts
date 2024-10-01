@@ -14,7 +14,7 @@ export class InternalCommunications {
     department_id: Types.ObjectId;
 
     @Prop({ type: String, required: true })
-    message_body: string;
+    message: string;
 
     @Prop({ type: Date })
     createdAt?: Date;
