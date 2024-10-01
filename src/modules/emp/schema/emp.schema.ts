@@ -36,6 +36,9 @@ export class Emp {
 
   @Prop({ type: Boolean, required: false, default: false })
   changed_password: boolean;
+
+  @Prop({ type: Boolean, required: false, default: false })
+  isAdmin: boolean;
 }
 
 export const EmpSchema = SchemaFactory.createForClass(Emp);

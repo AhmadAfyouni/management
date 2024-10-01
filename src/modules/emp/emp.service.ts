@@ -45,6 +45,8 @@ export class EmpService {
 
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
+            const hashedNewPassword = await bcrypt.hash(employee.password, 10);
+            employee.password = hashedNewPassword;
             const emp = new this.empModel(employee);
             return await emp.save();
         } catch (error) {
@@ -100,17 +102,17 @@ export class EmpService {
                     model: 'Permission' // Ensure you have a Permission model populated here
                 }
             }).exec();
-    
+
             if (!emp) {
                 throw new NotFoundException('Employee not found');
             }
-    
+
             return emp; // Returning the entire emp object with roles and permissions
         } catch (error) {
             throw new InternalServerErrorException('Failed to find employee by ID with roles and permissions', error.message);
         }
     }
-    
+
 
 
     async findById(id: string): Promise<GetEmpDto | null> {

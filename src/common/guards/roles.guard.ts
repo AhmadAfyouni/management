@@ -15,7 +15,6 @@ export class RolesGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const requiredRole = this.reflector.get<UserRole>('role', context.getHandler()) || this.reflector.get<UserRole>('role', context.getClass());
     const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
-
     const request = context.switchToHttp().getRequest();
 
     const user = request.user;
@@ -31,6 +30,9 @@ export class RolesGuard implements CanActivate {
         model: 'Permission',
       },
     }).exec() as any;
+    if (userWithRoles.isAdmin) {
+      return true;
+    }
     if (!userWithRoles) {
       throw new ForbiddenException('User not found');
     }
@@ -44,7 +46,7 @@ export class RolesGuard implements CanActivate {
       const hasPermission = userWithRoles.job_id.permissions.some(permission =>
         requiredPermissions.includes(`${permission.resource}:${permission.action}`)
       );
-      
+
       if (!hasPermission) {
         throw new ForbiddenException('Access denied due to insufficient permissions');
       }

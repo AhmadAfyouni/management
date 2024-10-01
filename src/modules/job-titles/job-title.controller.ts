@@ -17,8 +17,6 @@ export class JobTitlesController {
     return this.jobTitlesService.create(createJobTitleDto);
   }
 
-
-
   @Permissions("task:read")
   @Get("get-job-titles")
   async findAll(): Promise<GetJobTitlesDto[]> {

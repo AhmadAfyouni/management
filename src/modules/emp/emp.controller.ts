@@ -8,7 +8,7 @@ import { UpdatePasswordDto } from "./dto/update-password.dto";
 import { EmpService } from "./emp.service";
 
 
-@UseGuards(JwtAuthGuard, RolesGuard)
+// @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("emp")
 export class EmpController {
 
