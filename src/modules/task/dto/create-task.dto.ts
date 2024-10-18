@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsMongoId, IsDate, IsInt, IsArray, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsMongoId, IsDate, IsInt, IsArray, IsOptional, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateTaskDto {
@@ -20,11 +20,11 @@ export class CreateTaskDto {
 
     @IsMongoId()
     @IsOptional()
-    emp: string;
+    emp?: string;
 
     @IsMongoId()
     @IsOptional()
-    department_id: string;
+    department_id?: string;
 
     @IsMongoId()
     @IsNotEmpty()
@@ -38,4 +38,17 @@ export class CreateTaskDto {
     @IsArray()
     @IsString({ each: true })
     files?: string[];
+
+    @IsBoolean()
+    @IsOptional()
+    isRecurring?: boolean;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    end_date?: Date;
+
+    @IsInt()
+    @IsOptional()
+    intervalInDays?: number;
 }

@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { DepartmentModule } from "../department/depratment.module";
 import { EmpModule } from "../emp/emp.module";
 import { Task, TaskSchema } from "./schema/task.schema";
+import { TaskSchedulerService } from "./task-scheduler.service";
 import { TasksController } from "./task.controller";
 import { TasksService } from "./task.service";
 
@@ -11,8 +12,8 @@ import { TasksService } from "./task.service";
         EmpModule,
         MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }])
     ],
-    providers: [TasksService],
+    providers: [TasksService, TaskSchedulerService],
     controllers: [TasksController],
     exports: [TasksService],
 })
-export class TaskModule { }
+export class TaskModule {}

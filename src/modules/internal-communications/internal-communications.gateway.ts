@@ -48,8 +48,10 @@ export class InternalCommunicationsGateway
     @UseGuards(JwtAuthGuard)
     handleConnection(client: Socket) {
         const payload = this.getPayloadFromClient(client);
+        console.log(payload);
+        
         if (payload) {
-            client.join(payload.department);
+            client.join(payload.department._id);
             console.log(`Client connected: ${client.id}`);
         } else {
             client.disconnect();
@@ -70,7 +72,7 @@ export class InternalCommunicationsGateway
         const payload = this.getPayloadFromClient(client);
         if (payload) {
             const communication = await this.internalCommunicationsService.create(createInternal,payload.department,payload.sub);
-            this.server.to(payload.department!).emit('receiveCommunication', communication);
+            this.server.to(payload.department!._id).emit('receiveCommunication', communication);
         } else {
             client.disconnect();
         }

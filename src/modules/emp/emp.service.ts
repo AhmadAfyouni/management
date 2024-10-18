@@ -7,70 +7,79 @@ import { GetEmpDto } from './dto/get-emp.dto';
 import { Emp, EmpDocument } from './schema/emp.schema';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateEmpDto } from './dto/update-emp.dto';
-import { DepartmentService } from '../department/depratment.service';
-import { TaskTypeService } from '../task type/task-type.service';
-import { TaskStatusService } from '../task status/task-stauts.service';
 
 @Injectable()
 export class EmpService {
     constructor(
         @InjectModel(Emp.name) private readonly empModel: Model<EmpDocument>,
-        private readonly deptService: DepartmentService,
-        private readonly taskTypeService: TaskTypeService,
-        private readonly taskStatusService: TaskStatusService,
     ) { }
 
     async getAllEmp(): Promise<GetEmpDto[]> {
         try {
             const emps = await this.empModel.find({}).populate({
                 path: "job_id",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                        populate: [
-                            {
-                                path: "parent_department_id",
-                                model: "Department"
-                            }
-                        ]
-                    }
-                ]
-            }).populate("department_id").exec();
+                model: "JobTitles"
+            }).populate({
+                path: "department_id",
+                model: "Department",
+                populate: {
+                    path: "parent_department_id",
+                    model: "Department"
+                }
+            }).populate({
+                path: "supervisor_id",
+                model: "Emp"
+            }).exec();
             return emps.map(emp => new GetEmpDto(emp));
         } catch (error) {
             throw new InternalServerErrorException('Failed to fetch employees', error.message);
         }
     }
-
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
+            console.log('Employee data being saved:', JSON.stringify(employee, null, 2)); 
+    
+            const existingEmp = await this.empModel.findOne({ $or: [{ email: employee.email }, { phone: employee.phone }] });
+            if (existingEmp) {
+                throw new BadRequestException('Employee with this email or phone already exists.');
+            }
+                if (typeof employee.allowances === 'string') {
+                employee.allowances = JSON.parse(employee.allowances);
+            }
+    
+            if (typeof employee.evaluations === 'string') {
+                employee.evaluations = JSON.parse(employee.evaluations);
+            }
+    
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
             const emp = new this.empModel(employee);
             return await emp.save();
         } catch (error) {
+            console.error('Error creating employee:', error); 
             throw new InternalServerErrorException('Failed to create employee', error.message);
         }
     }
+    
+    
+    
 
     async findByEmail(email: string): Promise<Emp | null> {
         try {
             const emp = await this.empModel.findOne({ email: email }).populate({
                 path: "job_id",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                        populate: [
-                            {
-                                path: "parent_department_id",
-                                model: "Department"
-                            }
-                        ]
-                    }
-                ]
-            }).populate("department_id").exec();
+                model: "JobTitles"
+            }).populate({
+                path: "department_id",
+                model: "Department",
+                populate: {
+                    path: "parent_department_id",
+                    model: "Department"
+                }
+            }).populate({
+                path: "supervisor_id",
+                model: "Emp"
+            }).exec();
             if (emp) {
                 return emp;
             }
@@ -79,28 +88,28 @@ export class EmpService {
             throw new InternalServerErrorException('Failed to find employee by email', error.message);
         }
     }
+
     async findByIdWithRolesAndPermissions(id: string): Promise<Emp | null> {
         try {
             const emp = await this.empModel.findById(id).populate({
                 path: "job_id",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                        populate: [
-                            {
-                                path: "parent_department_id",
-                                model: "Department"
-                            }
-                        ]
-                    }
-                ]
+                model: "JobTitles"
+            }).populate({
+                path: "department_id",
+                model: "Department",
+                populate: {
+                    path: "parent_department_id",
+                    model: "Department"
+                }
             }).populate({
                 path: 'roles', // Assuming the employee schema has a 'roles' field
                 populate: {
-                    path: 'permissions', // Assuming roles have permissions
+                    path: 'permissions',
                     model: 'Permission' // Ensure you have a Permission model populated here
                 }
+            }).populate({
+                path: "supervisor_id",
+                model: "Emp"
             }).exec();
 
             if (!emp) {
@@ -113,24 +122,21 @@ export class EmpService {
         }
     }
 
-
-
     async findById(id: string): Promise<GetEmpDto | null> {
         try {
             const emp = await this.empModel.findById(id).populate({
                 path: "job_id",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                        populate: [
-                            {
-                                path: "parent_department_id",
-                                model: "Department"
-                            }
-                        ]
-                    }
-                ]
+                model: "JobTitles"
+            }).populate({
+                path: "department_id",
+                model: "Department",
+                populate: {
+                    path: "parent_department_id",
+                    model: "Department"
+                }
+            }).populate({
+                path: "supervisor_id",
+                model: "Emp"
             }).exec();
             if (emp) {
                 return new GetEmpDto(emp);
@@ -182,7 +188,14 @@ export class EmpService {
             if (!empExist) {
                 throw new NotFoundException('Employee not found');
             }
-            await this.empModel.findByIdAndUpdate(id, updateEmpDto).exec();
+
+            // Handle password update separately to ensure proper hashing
+            if (updateEmpDto.password) {
+                const hashedNewPassword = await bcrypt.hash(updateEmpDto.password, 10);
+                updateEmpDto.password = hashedNewPassword;
+            }
+
+            await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true }).exec();
         } catch (error) {
             throw new InternalServerErrorException('Failed to update employee', error.message);
         }

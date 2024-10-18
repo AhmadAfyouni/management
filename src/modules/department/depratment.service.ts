@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Department, DepartmentDocument } from './schema/department.schema';
+import { DepartmentDocument } from './schema/department.schema';
 import { GetDepartmentDto } from './dto/get-department.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 
@@ -10,7 +10,6 @@ export class DepartmentService {
     constructor(
         @InjectModel("Department") private readonly departmentModel: Model<DepartmentDocument>,
     ) { }
-
 
     async getAllDepts(): Promise<GetDepartmentDto[]> {
         const depts = await this.departmentModel.find({}).populate("parent_department_id").exec();
@@ -21,8 +20,14 @@ export class DepartmentService {
         try {
             const dept = new this.departmentModel({
                 name: deptDto.name,
-                description: deptDto.description,
+                goal: deptDto.goal,
+                category: deptDto.category,
+                mainTasks: deptDto.mainTasks,
                 parent_department_id: deptDto.parent_department_id ? new Types.ObjectId(deptDto.parent_department_id) : null,
+                numericOwners: deptDto.numericOwners,
+                supportingFiles: deptDto.supportingFiles,
+                requiredReports: deptDto.requiredReports,
+                developmentPrograms: deptDto.developmentPrograms
             });
             await dept.save();
             return { msg: "Created department successfully", status: true };
@@ -39,21 +44,20 @@ export class DepartmentService {
         return null;
     }
 
-    async findById(id: string) {
-        const dept = await this.departmentModel.findById(id).exec();
+    async findById(id: string): Promise<GetDepartmentDto | null> {
+        const dept = await this.departmentModel.findById(id).populate("parent_department_id").exec();
         if (dept) {
             return new GetDepartmentDto(dept);
         }
         return null;
     }
 
-
     async findSubDepartments(): Promise<GetDepartmentDto[]> {
         try {
             const departments = await this.departmentModel.find({
                 parent_department_id: { $ne: null }
             }).exec();
-
+            
             return departments.map(dept => new GetDepartmentDto(dept));
         } catch (error) {
             console.error('Error finding departments with non-null parent_department_id:', error);
@@ -61,17 +65,19 @@ export class DepartmentService {
         }
     }
 
-
     async updateDept(id: string, deptDto: Partial<CreateDepartmentDto>): Promise<any> {
         try {
-            const result = await this.departmentModel.findByIdAndUpdate(id, deptDto, {
+            const result = await this.departmentModel.findByIdAndUpdate(id, {
+                ...deptDto,
+                parent_department_id: deptDto.parent_department_id ? new Types.ObjectId(deptDto.parent_department_id) : null,
+            }, {
                 new: true,
                 runValidators: true
             }).exec();
             if (!result) {
                 throw new NotFoundException(`Department with ID ${id} not found`);
             }
-            return result;
+            return new GetDepartmentDto(result);
         } catch (error) {
             if (error.name === 'CastError' && error.kind === 'ObjectId') {
                 throw new NotFoundException(`Department with ID ${id} not found`);
@@ -79,6 +85,4 @@ export class DepartmentService {
             throw new InternalServerErrorException('Error updating department');
         }
     }
-
-
 }

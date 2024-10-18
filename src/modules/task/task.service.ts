@@ -37,6 +37,15 @@ export class TasksService {
         return tasks;
     }
 
+    async getRecurringTasks(): Promise<TaskDocument[]> {
+        const today = new Date();
+        return this.taskModel.find({
+            isRecurring: true,
+            end_date: { $gte: today },
+        }).exec();
+    }
+
+
     async create(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         try {
             const task = new this.taskModel(createTaskDto);

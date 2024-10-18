@@ -34,9 +34,18 @@ export class Task {
 
     @Prop({ type: Date, required: true })
     due_date: Date;
-    
+
     @Prop({ type: [String], default: [] })
     files: string[];
+
+    @Prop({ type: Boolean, default: false })
+    isRecurring: boolean;
+
+    @Prop({ type: Date, default: null })
+    end_date?: Date;
+
+    @Prop({ type: Number, default: 1 })
+    intervalInDays?: number;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);
