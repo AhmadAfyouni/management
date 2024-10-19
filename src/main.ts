@@ -16,9 +16,9 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: 'Content-Type, Authorization',
   });
-  
-  await app.listen(4000, () => {
-    console.log("app running on server : http://localhost:3000");
+  const port = process.env.PORT || 4000
+  await app.listen(port, () => {
+    console.log(`app running on server : http://localhost:${port}`);
   });
 }
 bootstrap();

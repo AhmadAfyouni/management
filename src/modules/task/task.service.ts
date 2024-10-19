@@ -73,6 +73,7 @@ export class TasksService {
                     }
                 ]
             }).exec();
+            
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {

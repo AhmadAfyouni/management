@@ -11,9 +11,8 @@ import { TaskStatusModule } from "./modules/task status/task-stauts.module";
 import { CommentModule } from "./modules/comment/comment.module";
 import { ConfigModule } from "@nestjs/config";
 import { InternalCommunicationsModule } from "./modules/internal-communications/communications.module";
-import { APP_GUARD } from "@nestjs/core";
-import { RolesGuard } from "./common/guards/roles.guard";
 import { RolesPermissionsModule } from "./modules/permisssions/permission.module";
+import { JobCategoryModule } from "./modules/job-category/job-category.module";
 
 @Module(
   {
@@ -24,6 +23,7 @@ import { RolesPermissionsModule } from "./modules/permisssions/permission.module
           isGlobal: true,
         }
       ),
+      JobCategoryModule,
       RolesPermissionsModule,
       InternalCommunicationsModule,
       CommentModule,

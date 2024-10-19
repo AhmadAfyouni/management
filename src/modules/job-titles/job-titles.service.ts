@@ -8,7 +8,9 @@ import { JobTitles, JobTitlesDocument } from './schema/job-ttiles.schema';
 
 @Injectable()
 export class JobTitlesService {
-  constructor(@InjectModel(JobTitles.name) private jobTitlesModel: Model<JobTitlesDocument>) {}
+  constructor(
+    @InjectModel(JobTitles.name) private readonly jobTitlesModel: Model<JobTitlesDocument>,
+  ) {}
 
   async create(createJobTitleDto: CreateJobTitleDto): Promise<{ message: string; jobTitle: JobTitles }> {
     try {
@@ -25,7 +27,11 @@ export class JobTitlesService {
 
   async findAll(): Promise<GetJobTitlesDto[]> {
     try {
-      const jobs = await this.jobTitlesModel.find().populate('department_id permissions').exec();
+      const jobs = await this.jobTitlesModel
+        .find()
+        .populate('department_id permissions category')
+        .lean()
+        .exec();
       return jobs.map(job => new GetJobTitlesDto(job));
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve job titles', error.message);
@@ -34,9 +40,12 @@ export class JobTitlesService {
 
   async findOne(id: string): Promise<GetJobTitlesDto> {
     try {
-      const jobTitle = await this.jobTitlesModel.findById(id).populate('department_id permissions').exec();
+      const jobTitle = await this.jobTitlesModel
+        .findById(id)
+        .populate('department_id permissions category') // Populate the category field
+        .exec();
       if (!jobTitle) {
-        throw new NotFoundException(`JobTitle with id ${id} not found`);
+        throw new NotFoundException(`Job title with id ${id} not found`);
       }
       return new GetJobTitlesDto(jobTitle);
     } catch (error) {
@@ -46,10 +55,14 @@ export class JobTitlesService {
 
   async update(id: string, updateJobTitleDto: UpdateJobTitleDto): Promise<{ message: string; jobTitle: JobTitles }> {
     try {
-      const objectId = new Types.ObjectId(id);
-      const updatedJobTitle = await this.jobTitlesModel.findByIdAndUpdate(objectId, updateJobTitleDto, { new: true }).exec();
+      const updatedJobTitle = await this.jobTitlesModel.findByIdAndUpdate(
+        id,
+        updateJobTitleDto,
+        { new: true, runValidators: true } 
+      ).populate('department_id permissions category').exec(); 
+
       if (!updatedJobTitle) {
-        throw new NotFoundException(`JobTitle with id ${id} not found`);
+        throw new NotFoundException(`Job title with id ${id} not found`);
       }
       return {
         message: 'Job title updated successfully',
@@ -64,7 +77,7 @@ export class JobTitlesService {
     try {
       const deletedJobTitle = await this.jobTitlesModel.findByIdAndDelete(id).exec();
       if (!deletedJobTitle) {
-        throw new NotFoundException(`JobTitle with id ${id} not found`);
+        throw new NotFoundException(`Job title with id ${id} not found`);
       }
       return deletedJobTitle;
     } catch (error) {

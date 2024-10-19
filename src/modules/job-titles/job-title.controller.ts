@@ -17,11 +17,12 @@ export class JobTitlesController {
     return this.jobTitlesService.create(createJobTitleDto);
   }
 
-  @Permissions("task:read")
+  // @Permissions("task:read")
   @Get("get-job-titles")
   async findAll(): Promise<GetJobTitlesDto[]> {
     return this.jobTitlesService.findAll();
   }
+  
 
   @Get('find/:id')
   async findOne(@Param('id') id: string): Promise<GetJobTitlesDto> {

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { JobCategory } from 'src/modules/job-category/schemas/job-category.schema';
 import { Permission } from 'src/modules/permisssions/schema/permission.schema';
-import { Role } from 'src/modules/permisssions/schema/role.schema';
 
 export type JobTitlesDocument = JobTitles & Document;
 
@@ -25,7 +25,10 @@ export class JobTitles {
     @Prop({ required: true, ref: "Department" })
     department_id: Types.ObjectId
 
-    @Prop({ type: [Types.ObjectId], ref: Permission.name, required : true })
+    @Prop({ type: Types.ObjectId, ref: JobCategory.name, required: true })
+    category: Types.ObjectId;
+
+    @Prop({ type: [Types.ObjectId], ref: Permission.name, required: true })
     permissions: Types.ObjectId[];
 
 }

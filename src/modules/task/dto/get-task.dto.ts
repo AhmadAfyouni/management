@@ -15,7 +15,9 @@ export class GetTaskDto {
     due_date: Date;
     files?: string[];
 
-    constructor(task: any) {
+    constructor(task: any) { 
+        console.log(task);
+               
         this.id = task._id.toString();
         this.name = task.name;
         this.description = task.description;
