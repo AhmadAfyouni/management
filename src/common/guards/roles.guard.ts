@@ -2,8 +2,7 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@
 import { Reflector } from "@nestjs/core";
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Emp, EmpDocument } from 'src/modules/emp/schema/emp.schema';
-import { UserRole } from "src/config/role.enum";
+import { Emp, EmpDocument } from '../../modules/emp/schema/emp.schema';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -13,7 +12,6 @@ export class RolesGuard implements CanActivate {
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRole = this.reflector.get<UserRole>('role', context.getHandler()) || this.reflector.get<UserRole>('role', context.getClass());
     const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
     const request = context.switchToHttp().getRequest();
 

@@ -2,7 +2,7 @@ import { Controller, Post, Body, Param } from '@nestjs/common';
 import { CreateTaskStatusDto } from './dto/create-task-status.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { Get, UseGuards } from '@nestjs/common/decorators';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TaskStatusService } from './task-stauts.service';
 
