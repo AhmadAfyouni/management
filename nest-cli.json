@@ -3,9 +3,6 @@
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
   "compilerOptions": {
-    "deleteOutDir": true,
-    "webpack": false,             
-    "assets": ["**/*.hbs"],
-    "watchAssets": true
+    "deleteOutDir": true
   }
 }
