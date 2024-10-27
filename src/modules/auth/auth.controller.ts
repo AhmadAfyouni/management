@@ -1,5 +1,4 @@
-import { Controller, Body, UnauthorizedException, Post, Get, BadRequestException } from '@nestjs/common';
-import { CreateEmpDto } from '../emp/dto/create-emp.dto';
+import { Controller, Body, UnauthorizedException, Post, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -17,9 +16,9 @@ export class AuthController {
         if (!user) {
             throw new UnauthorizedException("Email or password is invalid");
         }
-        if (!user._doc.changed_password) {            
+        if (!user.changed_password) {
             throw new BadRequestException({
-                message: `You must change your password on the first login,${user._doc._id}`,
+                message: `You must change your password on the first login,${user._id}`,
             });
         }
         return this.authService.login(user);

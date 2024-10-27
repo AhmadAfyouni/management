@@ -30,6 +30,10 @@ export class JobTitles {
 
     @Prop({ type: [String], enum: PermissionsEnum, required: true })
     permissions: PermissionsEnum[];
+
+    @Prop({ type: [Types.ObjectId], ref: 'Department' })
+    accessibleDepartments: Types.ObjectId[];
+
 }
 
 export const JobTitlesSchema = SchemaFactory.createForClass(JobTitles);

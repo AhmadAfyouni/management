@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { UserRole } from 'src/config/role.enum';
+import { Department } from 'src/modules/department/schema/department.schema';
+import { JobTitles } from 'src/modules/job-titles/schema/job-ttiles.schema';
 import { Allowance } from './Allowance.schema';
 import { BankAccount } from './BankAccount.schema';
 import { Certification } from './certification.schema';
@@ -47,7 +49,7 @@ export class Emp {
     @Prop({ type: [Certification], default: [] })
     certifications: Certification[];
 
-    @Prop({ type: Types.ObjectId, required: true, ref: "JobTitles" })
+    @Prop({ type: Types.ObjectId, required: true, ref: JobTitles.name })
     job_id: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, required: true, ref: "Department" })

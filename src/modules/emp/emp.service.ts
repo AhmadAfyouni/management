@@ -43,7 +43,7 @@ export class EmpService {
             if (existingEmp) {
                 throw new BadRequestException('Employee with this email or phone already exists.');
             }
-            
+
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
             const emp = new this.empModel(employee);
@@ -57,7 +57,7 @@ export class EmpService {
 
 
 
-    async findByEmail(email: string): Promise<Emp | null> {
+    async findByEmail(email: string): Promise<EmpDocument | null> {
         try {
             const emp = await this.empModel.findOne({ email: email }).populate({
                 path: "job_id",
@@ -69,10 +69,7 @@ export class EmpService {
                     path: "parent_department_id",
                     model: "Department"
                 }
-            }).populate({
-                path: "supervisor_id",
-                model: "Emp"
-            }).exec();
+            }).lean().exec();
             if (emp) {
                 return emp;
             }
@@ -115,7 +112,7 @@ export class EmpService {
         }
     }
 
-    async findById(id: string): Promise<GetEmpDto | null> {
+    async findById(id: string): Promise<EmpDocument | null> {
         try {
             const emp = await this.empModel.findById(id).populate({
                 path: "job_id",
@@ -127,14 +124,8 @@ export class EmpService {
                     path: "parent_department_id",
                     model: "Department"
                 }
-            }).populate({
-                path: "supervisor_id",
-                model: "Emp"
-            }).exec();
-            if (emp) {
-                return new GetEmpDto(emp);
-            }
-            return null;
+            }).lean().exec();
+            return emp;
         } catch (error) {
             throw new InternalServerErrorException('Failed to find employee by ID', error.message);
         }

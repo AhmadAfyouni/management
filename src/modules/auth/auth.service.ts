@@ -8,6 +8,8 @@ import { UserRole } from "../../config/role.enum";
 import { CreateEmpDto } from "../emp/dto/create-emp.dto";
 import "dotenv/config"
 import { GetEmpDto } from "../emp/dto/get-emp.dto";
+import { EmpDocument } from "../emp/schemas/emp.schema";
+import { JobTitlesDocument } from "../job-titles/schema/job-ttiles.schema";
 
 @Injectable()
 export class AuthService {
@@ -15,12 +17,11 @@ export class AuthService {
         private readonly empService: EmpService,
         private readonly jwtService: JwtService,
     ) { }
-    async validateUser(email: string, pass: string): Promise<any> {
+    async validateUser(email: string, pass: string): Promise<EmpDocument | null> {
         try {
             const user = await this.empService.findByEmail(email);
             if (user && (await bcrypt.compare(pass, user.password))) {
-                const { password, ...result } = user;
-                return result;
+                return user;
             }
             return null;
         } catch (error) {
@@ -28,15 +29,15 @@ export class AuthService {
         }
     }
 
-    async login(user: any) {
+    async login(user: EmpDocument) {
         try {
-            const payload: JwtPayload = { email: user._doc.email, sub: user._doc._id, role: (user._doc.isAdmin) ? UserRole.ADMIN : UserRole.PRIMARY_USER, department: user._doc.department_id };
+            const payload: JwtPayload = { email: user.email, sub: user._id.toString(), role: user.role, department: user.department_id, accessibleDepartments: (user.job_id as any).accessibleDepartments, permissions: (user.job_id as any).permissions };
             return {
                 status: true,
                 message: 'Login successful',
                 access_token: this.jwtService.sign(payload),
                 refresh_token: this.generateRefreshToken(payload),
-                user: new GetEmpDto(user._doc),
+                user: new GetEmpDto(user),
             };
         } catch (error) {
             throw new UnauthorizedException('Login failed' + error.message);

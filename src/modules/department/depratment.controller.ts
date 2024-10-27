@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
-import { Param, UseGuards } from "@nestjs/common/decorators";
+import { Param, Req, UseGuards } from "@nestjs/common/decorators";
 import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
 import { PermissionsEnum } from "src/config/permissions.enum";
 import { UserRole } from "src/config/role.enum";
@@ -53,5 +53,12 @@ export class DepartmentController {
         @Body() dept: UpdateDepartmentDto
     ): Promise<any> {
         return await this.departmentService.updateDept(id, dept);
+    }
+
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.DEPARTMENT_VIEW_SPECIFIC)
+    @Get("view")
+    async viewSpecificDepartments(@Req() req): Promise<GetDepartmentDto[]> {
+        return await this.departmentService.viewAccessDepartment(req.user.accessibleDepartments);
     }
 }
