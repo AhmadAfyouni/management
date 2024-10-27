@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Get, Param, Req, UseGuards } from '@nestjs/common';
-import { Permissions } from 'src/common/decorators/role.decorator';
+import { RequiredPermissions } from 'src/common/decorators/role.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { CommentService } from './comment.service';

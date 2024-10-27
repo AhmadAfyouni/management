@@ -5,7 +5,7 @@ import { UpdateTaskTypeDto } from './dto/update-task-type.dto';
 import { Get, UseGuards } from '@nestjs/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { Permissions } from 'src/common/decorators/role.decorator';
+import { RequiredPermissions } from 'src/common/decorators/role.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('task-type')

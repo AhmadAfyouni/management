@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Task } from 'src/modules/task/schema/task.schema';
-import { Emp } from 'src/modules/emp/schema/emp.schema';
+import { Emp } from 'src/modules/emp/schemas/emp.schema';
 
 export type CommentDocument = Comment & Document;
 

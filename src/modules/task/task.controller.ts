@@ -4,15 +4,15 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TasksService } from './task.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { Permissions, Role } from 'src/common/decorators/role.decorator';
+import { RequiredPermissions, Roles } from 'src/common/decorators/role.decorator';
 import { UserRole } from 'src/config/role.enum';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tasks')
 export class TasksController {
     constructor(private readonly taskService: TasksService) { }
-    
-    
+
+
     @Post('create')
     async createTask(@Body() createTaskDto: CreateTaskDto) {
         return this.taskService.create(createTaskDto);
@@ -22,7 +22,8 @@ export class TasksController {
         return this.taskService.createTaskForDepartment(createTaskDto);
     }
     @Get("get-tasks")
-    async getAllTasks() {
+    async getAllTasks(@Req() req) {
+        console.log(req.user);
         return this.taskService.getTasks();
     }
 

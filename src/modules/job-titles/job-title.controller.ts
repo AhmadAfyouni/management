@@ -3,7 +3,7 @@ import { JobTitlesService } from './job-titles.service';
 import { CreateJobTitleDto } from './dto/create-job-title.dto';
 import { UpdateJobTitleDto } from './dto/update-job-title.dto';
 import { GetJobTitlesDto } from './dto/get-job-titles.dro';
-import { Permissions } from 'src/common/decorators/role.decorator';
+import { RequiredPermissions } from 'src/common/decorators/role.decorator';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 
@@ -17,7 +17,7 @@ export class JobTitlesController {
     return this.jobTitlesService.create(createJobTitleDto);
   }
 
-  // @Permissions("task:read")
+  @RequiredPermissions("task:read")
   @Get("get-job-titles")
   async findAll(): Promise<GetJobTitlesDto[]> {
     return this.jobTitlesService.findAll();

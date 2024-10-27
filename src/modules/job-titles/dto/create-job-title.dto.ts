@@ -27,4 +27,7 @@ export class CreateJobTitleDto {
 
   @IsMongoId()
   department_id: string;
+
+  @IsMongoId()
+  category:string;
 }

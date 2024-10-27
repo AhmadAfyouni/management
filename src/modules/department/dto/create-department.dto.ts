@@ -1,5 +1,51 @@
-import { IsString, IsNotEmpty, IsMongoId, IsOptional, IsEnum, IsInt, IsArray } from "class-validator";
+import {
+    IsString,
+    IsNotEmpty,
+    IsOptional,
+    IsMongoId,
+    IsArray,
+    ValidateNested,
+    IsNumber,
+} from "class-validator";
+import { Type } from 'class-transformer';
 import { Types } from "mongoose";
+
+class NumericOwnerDto {
+    @IsString()
+    @IsNotEmpty()
+    category: string;
+
+    @IsNumber()
+    count: number;
+}
+
+class RequiredReportDto {
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsString()
+    @IsNotEmpty()
+    templateFile: string;
+}
+
+class DevelopmentProgramDto {
+    @IsString()
+    @IsNotEmpty()
+    programName: string;
+
+    @IsString()
+    @IsNotEmpty()
+    objective: string;
+
+    @IsOptional()
+    @IsString()
+    notes?: string;
+
+    @IsOptional()
+    @IsString()
+    programFile?: string;
+}
 
 export class CreateDepartmentDto {
     @IsString()
@@ -10,29 +56,41 @@ export class CreateDepartmentDto {
     @IsNotEmpty()
     goal: string;
 
+    @IsString()
     @IsNotEmpty()
     category: string;
 
     @IsString()
     @IsNotEmpty()
     mainTasks: string;
+
     @IsMongoId()
     @IsOptional()
-    parent_department_id?: Types.ObjectId | null;
+    manager?: Types.ObjectId;
+
+    @IsMongoId()
+    @IsOptional()
+    parent_department_id?: Types.ObjectId;
 
     @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => NumericOwnerDto)
     @IsOptional()
-    numericOwners?: { category: string, count: number }[];
+    numericOwners?: NumericOwnerDto[];
 
     @IsArray()
     @IsOptional()
     supportingFiles?: string[];
 
     @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => RequiredReportDto)
     @IsOptional()
-    requiredReports?: { name: string, templateFile: string }[];
+    requiredReports?: RequiredReportDto[];
 
     @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => DevelopmentProgramDto)
     @IsOptional()
-    developmentPrograms?: { programName: string, objective: string, notes?: string, programFile?: string }[];
+    developmentPrograms?: DevelopmentProgramDto[];
 }

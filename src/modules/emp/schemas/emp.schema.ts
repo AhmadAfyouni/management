@@ -1,10 +1,19 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { UserRole } from 'src/config/role.enum';
+import { Allowance } from './Allowance.schema';
+import { BankAccount } from './BankAccount.schema';
+import { Certification } from './certification.schema';
+import { Evaluation } from './Evaluation.schema';
+import { Incentive } from './incentive.schema';
+import { LegalDocument } from './LegalDocument.schema';
 
 export type EmpDocument = Emp & Document;
 
 @Schema({ timestamps: true })
 export class Emp {
+    _id: Types.ObjectId;
+
     @Prop({ required: true })
     name: string;
 
@@ -32,11 +41,11 @@ export class Emp {
     @Prop()
     emergency_contact?: string;
 
-    @Prop({ type: [{ name: String, validity: Date, file: String }], default: [] })
-    legal_documents: Array<{ name: string; validity: Date; file: string }>;
+    @Prop({ type: [LegalDocument], default: [] })
+    legal_documents: LegalDocument[];
 
-    @Prop({ type: [{ certificate_name: String, date: Date, grade: String, file: String }], default: [] })
-    certifications: Array<{ certificate_name: string; date: Date; grade: string; file: string }>;
+    @Prop({ type: [Certification], default: [] })
+    certifications: Certification[];
 
     @Prop({ type: Types.ObjectId, required: true, ref: "JobTitles" })
     job_id: Types.ObjectId;
@@ -47,32 +56,32 @@ export class Emp {
     @Prop({ required: true })
     employment_date: Date;
 
-    @Prop({ type: Types.ObjectId, ref: "Emp" })
-    supervisor_id?: Types.ObjectId;
-
-    @Prop()
+    @Prop({ type: String })
     job_tasks?: string;
 
     @Prop({ required: true })
     base_salary: number;
 
-    @Prop({ type: [{ allowance_type: String, amount: Number }], default: [] })
-    allowances: Array<{ allowance_type: string; amount: number }>;
+    @Prop({ type: [Allowance], default: [] })
+    allowances: Allowance[];
 
-    @Prop({ type: [{ description: String, amount: Number }], default: [] })
-    incentives: Array<{ description: string; amount: number }>;
+    @Prop({ type: [Incentive], default: [] })
+    incentives: Incentive[];
 
-    @Prop({ type: [{ bank_name: String, account_number: String }], default: [] })
-    bank_accounts: Array<{ bank_name: string; account_number: string }>;
+    @Prop({ type: [BankAccount], default: [] })
+    bank_accounts: BankAccount[];
 
-    @Prop({ type: [{ evaluation_type: String, description: String, plan: String }], default: [] })
-    evaluations: Array<{ evaluation_type: string; description: string; plan: string }>;
+    @Prop({ type: [Evaluation], default: [] })
+    evaluations: Evaluation[];
 
     @Prop({ required: true })
     password: string;
 
     @Prop({ type: Boolean, default: false })
     changed_password: boolean;
+
+    @Prop({ type: String, enum: UserRole, required: true, default: UserRole.SECONDARY_USER })
+    role: UserRole;
 }
 
 export const EmpSchema = SchemaFactory.createForClass(Emp);

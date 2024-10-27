@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Emp } from 'src/modules/emp/schema/emp.schema';
+import { Emp } from 'src/modules/emp/schemas/emp.schema';
 import { TaskStatus } from 'src/modules/task status/schema/task-status.schema';
 import { TaskType } from 'src/modules/task type/schema/task.-type.schema';
 

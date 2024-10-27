@@ -30,7 +30,7 @@ export class AuthService {
 
     async login(user: any) {
         try {
-            const payload: JwtPayload = { email: user._doc.email, sub: user._doc._id, role: (user._doc.isAdmin) ? UserRole.Admin : UserRole.User, department: user._doc.department_id };
+            const payload: JwtPayload = { email: user._doc.email, sub: user._doc._id, role: (user._doc.isAdmin) ? UserRole.ADMIN : UserRole.PRIMARY_USER, department: user._doc.department_id };
             return {
                 status: true,
                 message: 'Login successful',

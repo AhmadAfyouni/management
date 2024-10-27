@@ -1,10 +1,14 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { Param, UseGuards } from "@nestjs/common/decorators";
+import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
+import { PermissionsEnum } from "src/config/permissions.enum";
+import { UserRole } from "src/config/role.enum";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { DepartmentService } from "./depratment.service";
 import { CreateDepartmentDto } from "./dto/create-department.dto";
 import { GetDepartmentDto } from "./dto/get-department.dto";
+import { UpdateDepartmentDto } from "./dto/update-department.dto";
 
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -12,29 +16,41 @@ import { GetDepartmentDto } from "./dto/get-department.dto";
 export class DepartmentController {
     constructor(private readonly departmentService: DepartmentService) { }
 
+
+
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.DEPARTMENT_ADD)
     @Post("create-department")
     async createDepartment(@Body() createDepartment: CreateDepartmentDto) {
         return await this.departmentService.createDept(createDepartment);
     }
 
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
     @Get("get-departments")
     async getDepartments(): Promise<GetDepartmentDto[]> {
         return await this.departmentService.getAllDepts();
     }
 
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
     @Get("find/:id")
     async findById(@Param("id") id: string): Promise<GetDepartmentDto | null> {
         return await this.departmentService.findById(id);
     }
 
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
     @Get("getSubDepartment")
     async getSubDepartments(): Promise<GetDepartmentDto[]> {
         return await this.departmentService.findSubDepartments();
     }
 
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.DEPARTMENT_UPDATE)
     @Post("updateDepartment/:id")
     async updateDepartment(@Param('id') id: string,
-        @Body() dept: Partial<CreateDepartmentDto>
+        @Body() dept: UpdateDepartmentDto
     ): Promise<any> {
         return await this.departmentService.updateDept(id, dept);
     }

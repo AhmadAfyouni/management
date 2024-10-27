@@ -14,6 +14,11 @@ export class EmpController {
 
     constructor(private readonly empService: EmpService) { }
 
+    @Get("get-emp-by-department/:depId")
+    async getEmpByDepartment(@Param("depId") depId: string) {
+        return await this.empService.getEmpByDepartment(depId);
+    }
+    
     @Get("get-all-emps")
     async getAllEmps() {
         return await this.empService.getAllEmp();

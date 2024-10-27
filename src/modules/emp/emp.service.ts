@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { CreateEmpDto } from './dto/create-emp.dto';
 import { GetEmpDto } from './dto/get-emp.dto';
-import { Emp, EmpDocument } from './schema/emp.schema';
+import { Emp, EmpDocument } from './schemas/emp.schema';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateEmpDto } from './dto/update-emp.dto';
 
@@ -37,32 +37,25 @@ export class EmpService {
     }
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
-            console.log('Employee data being saved:', JSON.stringify(employee, null, 2)); 
-    
+            console.log('Employee data being saved:', JSON.stringify(employee, null, 2));
+
             const existingEmp = await this.empModel.findOne({ $or: [{ email: employee.email }, { phone: employee.phone }] });
             if (existingEmp) {
                 throw new BadRequestException('Employee with this email or phone already exists.');
             }
-                if (typeof employee.allowances === 'string') {
-                employee.allowances = JSON.parse(employee.allowances);
-            }
-    
-            if (typeof employee.evaluations === 'string') {
-                employee.evaluations = JSON.parse(employee.evaluations);
-            }
-    
+            
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
             const emp = new this.empModel(employee);
             return await emp.save();
         } catch (error) {
-            console.error('Error creating employee:', error); 
+            console.error('Error creating employee:', error);
             throw new InternalServerErrorException('Failed to create employee', error.message);
         }
     }
-    
-    
-    
+
+
+
 
     async findByEmail(email: string): Promise<Emp | null> {
         try {

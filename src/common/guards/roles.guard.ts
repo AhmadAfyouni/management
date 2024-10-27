@@ -2,7 +2,9 @@ import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@
 import { Reflector } from "@nestjs/core";
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Emp, EmpDocument } from '../../modules/emp/schema/emp.schema';
+import { PermissionsEnum } from "src/config/permissions.enum";
+import { UserRole } from "src/config/role.enum";
+import { Emp, EmpDocument } from '../../modules/emp/schemas/emp.schema';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -12,13 +14,17 @@ export class RolesGuard implements CanActivate {
   ) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.get<string[]>('permissions', context.getHandler());
+    const requiredPermissions = this.reflector.get<PermissionsEnum[]>('permissions', context.getHandler());
+    const requiredRole = this.reflector.get<UserRole[]>('roles', context.getHandler());
     const request = context.switchToHttp().getRequest();
-
     const user = request.user;
 
     if (!user) {
       throw new ForbiddenException('User not authenticated');
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      return true;
     }
 
     const userWithRoles = await this.empModel.findById(user.userId).populate({
@@ -27,22 +33,19 @@ export class RolesGuard implements CanActivate {
         path: 'permissions',
         model: 'Permission',
       },
-    }).exec() as any;
-    if (userWithRoles.isAdmin) {
-      return true;
-    }
+    }).lean().exec() as any;
+
     if (!userWithRoles) {
       throw new ForbiddenException('User not found');
     }
 
-    // Check for the required role
-    // if (requiredRole && !userWithRoles.roles.some(role => role.name === requiredRole)) {
-    //   throw new ForbiddenException('Access denied due to insufficient role');
-    // }
+    if (requiredRole && !requiredRole.includes(userWithRoles.role)) {
+      throw new ForbiddenException('Access denied due to insufficient role');
+    }
 
-    if (requiredPermissions) {
+    if (requiredPermissions && userWithRoles.job_id.permissions) {
       const hasPermission = userWithRoles.job_id.permissions.some(permission =>
-        requiredPermissions.includes(`${permission.resource}:${permission.action}`)
+        requiredPermissions.includes(permission)
       );
 
       if (!hasPermission) {

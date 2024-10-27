@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Department } from 'src/modules/department/schema/department.schema';
-import { Emp } from 'src/modules/emp/schema/emp.schema';
+import { Emp } from 'src/modules/emp/schemas/emp.schema';
 
 export type InternalCommunicationsDocument = InternalCommunications & Document;
 

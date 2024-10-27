@@ -1,13 +1,13 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { PermissionsEnum } from 'src/config/permissions.enum';
 import { JobCategory } from 'src/modules/job-category/schemas/job-category.schema';
-import { Permission } from 'src/modules/permisssions/schema/permission.schema';
 
 export type JobTitlesDocument = JobTitles & Document;
 
 @Schema()
 export class JobTitles {
-    @Prop({ required: true, })
+    @Prop({ required: true })
     name: string;
 
     @Prop({ required: true })
@@ -19,18 +19,17 @@ export class JobTitles {
     @Prop({ required: true, unique: true })
     description: string;
 
-    @Prop({ type: Array<String>, required: true })
+    @Prop({ type: [String], required: true })
     responsibilities: string[];
 
-    @Prop({ required: true, ref: "Department" })
-    department_id: Types.ObjectId
+    @Prop({ type: Types.ObjectId, ref: "Department", required: true })
+    department_id: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: JobCategory.name, required: true })
     category: Types.ObjectId;
 
-    @Prop({ type: [Types.ObjectId], ref: Permission.name, required: true })
-    permissions: Types.ObjectId[];
-
+    @Prop({ type: [String], enum: PermissionsEnum, required: true })
+    permissions: PermissionsEnum[];
 }
 
 export const JobTitlesSchema = SchemaFactory.createForClass(JobTitles);
