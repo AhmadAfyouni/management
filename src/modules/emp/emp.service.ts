@@ -22,7 +22,11 @@ export class EmpService {
         try {
             const emps = await this.empModel.find({}).populate({
                 path: "job_id",
-                model: "JobTitles"
+                model: "JobTitles",
+                populate: {
+                    path: "category",
+                    model: "JobCategory"
+                }
             }).populate({
                 path: "department_id",
                 model: "Department",
@@ -30,15 +34,53 @@ export class EmpService {
                     path: "parent_department_id",
                     model: "Department"
                 }
-            }).populate({
-                path: "supervisor_id",
-                model: "Emp"
-            }).exec();
+            }).lean().exec();
             return emps.map(emp => new GetEmpDto(emp));
         } catch (error) {
             throw new InternalServerErrorException('Failed to fetch employees', error.message);
         }
     }
+
+    async getAllDeptEmp(departmentIds: string[]): Promise<{ [departmentName: string]: GetEmpDto[] }> {
+        try {
+            const emps = await this.empModel
+                .find({ department_id: { $in: departmentIds } })
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory"
+                    }
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: "parent_department_id",
+                        model: "Department"
+                    }
+                })
+                .lean()
+                .exec();
+
+            const groupedEmps = emps.reduce((acc, emp) => {
+                const departmentName = (emp as any).department_id.name;
+                if (!acc[departmentName]) {
+                    acc[departmentName] = [];
+                }
+                acc[departmentName].push(new GetEmpDto(emp));
+                return acc;
+            }, {} as { [departmentName: string]: GetEmpDto[] });
+
+            return groupedEmps;
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to fetch employees', error.message);
+        }
+    }
+
+
+
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
 
@@ -76,7 +118,11 @@ export class EmpService {
         try {
             const emp = await this.empModel.findOne({ email: email }).populate({
                 path: "job_id",
-                model: "JobTitles"
+                model: "JobTitles",
+                populate:{
+                    path:"category",
+                    model:"JobCategory"
+                }
             }).populate({
                 path: "department_id",
                 model: "Department",
@@ -155,7 +201,7 @@ export class EmpService {
             throw new InternalServerErrorException('Failed to find employee by ID', error.message);
         }
     }
-    
+
     async needsPasswordChange(empId: string): Promise<boolean> {
         try {
             const emp = await this.empModel.findById(empId).exec();
@@ -185,7 +231,22 @@ export class EmpService {
 
     async getEmpByDepartment(depId: string): Promise<any[]> {
         try {
-            return await this.empModel.find({ department_id: depId }).lean().exec() as any;
+            const emps = await this.empModel.find({ department_id: depId }).populate({
+                path: "job_id",
+                model: "JobTitles",
+                populate: {
+                    path: "category",
+                    model: "JobCategory"
+                }
+            }).populate({
+                path: "department_id",
+                model: "Department",
+                populate: {
+                    path: "parent_department_id",
+                    model: "Department"
+                }
+            }).lean().exec();
+            return emps.map(emp => new GetEmpDto(emp));
         } catch (error) {
             throw new InternalServerErrorException('Failed to fetch employees by department', error.message);
         }
@@ -197,14 +258,13 @@ export class EmpService {
             if (!empExist) {
                 throw new NotFoundException('Employee not found');
             }
-
-            // Handle password update separately to ensure proper hashing
+            
             if (updateEmpDto.password) {
                 const hashedNewPassword = await bcrypt.hash(updateEmpDto.password, 10);
                 updateEmpDto.password = hashedNewPassword;
             }
 
-            await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true }).exec();
+            return await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true, new: true }).exec();
         } catch (error) {
             throw new InternalServerErrorException('Failed to update employee', error.message);
         }

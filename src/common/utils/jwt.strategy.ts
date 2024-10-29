@@ -19,7 +19,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       role: payload.role,
       department: payload.department,
-      permissons: payload.permissions,
+      permissions: payload.permissions,
       accessibleDepartments: payload.accessibleDepartments,
       accessibleEmps: payload.accessibleEmps,
       accessibleJobTitles: payload.accessibleJobTitles,

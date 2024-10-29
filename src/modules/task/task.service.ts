@@ -70,25 +70,28 @@ export class TasksService {
                         {
                             path: "job_id",
                             model: "JobTitles",
+                            populate: {
+                                path: "category",
+                                model: "JobCategory",
+                            }
                         },
                         {
                             path: "department_id",
                             model: "Department",
                         }
                     ],
-                    
+
                 })
                 .exec();
-    
             const filteredTasks = tasks.filter(task => task.emp !== null);
             const tasksDto = filteredTasks.map(task => new GetTaskDto(task));
-    
+
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
         }
     }
-    
+
 
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
         try {
@@ -145,14 +148,17 @@ export class TasksService {
     }
 
     async getEmpTasks(empId: string): Promise<GetTaskDto[]> {
-        const objectId = new Types.ObjectId(empId);
-        const tasks = await this.taskModel.find({ emp: objectId }).populate('task_type status').populate({
+        const tasks = await this.taskModel.find({ emp: empId }).populate('task_type status').populate({
             path: "emp",
             model: "Emp",
             populate: [
                 {
                     path: "job_id",
                     model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory",
+                    }
                 },
                 {
                     path: "department_id",

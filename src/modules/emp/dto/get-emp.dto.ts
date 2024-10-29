@@ -16,7 +16,6 @@ export class GetEmpDto {
     employment_date: Date;
     department: any;
     job?: any;
-    supervisor?: { id: string; name: string };
     job_tasks?: string;
     base_salary: number;
     allowances: Array<{ type: string; amount: number }>;

@@ -59,6 +59,20 @@ export class JobTitlesService {
     }
   }
 
+  async findAccessJobTitles(departmentIds: string[]): Promise<GetJobTitlesDto[]> {
+    try {
+      const jobs = await this.jobTitlesModel
+        .find({ department_id: { $in: departmentIds } })
+        .populate('department_id permissions category')
+        .lean()
+        .exec();
+      const jobsDto = jobs.map(job => new GetJobTitlesDto(job));
+      return jobsDto;
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve job titles', error.message);
+    }
+  }
+
   async findOne(id: string): Promise<GetJobTitlesDto> {
     try {
       const jobTitle = await this.jobTitlesModel

@@ -8,6 +8,7 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { UserRole } from 'src/config/role.enum';
 import { PermissionsEnum } from 'src/config/permissions.enum';
+import { GetAccessJobTitle } from 'src/common/decorators/user-guard';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('job-titles')
@@ -27,6 +28,15 @@ export class JobTitlesController {
   @Get("get-job-titles")
   async findAll(): Promise<GetJobTitlesDto[]> {
     return this.jobTitlesService.findAll();
+  }
+
+
+  @Roles(UserRole.PRIMARY_USER)
+  @RequiredPermissions(PermissionsEnum.JOB_TITLE_VIEW_SPECIFIC)
+  @Get("view")
+  async findAccessJobTitles(@GetAccessJobTitle() departmentIds): Promise<GetJobTitlesDto[]> {
+    console.log(departmentIds);
+    return this.jobTitlesService.findAccessJobTitles(departmentIds);
   }
 
 

@@ -46,7 +46,7 @@ export class AuthService {
                 message: 'Login successful',
                 access_token: this.jwtService.sign(payload),
                 refresh_token: this.generateRefreshToken(payload),
-                user: user,
+                user: new GetEmpDto(user),
             };
         } catch (error) {
             throw new UnauthorizedException('Login failed ' + error.message);

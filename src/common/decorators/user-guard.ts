@@ -34,7 +34,7 @@ export const GetAccessJobTitle = createParamDecorator(
     ): Promise<string[]> => {
         const request = context.switchToHttp().getRequest();
 
-        const account = (request.user as JwtPayload).accessibleEmps;
+        const account = (request.user as JwtPayload).accessibleJobTitles;
 
         return account;
     },

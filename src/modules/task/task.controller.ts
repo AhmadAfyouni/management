@@ -35,10 +35,19 @@ export class TasksController {
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
-    @Get("get-tasks")
-    async getAllTasks(@GetDepartment() departmentId) {
+    @Get("get-my-dept-tasks")
+    async getMyDeptTasks(@GetDepartment() departmentId) {
         return this.taskService.getTasks(departmentId);
     }
+
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
+    @Get("get-tasks-by-dept/:deptId")
+    async getTaskByDept(@Param("deptId") departmentId) {
+        return this.taskService.getTasks(departmentId);
+    }
+
+
 
 
     @Roles(UserRole.PRIMARY_USER)
