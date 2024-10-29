@@ -7,11 +7,15 @@ import { GetEmpDto } from './dto/get-emp.dto';
 import { Emp, EmpDocument } from './schemas/emp.schema';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { UpdateEmpDto } from './dto/update-emp.dto';
+import { JobTitlesService } from '../job-titles/job-titles.service';
+import { UserRole } from 'src/config/role.enum';
+import { ConflictException } from '@nestjs/common/exceptions';
 
 @Injectable()
 export class EmpService {
     constructor(
         @InjectModel(Emp.name) private readonly empModel: Model<EmpDocument>,
+        private readonly jobTitleService: JobTitlesService,
     ) { }
 
     async getAllEmp(): Promise<GetEmpDto[]> {
@@ -37,16 +41,27 @@ export class EmpService {
     }
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
-            console.log('Employee data being saved:', JSON.stringify(employee, null, 2));
 
-            const existingEmp = await this.empModel.findOne({ $or: [{ email: employee.email }, { phone: employee.phone }] });
+            const existingEmp = await this.empModel.findOne({
+                $or: [{ email: employee.email }, { phone: employee.phone }]
+            });
             if (existingEmp) {
-                throw new BadRequestException('Employee with this email or phone already exists.');
+                throw new ConflictException('Employee with this email or phone already exists.');
+            }
+
+            const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
+            let role: UserRole = UserRole.SECONDARY_USER;
+            if (jobTitle?.is_manager) {
+                role = UserRole.PRIMARY_USER;
             }
 
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
-            const emp = new this.empModel(employee);
+
+            const emp = new this.empModel({
+                ...employee,
+                role,
+            });
             return await emp.save();
         } catch (error) {
             console.error('Error creating employee:', error);
@@ -131,6 +146,16 @@ export class EmpService {
         }
     }
 
+
+    async findDepartmentIdByEmpId(id: string): Promise<EmpDocument | null> {
+        try {
+            const emp = await this.empModel.findById(id).lean().exec();
+            return emp;
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to find employee by ID', error.message);
+        }
+    }
+    
     async needsPasswordChange(empId: string): Promise<boolean> {
         try {
             const emp = await this.empModel.findById(empId).exec();

@@ -11,6 +11,14 @@ export enum PermissionsEnum {
     JOB_TITLE_ADD = 'job_title_add',
     JOB_TITLE_UPDATE = 'job_title_update',
     JOB_TITLE_DELETE = 'job_title_delete',
+    JOB_TITLE_VIEW_SPECIFIC = 'job_title_view_specific',
+
+
+    JOB_TITLE_CATEGORY_SEARCH_AND_VIEW = 'job_title_category_search_and_view',
+    JOB_TITLE_CATEGORY_MANAGE_FILES = 'job_title_category_manage_files',
+    JOB_TITLE_CATEGORY_ADD = 'job_title_category_add',
+    JOB_TITLE_CATEGORY_UPDATE = 'job_title_category_update',
+    JOB_TITLE_CATEGORY_DELETE = 'job_title_category_delete',
 
     DEPARTMENT_SEARCH_AND_VIEW = 'department_search_and_view',
     DEPARTMENT_MANAGE_FILES = 'department_manage_files',

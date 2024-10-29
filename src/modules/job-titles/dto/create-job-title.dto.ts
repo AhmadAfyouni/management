@@ -1,4 +1,5 @@
-import { IsArray, IsMongoId, IsNotEmpty, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { PermissionsEnum } from 'src/config/permissions.enum';
 
 export class CreateJobTitleDto {
   @IsString()
@@ -21,13 +22,23 @@ export class CreateJobTitleDto {
   @IsString({ each: true })
   responsibilities: string[];
 
+  @IsOptional()
   @IsArray()
-  @IsMongoId({ each: true })
-  permissions: string[];
+  @IsEnum(PermissionsEnum, { each: true })
+  permissions: PermissionsEnum[];
 
   @IsMongoId()
   department_id: string;
 
   @IsMongoId()
-  category:string;
+  category: string;
+
+  @IsBoolean()
+  @IsOptional()
+  is_manager: boolean;
+
+  @IsArray()
+  @IsMongoId({ each: true })
+  @IsOptional()
+  accessibleDepartments: string[];
 }

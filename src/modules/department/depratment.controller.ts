@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
-import { Param, Req, UseGuards } from "@nestjs/common/decorators";
+import { Param, UseGuards } from "@nestjs/common/decorators";
 import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
+import { GetAccessDepartment, GetDepartment } from "src/common/decorators/user-guard";
 import { PermissionsEnum } from "src/config/permissions.enum";
 import { UserRole } from "src/config/role.enum";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -15,8 +16,6 @@ import { UpdateDepartmentDto } from "./dto/update-department.dto";
 @Controller("department")
 export class DepartmentController {
     constructor(private readonly departmentService: DepartmentService) { }
-
-
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_ADD)
@@ -41,16 +40,16 @@ export class DepartmentController {
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
-    @Get("getSubDepartment")
-    async getSubDepartments(): Promise<GetDepartmentDto[]> {
-        return await this.departmentService.findSubDepartments();
+    @Get("tree")
+    async getDepartmentTree(@GetDepartment() departmentId): Promise<GetDepartmentDto> {
+        return await this.departmentService.getDepartmentTree(departmentId);
     }
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_UPDATE)
     @Post("updateDepartment/:id")
     async updateDepartment(@Param('id') id: string,
-        @Body() dept: UpdateDepartmentDto
+        @Body() dept: UpdateDepartmentDto,
     ): Promise<any> {
         return await this.departmentService.updateDept(id, dept);
     }
@@ -58,7 +57,7 @@ export class DepartmentController {
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_VIEW_SPECIFIC)
     @Get("view")
-    async viewSpecificDepartments(@Req() req): Promise<GetDepartmentDto[]> {
-        return await this.departmentService.viewAccessDepartment(req.user.accessibleDepartments);
+    async viewSpecificDepartments(@GetAccessDepartment() departments): Promise<GetDepartmentDto[]> {
+        return await this.departmentService.viewAccessDepartment(departments);
     }
 }

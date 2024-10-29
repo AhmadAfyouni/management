@@ -1,11 +1,15 @@
-import { Controller, Body, UnauthorizedException, Post, BadRequestException } from '@nestjs/common';
+import { Controller, Body, UnauthorizedException, Post, BadRequestException, Param } from '@nestjs/common';
+import { UpdatePasswordDto } from '../emp/dto/update-password.dto';
+import { EmpService } from '../emp/emp.service';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) { }
+    constructor(private readonly authService: AuthService,
+        private readonly empService: EmpService,
+    ) { }
 
     @Post('login')
     async login(@Body() loginDto: LoginDto) {
@@ -27,6 +31,15 @@ export class AuthController {
     @Post('refresh-token')
     async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
         return this.authService.refreshToken(refreshTokenDto.refreshToken);
+    }
+
+    @Post('change-password/:empId')
+    async changePassword(
+        @Param('empId') empId: string,
+        @Body() updatePasswordDto: UpdatePasswordDto,
+    ): Promise<{ message: string; }> {
+        await this.empService.updatePassword(empId, updatePasswordDto);
+        return { message: 'Password updated successfully' };
     }
 
 }

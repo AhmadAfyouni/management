@@ -1,6 +1,8 @@
 import { Global, Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { DepartmentModule } from "../department/depratment.module";
+import { JobTitlesModule } from "../job-titles/job-titles.module";
+import { JobTitles } from "../job-titles/schema/job-ttiles.schema";
 import { TaskStatusModule } from "../task status/task-stauts.module";
 import { TaskTypeModule } from "../task type/task-type.module";
 import { EmpController } from "./emp.controller";
@@ -14,6 +16,7 @@ import { Emp, EmpSchema } from "./schemas/emp.schema";
             DepartmentModule,
             TaskTypeModule,
             TaskStatusModule,
+            JobTitlesModule,
         ],
 
         controllers: [EmpController],

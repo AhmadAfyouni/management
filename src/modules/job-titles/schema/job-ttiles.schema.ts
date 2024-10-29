@@ -13,10 +13,10 @@ export class JobTitles {
     @Prop({ required: true })
     title: string;
 
-    @Prop({ required: true, unique: true })
+    @Prop({ required: true })
     grade_level: string;
 
-    @Prop({ required: true, unique: true })
+    @Prop({ required: true })
     description: string;
 
     @Prop({ type: [String], required: true })
@@ -34,6 +34,14 @@ export class JobTitles {
     @Prop({ type: [Types.ObjectId], ref: 'Department' })
     accessibleDepartments: Types.ObjectId[];
 
+    @Prop({ type: [Types.ObjectId], ref: 'Department' })
+    accessibleEmps: Types.ObjectId[];
+
+    @Prop({ type: [Types.ObjectId], ref: 'Department' })
+    accessibleJobTitles: Types.ObjectId[];
+
+    @Prop({ type: Boolean, default: false })
+    is_manager?: boolean;
 }
 
 export const JobTitlesSchema = SchemaFactory.createForClass(JobTitles);

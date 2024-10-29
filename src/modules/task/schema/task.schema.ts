@@ -1,4 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Type } from 'class-transformer';
 import { Document, Types } from 'mongoose';
 import { Emp } from 'src/modules/emp/schemas/emp.schema';
 import { TaskStatus } from 'src/modules/task status/schema/task-status.schema';
@@ -46,6 +47,9 @@ export class Task {
 
     @Prop({ type: Number, default: 1 })
     intervalInDays?: number;
+
+    @Prop({ type: Types.ObjectId, required: true, ref: "Department" })
+    department_id: Types.ObjectId;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

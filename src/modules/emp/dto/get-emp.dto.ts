@@ -38,15 +38,13 @@ export class GetEmpDto {
         this.legal_documents = emp.legal_documents || [];
         this.certifications = emp.certifications || [];
         this.employment_date = emp.employment_date;
-        this.department =  emp.department_id ? {
+        this.department = emp.department_id ? {
             name: emp.department_id.name,
             id: emp.department_id._id.toString()
         } : undefined;
+
         this.job = emp.job_id ? new GetJobTitlesDto(emp.job_id) : null;
-        this.supervisor = emp.supervisor_id ? {
-            id: emp.supervisor_id._id.toString(),
-            name: emp.supervisor_id.name
-        } : undefined;
+        
         this.job_tasks = emp.job_tasks;
         this.base_salary = emp.base_salary;
         this.allowances = emp.allowances || [];

@@ -1,3 +1,4 @@
+import { PermissionsEnum } from "src/config/permissions.enum";
 import { GetJobCategoryDto } from "src/modules/job-category/dtos/get-category.dto";
 import { GetDepartmentDto } from "../../../modules/department/dto/get-department.dto";
 
@@ -9,8 +10,10 @@ export class GetJobTitlesDto {
   description: string;
   responsibilities: string[];
   department?: GetDepartmentDto;
-  category?: GetJobCategoryDto; 
-
+  category?: GetJobCategoryDto;
+  permissions: PermissionsEnum[];
+  accessibleDepartments: string[];
+  is_manager: boolean;
   constructor(jobTitles: any) {
     this.id = jobTitles._id.toString();
     this.name = jobTitles.name;
@@ -18,13 +21,14 @@ export class GetJobTitlesDto {
     this.grade_level = jobTitles.grade_level;
     this.description = jobTitles.description;
     this.responsibilities = jobTitles.responsibilities;
+    this.permissions = jobTitles.permissions || [];
+    this.accessibleDepartments = jobTitles.accessible_departments || [];
+    this.is_manager = jobTitles.is_manager;
+    // this.department = jobTitles.department_id
+    //   ? new GetDepartmentDto(jobTitles.department_id)
+    //   : undefined;
 
-
-    this.department = jobTitles.department_id 
-      ? new GetDepartmentDto(jobTitles.department_id)
-      : undefined;
-
-      this.category = jobTitles.category
+    this.category = jobTitles.category
       ? new GetJobCategoryDto(jobTitles.category)
       : undefined;
   }

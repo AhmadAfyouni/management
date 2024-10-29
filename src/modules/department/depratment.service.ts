@@ -86,30 +86,51 @@ export class DepartmentService {
         if (!department) {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
-    
+
         const allSubDepartments: DepartmentDocument[] = [];
-    
+
         const subDepartments = await this.departmentModel.find({ parent_department_id: id }).exec();
-    
+
         for (const subDept of subDepartments) {
             allSubDepartments.push(subDept, ...await this.getDepartmentWithSubDepartments(subDept._id.toString()));
         }
-    
+
         return [department, ...allSubDepartments];
     }
-    
 
-    async viewAccessDepartment(ids: string[]): Promise<GetDepartmentDto[]> {
-        const results: GetDepartmentDto[] = [];
-    
+
+    async viewAccessDepartment(ids: string[]): Promise<any[]> {
+        const results: any[] = [];
+
         for (const id of ids) {
-            const departments = await this.getDepartmentWithSubDepartments(id);
-            results.push(...departments.map(dept => new GetDepartmentDto(dept)));
+            const departments = await this.buildDepartmentTree(id);
+            results.push(departments);
         }
-    
+
         return results;
     }
-    
+
+    private async buildDepartmentTree(id: string): Promise<GetDepartmentDto> {
+        const objectId = new Types.ObjectId(id);
+        const department = await this.departmentModel.findById(objectId).populate("parent_department_id").exec();
+        if (!department) {
+            throw new NotFoundException(`Department with ID ${id} not found`);
+        }
+
+        const departmentDto = new GetDepartmentDto(department);
+        const subDepartments = await this.departmentModel.find({ parent_department_id: objectId }).exec();
+
+        departmentDto['subDepartments'] = [];
+        for (const subDept of subDepartments) {
+            departmentDto['subDepartments'].push(await this.buildDepartmentTree(subDept._id.toString()));
+        }
+
+        return departmentDto;
+    }
+
+    async getDepartmentTree(departmentId: string): Promise<GetDepartmentDto> {
+        return await this.buildDepartmentTree(departmentId);
+    }
 
 
 

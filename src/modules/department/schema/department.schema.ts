@@ -19,10 +19,7 @@ export class Department {
 
     @Prop({ required: true })
     mainTasks: string;
-
-    @Prop({ type: Types.ObjectId, ref: Emp.name })
-    manager?: Types.ObjectId;
-
+    
     @Prop({ type: Types.ObjectId, ref: "Department", default: undefined })
     parent_department_id?: Types.ObjectId;
 

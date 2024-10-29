@@ -15,7 +15,7 @@ export class RolesGuard implements CanActivate {
     const requiredRole = this.reflector.get<UserRole[]>('roles', context.getHandler());
     const request = context.switchToHttp().getRequest();
     const user = request.user as JwtPayload;
-
+    
     if (!user) {
       throw new ForbiddenException('User not authenticated');
     }
@@ -25,7 +25,8 @@ export class RolesGuard implements CanActivate {
     }
 
     if (!user.permissions) {
-      throw new ForbiddenException('User not found');
+      console.log(user.permissions);
+      throw new ForbiddenException('User dont have permissions');
     }
 
     if (requiredRole && !requiredRole.includes(user.role)) {

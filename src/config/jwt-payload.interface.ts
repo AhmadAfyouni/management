@@ -8,6 +8,8 @@ export class JwtPayload {
   department!: any;
   permissions!: PermissionsEnum[];
   accessibleDepartments!: any;
+  accessibleEmps!: any;
+  accessibleJobTitles!: any;
   role!: UserRole;
   iat?: number;
   exp?: number;

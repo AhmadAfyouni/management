@@ -69,11 +69,7 @@ export class GetDepartmentDto {
 
     @IsMongoId()
     @IsOptional()
-    manager?: Types.ObjectId;
-
-    @IsMongoId()
-    @IsOptional()
-    parent_department_id?: Types.ObjectId;
+    parent_department?: Types.ObjectId;
 
     @IsArray()
     numericOwners: NumericOwnerDto[];
@@ -93,8 +89,7 @@ export class GetDepartmentDto {
         this.goal = department.goal;
         this.category = department.category;
         this.mainTasks = department.mainTasks;
-        this.manager = department.manager;
-        this.parent_department_id = department.parent_department_id;
+        this.parent_department = department.parent_department_id;
         this.numericOwners = department.numericOwners.map(
             (owner) => new NumericOwnerDto(owner.category, owner.count)
         );

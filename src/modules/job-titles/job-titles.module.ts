@@ -10,4 +10,4 @@ import { JobTitles, JobTitlesSchema } from './schema/job-ttiles.schema';
   providers: [JobTitlesService],
   exports: [JobTitlesService],
 })
-export class JobTitlesModule {}
+export class JobTitlesModule { }

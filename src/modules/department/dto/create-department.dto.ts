@@ -66,10 +66,6 @@ export class CreateDepartmentDto {
 
     @IsMongoId()
     @IsOptional()
-    manager?: Types.ObjectId;
-
-    @IsMongoId()
-    @IsOptional()
     parent_department_id?: Types.ObjectId;
 
     @IsArray()

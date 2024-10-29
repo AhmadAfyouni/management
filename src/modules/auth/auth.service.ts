@@ -31,16 +31,25 @@ export class AuthService {
 
     async login(user: EmpDocument) {
         try {
-            const payload: JwtPayload = { email: user.email, sub: user._id.toString(), role: user.role, department: user.department_id, accessibleDepartments: (user.job_id as any).accessibleDepartments, permissions: (user.job_id as any).permissions };
+            const payload: JwtPayload = {
+                email: user.email,
+                sub: user._id.toString(),
+                role: user.role,
+                department: (user.job_id as any).department_id,
+                permissions: (user.job_id as any).permissions,
+                accessibleDepartments: (user.job_id as any).accessibleDepartments || [],
+                accessibleEmps: (user.job_id as any).accessibleEmps || [],
+                accessibleJobTitles: (user.job_id as any).accessibleJobTitles || [],
+            };
             return {
                 status: true,
                 message: 'Login successful',
                 access_token: this.jwtService.sign(payload),
                 refresh_token: this.generateRefreshToken(payload),
-                user: new GetEmpDto(user),
+                user: user,
             };
         } catch (error) {
-            throw new UnauthorizedException('Login failed' + error.message);
+            throw new UnauthorizedException('Login failed ' + error.message);
         }
     }
 
