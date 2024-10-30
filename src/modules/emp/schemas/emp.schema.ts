@@ -3,12 +3,12 @@ import { Document, Types } from 'mongoose';
 import { UserRole } from 'src/config/role.enum';
 import { Department } from 'src/modules/department/schema/department.schema';
 import { JobTitles } from 'src/modules/job-titles/schema/job-ttiles.schema';
-import { Allowance } from './Allowance.schema';
-import { BankAccount } from './BankAccount.schema';
+import { Allowance } from './allowance.schema';
+import { BankAccount } from './bankAccount.schema';
 import { Certification } from './certification.schema';
-import { Evaluation } from './Evaluation.schema';
+import { Evaluation } from './evaluation.schema';
 import { Incentive } from './incentive.schema';
-import { LegalDocument } from './LegalDocument.schema';
+import { LegalDocument } from './legalDocument.schema';
 
 export type EmpDocument = Emp & Document;
 
