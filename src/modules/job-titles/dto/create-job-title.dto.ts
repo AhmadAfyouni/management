@@ -41,4 +41,14 @@ export class CreateJobTitleDto {
   @IsMongoId({ each: true })
   @IsOptional()
   accessibleDepartments: string[];
+
+  @IsArray()
+  @IsMongoId({ each: true })
+  @IsOptional()
+  accessibleJobTitles: string[];
+
+  @IsArray()
+  @IsMongoId({ each: true })
+  @IsOptional()
+  accessibleEmps: string[];
 }
