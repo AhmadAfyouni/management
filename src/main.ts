@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule) as any;
-  const allowedOrigins = ['http://192.168.1.18:3000', '*'];
+  const allowedOrigins = ['http://192.168.1.18:3000', "https://company-managment-frontend.vercel.app",'*'];
   app.enableCors({
     origin: (origin, callback) => {
       if (allowedOrigins.includes(origin) || !origin) {

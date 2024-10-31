@@ -15,13 +15,11 @@ export class GetTaskDto {
     due_date: Date;
     files?: string[];
 
-    constructor(task: any) { 
-        console.log(task);
-               
+    constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
         this.description = task.description;
-        this.task_type = new GetTaskTypeDto(task.task_type);
+        this.task_type = task.task_type ? new GetTaskTypeDto(task.task_type) : task.task_type;
         this.priority = task.priority;
         this.emp = new GetEmpDto(task.emp);
         this.status = new GetTaskStatusDto(task.status);
