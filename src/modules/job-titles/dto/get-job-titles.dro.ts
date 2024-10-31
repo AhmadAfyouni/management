@@ -24,10 +24,7 @@ export class GetJobTitlesDto {
     this.permissions = jobTitles.permissions || [];
     this.accessibleDepartments = jobTitles.accessible_departments || [];
     this.is_manager = jobTitles.is_manager;
-    // this.department = jobTitles.department_id
-    //   ? new GetDepartmentDto(jobTitles.department_id)
-    //   : undefined;
-
+    this.department = jobTitles.department_id
     this.category = jobTitles.category
       ? new GetJobCategoryDto(jobTitles.category)
       : undefined;

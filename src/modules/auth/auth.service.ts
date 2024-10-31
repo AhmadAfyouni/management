@@ -44,6 +44,7 @@ export class AuthService {
             return {
                 status: true,
                 message: 'Login successful',
+                role: payload.role,
                 access_token: this.jwtService.sign(payload),
                 refresh_token: this.generateRefreshToken(payload),
                 user: new GetEmpDto(user),
