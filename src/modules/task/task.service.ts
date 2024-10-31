@@ -21,7 +21,7 @@ export class TasksService {
         if (!emps || emps.length === 0) {
             throw new NotFoundException('No employees found in this department');
         }
-        
+
         const tasks = await Promise.all(
             emps.map(async (emp) => {
                 const taskData = {
@@ -147,7 +147,7 @@ export class TasksService {
         }
     }
 
-    async getEmpTasks(empId: string): Promise<GetTaskDto[]> {
+    async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
         const tasks = await this.taskModel.find({ emp: empId }).populate('task_type status').populate({
             path: "emp",
             model: "Emp",
@@ -167,6 +167,7 @@ export class TasksService {
                 }
             ]
         }).lean().exec();
-        return tasks.map((task) => new GetTaskDto(task));
+        const taskDto = tasks.map((task) => new GetTaskDto(task));
+        return { status: true, message: 'Task retrieved successfully', data: taskDto };
     }
 }
