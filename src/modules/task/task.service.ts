@@ -21,12 +21,12 @@ export class TasksService {
         if (!emps || emps.length === 0) {
             throw new NotFoundException('No employees found in this department');
         }
-
+        
         const tasks = await Promise.all(
             emps.map(async (emp) => {
                 const taskData = {
                     ...createTaskDto,
-                    emp: emp._id,
+                    emp: emp.id,
                     department_id: createTaskDto.department_id,
                 };
 
