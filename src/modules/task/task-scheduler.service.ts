@@ -9,7 +9,7 @@ export class TaskSchedulerService {
 
     constructor(private readonly taskService: TasksService) {}
 
-    @Cron(CronExpression.EVERY_30_SECONDS)
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async handleScheduledTasks() {
         this.logger.log('Checking for tasks to create...');
         await this.createScheduledTasks();
@@ -42,7 +42,7 @@ export class TaskSchedulerService {
                     nextDueDate.setDate(nextDueDate.getDate() + intervalInDays);
                 }
             }
-            
+
             this.logger.log('Scheduled tasks created successfully.');
         } catch (error) {
             this.logger.error('Failed to create scheduled tasks', error);
