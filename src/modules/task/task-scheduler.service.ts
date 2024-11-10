@@ -1,21 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as cron from 'node-cron';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { CreateTaskDto } from './dtos/create-task.dto';
 import { TasksService } from './task.service';
-import { CreateTaskDto } from './dto/create-task.dto';
 
 @Injectable()
 export class TaskSchedulerService {
     private readonly logger = new Logger(TaskSchedulerService.name);
 
-    constructor(private readonly taskService: TasksService) {
-        this.scheduleRecurringTasks();
-    }
+    constructor(private readonly taskService: TasksService) {}
 
-    scheduleRecurringTasks() {
-        cron.schedule('0 0 * * *', async () => {
-            this.logger.log('Checking for tasks to create...');
-            await this.createScheduledTasks();
-        });
+    @Cron(CronExpression.EVERY_30_SECONDS)
+    async handleScheduledTasks() {
+        this.logger.log('Checking for tasks to create...');
+        await this.createScheduledTasks();
     }
 
     private async createScheduledTasks() {
@@ -32,10 +29,9 @@ export class TaskSchedulerService {
                         const taskData: CreateTaskDto = {
                             name: task.name,
                             description: task.description,
-                            task_type: task.task_type.toString(),
                             priority: task.priority,
                             emp: task.emp?.toString(),
-                            status: task.status.toString(),
+                            status: task.status,
                             due_date: new Date(),
                             files: task.files,
                         };
@@ -46,7 +42,7 @@ export class TaskSchedulerService {
                     nextDueDate.setDate(nextDueDate.getDate() + intervalInDays);
                 }
             }
-
+            
             this.logger.log('Scheduled tasks created successfully.');
         } catch (error) {
             this.logger.error('Failed to create scheduled tasks', error);

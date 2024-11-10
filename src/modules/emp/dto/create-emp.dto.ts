@@ -13,6 +13,7 @@ import {
 } from "class-validator";
 import { Type } from 'class-transformer';
 import { Types } from "mongoose";
+import { UserRole } from "src/config/role.enum";
 
 export class LegalDocumentDto {
     @IsString()
@@ -185,4 +186,8 @@ export class CreateEmpDto {
     @Type(() => EvaluationDto)
     @IsOptional()
     evaluations?: EvaluationDto[];
+
+    @IsOptional()
+    @IsEnum(UserRole)
+    role?: UserRole
 }

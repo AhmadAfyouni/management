@@ -2,8 +2,8 @@ import { Injectable, NotFoundException, InternalServerErrorException, BadRequest
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EmpService } from '../emp/emp.service';
-import { CreateTaskDto } from './dto/create-task.dto';
-import { GetTaskDto } from './dto/get-task.dto';
+import { CreateTaskDto } from './dtos/create-task.dto';
+import { GetTaskDto } from './dtos/get-task.dto';
 import { Task, TaskDocument } from './schema/task.schema';
 
 @Injectable()
@@ -61,7 +61,6 @@ export class TasksService {
     async getTasks(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
             const tasks = await this.taskModel.find({})
-                .populate('task_type status')
                 .populate({
                     path: "emp",
                     model: "Emp",
@@ -95,7 +94,7 @@ export class TasksService {
 
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
         try {
-            const task = await this.taskModel.findById(id).populate('task_type status').populate('task_type status').populate({
+            const task = await this.taskModel.findById(id).populate('  status').populate({
                 path: "emp",
                 model: "Emp",
                 populate: {
@@ -148,7 +147,7 @@ export class TasksService {
     }
 
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
-        const tasks = await this.taskModel.find({ emp: empId }).populate('task_type status').populate({
+        const tasks = await this.taskModel.find({ emp: empId }).populate('  status').populate({
             path: "emp",
             model: "Emp",
             populate: [

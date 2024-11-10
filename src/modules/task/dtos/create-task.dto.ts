@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsMongoId, IsDate, IsInt, IsArray, IsOptional, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { TaskStatus } from '../enums/task-status.enum';
 
 export class CreateTaskDto {
     @IsString()
@@ -9,10 +10,6 @@ export class CreateTaskDto {
     @IsString()
     @IsNotEmpty()
     description: string;
-
-    @IsMongoId()
-    @IsNotEmpty()
-    task_type: string;
 
     @IsInt()
     @IsNotEmpty()
@@ -26,8 +23,8 @@ export class CreateTaskDto {
     @IsOptional()
     department_id?: string;
 
-    @IsMongoId()
     @IsNotEmpty()
+    @IsEnum(TaskStatus)
     status: string;
 
     @IsDate()

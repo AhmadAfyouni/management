@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { DefaultPermissions } from 'src/config/default-permissions';
 import { UserRole } from 'src/config/role.enum';
+import { EmpService } from '../emp/emp.service';
 import { CreateJobTitleDto } from './dto/create-job-title.dto';
 import { GetJobTitlesDto } from './dto/get-job-titles.dro';
 import { UpdateJobTitleDto } from './dto/update-job-title.dto';
@@ -12,6 +13,7 @@ import { JobTitles, JobTitlesDocument } from './schema/job-ttiles.schema';
 export class JobTitlesService {
   constructor(
     @InjectModel(JobTitles.name) private readonly jobTitlesModel: Model<JobTitlesDocument>,
+    @Inject(forwardRef(() => EmpService)) private readonly empService: EmpService,
   ) { }
 
   async create(createJobTitleDto: CreateJobTitleDto): Promise<{ message: string; jobTitle: JobTitles }> {
@@ -97,6 +99,14 @@ export class JobTitlesService {
         { new: true, runValidators: true }
       ).populate('department_id permissions category').exec();
 
+      if (updateJobTitleDto.is_manager) {
+        const emps = await this.empService.getEmpByJobTitle(id);
+        emps?.forEach(emp => {
+          this.empService.updateEmp(emp._id.toString(), {
+            role: UserRole.PRIMARY_USER
+          });
+        });
+      }
       if (!updatedJobTitle) {
         throw new NotFoundException(`Job title with id ${id} not found`);
       }

@@ -2,13 +2,12 @@ import { Controller, Get, Post, Param, Body, UseGuards, Req } from '@nestjs/comm
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TasksService } from './task.service';
-import { CreateTaskDto } from './dto/create-task.dto';
-import { UpdateTaskDto } from './dto/update-task.dto';
 import { RequiredPermissions, Roles } from 'src/common/decorators/role.decorator';
 import { UserRole } from 'src/config/role.enum';
 import { PermissionsEnum } from 'src/config/permissions.enum';
 import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
-import { Department } from '../department/schema/department.schema';
+import { CreateTaskDto } from './dtos/create-task.dto';
+import { UpdateTaskDto } from './dtos/update-task.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tasks')

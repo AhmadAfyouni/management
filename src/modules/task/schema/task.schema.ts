@@ -1,9 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Type } from 'class-transformer';
 import { Document, Types } from 'mongoose';
 import { Emp } from 'src/modules/emp/schemas/emp.schema';
-import { TaskStatus } from 'src/modules/task status/schema/task-status.schema';
-import { TaskType } from 'src/modules/task type/schema/task.-type.schema';
+import { TaskStatus } from '../enums/task-status.enum';
 
 export type TaskDocument = Task & Document;
 
@@ -15,8 +13,6 @@ export class Task {
     @Prop({ required: true })
     description: string;
 
-    @Prop({ type: Types.ObjectId, required: true, ref: TaskType.name })
-    task_type: Types.ObjectId;
 
     @Prop({ required: true })
     priority: number;
@@ -24,8 +20,8 @@ export class Task {
     @Prop({ type: Types.ObjectId, required: true, ref: Emp.name })
     emp: Types.ObjectId;
 
-    @Prop({ type: Types.ObjectId, required: true, ref: TaskStatus.name })
-    status: Types.ObjectId;
+    @Prop({ type: String, enum: TaskStatus, required: true, default: TaskStatus.PENDING })
+    status: TaskStatus;
 
     @Prop({ type: Date })
     createdAt?: Date;

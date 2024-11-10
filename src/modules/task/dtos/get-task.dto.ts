@@ -1,15 +1,13 @@
 import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
-import { GetTaskStatusDto } from 'src/modules/task status/dto/get-task-status.dto';
-import { GetTaskTypeDto } from 'src/modules/task type/dto/get-task-type.dto';
+import { TaskStatus } from '../enums/task-status.enum';
 
 export class GetTaskDto {
     id: string;
     name: string;
     description: string;
-    task_type: GetTaskTypeDto;
     priority: number;
     emp?: GetEmpDto;
-    status: GetTaskStatusDto;
+    status: TaskStatus;
     createdAt: Date;
     updatedAt: Date;
     due_date: Date;
@@ -19,10 +17,9 @@ export class GetTaskDto {
         this.id = task._id.toString();
         this.name = task.name;
         this.description = task.description;
-        this.task_type = task.task_type ? new GetTaskTypeDto(task.task_type) : task.task_type;
         this.priority = task.priority;
         this.emp = new GetEmpDto(task.emp);
-        this.status = new GetTaskStatusDto(task.status);
+        this.status = task.status;
         this.createdAt = task.createdAt;
         this.updatedAt = task.updatedAt;
         this.due_date = task.due_date;

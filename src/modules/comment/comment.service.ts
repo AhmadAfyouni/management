@@ -17,9 +17,7 @@ export class CommentService {
                 emp: userId,
                 files: createCommentDto.files || [],
             });
-            const c=await (await comment.save()).populate("emp");
-            console.log(c);
-            
+            const c=await (await comment.save()).populate("emp");            
             return new GetCommentDto(c);
         } catch (error) {
             throw new InternalServerErrorException('Error creating comment', error.message);

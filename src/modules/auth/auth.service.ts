@@ -4,12 +4,10 @@ import { EmpService } from "../emp/emp.service";
 import * as bcrypt from 'bcryptjs';
 import { JwtPayload } from '../../config/jwt-payload.interface';
 import { ConflictException, InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
-import { UserRole } from "../../config/role.enum";
 import { CreateEmpDto } from "../emp/dto/create-emp.dto";
 import "dotenv/config"
 import { GetEmpDto } from "../emp/dto/get-emp.dto";
 import { EmpDocument } from "../emp/schemas/emp.schema";
-import { JobTitlesDocument } from "../job-titles/schema/job-ttiles.schema";
 
 @Injectable()
 export class AuthService {

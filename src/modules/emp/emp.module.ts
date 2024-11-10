@@ -1,10 +1,8 @@
 import { Global, Module } from "@nestjs/common";
+import { forwardRef } from "@nestjs/common/utils";
 import { MongooseModule } from "@nestjs/mongoose";
 import { DepartmentModule } from "../department/depratment.module";
 import { JobTitlesModule } from "../job-titles/job-titles.module";
-import { JobTitles } from "../job-titles/schema/job-ttiles.schema";
-import { TaskStatusModule } from "../task status/task-stauts.module";
-import { TaskTypeModule } from "../task type/task-type.module";
 import { EmpController } from "./emp.controller";
 import { EmpService } from "./emp.service";
 import { Emp, EmpSchema } from "./schemas/emp.schema";
@@ -14,9 +12,7 @@ import { Emp, EmpSchema } from "./schemas/emp.schema";
         imports: [
             MongooseModule.forFeature([{ name: Emp.name, schema: EmpSchema },]),
             DepartmentModule,
-            TaskTypeModule,
-            TaskStatusModule,
-            JobTitlesModule,
+            forwardRef(()=> JobTitlesModule),
         ],
 
         controllers: [EmpController],

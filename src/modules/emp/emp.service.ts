@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
@@ -15,6 +15,7 @@ import { ConflictException } from '@nestjs/common/exceptions';
 export class EmpService {
     constructor(
         @InjectModel(Emp.name) private readonly empModel: Model<EmpDocument>,
+        @Inject(forwardRef(() => JobTitlesService))
         private readonly jobTitleService: JobTitlesService,
     ) { }
 
@@ -39,6 +40,10 @@ export class EmpService {
         } catch (error) {
             throw new InternalServerErrorException('Failed to fetch employees', error.message);
         }
+    }
+
+    async getEmpByJobTitle(jobId: string): Promise<EmpDocument[] | null> {
+        return await this.empModel.find({ job_id: jobId }).lean().exec();
     }
 
     async getAllDeptEmp(departmentIds: string[]): Promise<{ [departmentName: string]: GetEmpDto[] }> {
@@ -119,9 +124,9 @@ export class EmpService {
             const emp = await this.empModel.findOne({ email: email }).populate({
                 path: "job_id",
                 model: "JobTitles",
-                populate:{
-                    path:"category",
-                    model:"JobCategory"
+                populate: {
+                    path: "category",
+                    model: "JobCategory"
                 }
             }).populate({
                 path: "department_id",
@@ -258,7 +263,7 @@ export class EmpService {
             if (!empExist) {
                 throw new NotFoundException('Employee not found');
             }
-            
+
             if (updateEmpDto.password) {
                 const hashedNewPassword = await bcrypt.hash(updateEmpDto.password, 10);
                 updateEmpDto.password = hashedNewPassword;
