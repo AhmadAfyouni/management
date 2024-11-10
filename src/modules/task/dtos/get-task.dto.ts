@@ -1,5 +1,5 @@
 import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
-import { TaskStatus } from '../enums/task-status.enum';
+import { TASK_STATUS } from '../enums/task-status.enum';
 
 export class GetTaskDto {
     id: string;
@@ -7,7 +7,7 @@ export class GetTaskDto {
     description: string;
     priority: number;
     emp?: GetEmpDto;
-    status: TaskStatus;
+    status: TASK_STATUS;
     createdAt: Date;
     updatedAt: Date;
     due_date: Date;

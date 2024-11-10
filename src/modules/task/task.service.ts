@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { EmpService } from '../emp/emp.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
 import { GetTaskDto } from './dtos/get-task.dto';
+import { TASK_STATUS } from './enums/task-status.enum';
 import { Task, TaskDocument } from './schema/task.schema';
 
 @Injectable()
@@ -45,26 +46,30 @@ export class TasksService {
         }).exec();
     }
 
-
     async create(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         try {
-
-            const emp = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp!);
-            const task = new this.taskModel({ ...createTaskDto, department_id: emp?.department_id });
+            if (!createTaskDto.emp) {
+                throw new BadRequestException('Employee ID is required');
+            }
+            const emp = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
+            const task = new this.taskModel({
+                ...createTaskDto,
+                department_id: emp?.department_id,
+            });
             await task.save();
-            return { status: true, message: 'Task created successfully' };
+            return { status: true, message: 'Task created successfully', data: task };
         } catch (error) {
             throw new InternalServerErrorException('Failed to create Task');
         }
     }
 
+
     async getTasks(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
-            const tasks = await this.taskModel.find({})
+            const tasks = await this.taskModel.find({ department_id: departmentId })
                 .populate({
                     path: "emp",
                     model: "Emp",
-                    match: { department_id: departmentId },
                     populate: [
                         {
                             path: "job_id",
@@ -72,36 +77,38 @@ export class TasksService {
                             populate: {
                                 path: "category",
                                 model: "JobCategory",
-                            }
+                            },
                         },
                         {
                             path: "department_id",
                             model: "Department",
                         }
                     ],
-
                 })
+                .populate('section_id')  // populate section information
+                .populate('subtasks')     // populate subtasks if needed
                 .exec();
-            const filteredTasks = tasks.filter(task => task.emp !== null);
-            const tasksDto = filteredTasks.map(task => new GetTaskDto(task));
-
+            const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
         }
     }
 
-
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
         try {
-            const task = await this.taskModel.findById(id).populate('  status').populate({
-                path: "emp",
-                model: "Emp",
-                populate: {
-                    path: "job_id",
-                    model: "JobTitles"
-                }
-            }).exec();
+            const task = await this.taskModel.findById(id)
+                .populate({
+                    path: "emp",
+                    model: "Emp",
+                    populate: {
+                        path: "job_id",
+                        model: "JobTitles",
+                    },
+                })
+                .populate('section_id')
+                .populate('subtasks')
+                .exec();
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
@@ -126,7 +133,6 @@ export class TasksService {
             if (error instanceof NotFoundException) {
                 throw error;
             }
-            console.log(error.message);
             throw new InternalServerErrorException('Failed to update task', error.message);
         }
     }
@@ -147,26 +153,70 @@ export class TasksService {
     }
 
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
-        const tasks = await this.taskModel.find({ emp: empId }).populate('  status').populate({
-            path: "emp",
-            model: "Emp",
-            populate: [
-                {
-                    path: "job_id",
-                    model: "JobTitles",
-                    populate: {
-                        path: "category",
-                        model: "JobCategory",
-                    }
-                },
-                {
-                    path: "department_id",
-                    model: "Department",
-
-                }
-            ]
-        }).lean().exec();
+        const tasks = await this.taskModel.find({ emp: empId })
+            .populate({
+                path: "emp",
+                model: "Emp",
+                populate: [
+                    {
+                        path: "job_id",
+                        model: "JobTitles",
+                        populate: {
+                            path: "category",
+                            model: "JobCategory",
+                        },
+                    },
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                ],
+            })
+            .populate('section_id')
+            .populate('subtasks')
+            .lean()
+            .exec();
         const taskDto = tasks.map((task) => new GetTaskDto(task));
-        return { status: true, message: 'Task retrieved successfully', data: taskDto };
+        return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
     }
+
+    async startTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
+        const task = await this.taskModel.findOne({ _id: taskId, emp: userId, status: TASK_STATUS.PENDING });
+        if (!task) throw new NotFoundException('Task not found or already completed');
+
+        if (task.startTime) throw new BadRequestException('Task is already started');
+
+        task.startTime = new Date();
+        task.timeLogs.push({ start: task.startTime, end: undefined });
+        await task.save();
+        return { status: true, message: 'Task started successfully' };
+    }
+
+    async pauseTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
+        const task = await this.taskModel.findOne({ _id: taskId, emp: userId, status: TASK_STATUS.PENDING });
+        if (!task || !task.startTime) throw new BadRequestException('Task is not started');
+
+        const now = new Date();
+        const timeDiff = Math.floor((now.getTime() - task.startTime.getTime()) / 60000);
+        task.totalTimeSpent += timeDiff;
+
+        const lastLog = task.timeLogs[task.timeLogs.length - 1];
+        if (lastLog) lastLog.end = now;
+
+        task.startTime = undefined;
+        await task.save();
+        return { status: true, message: 'Task paused successfully' };
+    }
+
+    async completeTask(taskId: string, userId: string): Promise<{ status: boolean, message: string, finalTime: number }> {
+        const task = await this.taskModel.findOne({ _id: taskId, emp: userId });
+        if (!task) throw new NotFoundException('Task not found');
+
+        if (task.startTime) await this.pauseTask(taskId, userId);
+
+        task.status = TASK_STATUS.DONE;
+        await task.save();
+        return { status: true, message: 'Task completed successfully', finalTime: task.totalTimeSpent };
+    }
+
 }

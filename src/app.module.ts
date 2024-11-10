@@ -11,6 +11,8 @@ import { ConfigModule } from "@nestjs/config";
 import { InternalCommunicationsModule } from "./modules/internal-communications/communications.module";
 import { JobCategoryModule } from "./modules/job-category/job-category.module";
 import { ScheduleModule } from "@nestjs/schedule";
+import { ProjectModule } from "./modules/project/project.module";
+import { SectionModule } from "./modules/section/section.module";
 
 @Module(
   {
@@ -22,6 +24,8 @@ import { ScheduleModule } from "@nestjs/schedule";
         }
       ),
       ScheduleModule.forRoot(),
+      ProjectModule,
+      SectionModule,
       JobCategoryModule,
       InternalCommunicationsModule,
       CommentModule,

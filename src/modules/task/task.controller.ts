@@ -12,9 +12,7 @@ import { UpdateTaskDto } from './dtos/update-task.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tasks')
 export class TasksController {
-    constructor(private readonly taskService: TasksService) { }
-
-
+    constructor(private readonly taskService: TasksService) {}
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_ADD)
@@ -23,14 +21,12 @@ export class TasksController {
         return this.taskService.create(createTaskDto);
     }
 
-
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_ADD)
     @Post('create-task-department')
     async createTaskForDepartment(@Body() createTaskDto: CreateTaskDto) {
         return this.taskService.createTaskForDepartment(createTaskDto);
     }
-
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
@@ -46,9 +42,6 @@ export class TasksController {
         return this.taskService.getTasks(departmentId);
     }
 
-
-
-
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('task/:id')
@@ -63,14 +56,12 @@ export class TasksController {
         return this.taskService.updateTask(id, updateTaskDto);
     }
 
-
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_DELETE)
     @Post('delete/:id')
     async deleteTask(@Param('id') id: string) {
         return this.taskService.deleteTask(id);
     }
-
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
