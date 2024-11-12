@@ -17,6 +17,11 @@ export class SectionController {
         return this.sectionService.getSectionsByProject(projectId);
     }
 
+    @Get('department/:departmentId')
+    async getSectionsByDepartment(@Param('departmentId') departmentId: string) {
+        return this.sectionService.getSectionsByDepartment(departmentId);
+    }
+    
     @Get(':id')
     async getSectionById(@Param('id') id: string) {
         return this.sectionService.getSectionById(id);

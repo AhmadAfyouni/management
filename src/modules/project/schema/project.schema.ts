@@ -19,6 +19,12 @@ export class Project {
 
     @Prop({ type: [Types.ObjectId], ref: 'Emp', default: [] })
     members: Types.ObjectId[];
+
+    @Prop({ type: Date, required: true }) 
+    startDate: Date;
+
+    @Prop({ type: Date, required: true }) 
+    endDate: Date;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);

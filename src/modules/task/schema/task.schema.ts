@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { Department } from 'src/modules/department/schema/department.schema';
 import { Emp } from 'src/modules/emp/schemas/emp.schema';
+import { Project } from 'src/modules/project/schema/project.schema';
 import { Section } from 'src/modules/section/schemas/section.schema';
 import { PRIORITY_TYPE } from '../enums/priority.enum';
 import { TASK_STATUS } from '../enums/task-status.enum';
@@ -10,6 +11,8 @@ export type TaskDocument = Task & Document;
 
 @Schema({ timestamps: true })
 export class Task {
+    _id: Types.ObjectId;
+
     @Prop({ required: true })
     name: string;
 
@@ -21,6 +24,9 @@ export class Task {
 
     @Prop({ type: Types.ObjectId, required: true, ref: Emp.name })
     emp: Types.ObjectId;
+
+    @Prop({ type: Types.ObjectId, ref: Emp.name, required: false })
+    assignee?: Types.ObjectId;
 
     @Prop({ type: String, enum: TASK_STATUS, required: true, default: TASK_STATUS.PENDING })
     status: TASK_STATUS;
@@ -48,6 +54,10 @@ export class Task {
 
     @Prop({ type: Types.ObjectId, required: true, ref: Department.name })
     department_id: Types.ObjectId;
+
+
+    @Prop({ type: Types.ObjectId, ref: Project.name })
+    project_id?: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: Section.name, required: false })
     section_id?: Types.ObjectId;

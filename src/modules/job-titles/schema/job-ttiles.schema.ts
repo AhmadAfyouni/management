@@ -7,6 +7,8 @@ export type JobTitlesDocument = JobTitles & Document;
 
 @Schema()
 export class JobTitles {
+
+    _id: Types.ObjectId;
     @Prop({ required: true })
     name: string;
 

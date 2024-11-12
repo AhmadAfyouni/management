@@ -1,6 +1,7 @@
 import { IsString, IsNotEmpty, IsMongoId, IsDate, IsInt, IsArray, IsOptional, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TASK_STATUS } from '../enums/task-status.enum';
+import { PRIORITY_TYPE } from '../enums/priority.enum';
 
 export class CreateTaskDto {
     @IsString()
@@ -11,9 +12,10 @@ export class CreateTaskDto {
     @IsNotEmpty()
     description: string;
 
-    @IsInt()
-    @IsNotEmpty()
-    priority: number;
+
+    @IsEnum(PRIORITY_TYPE)
+    @IsString()
+    priority: PRIORITY_TYPE;
 
     @IsMongoId()
     @IsOptional()
@@ -26,6 +28,14 @@ export class CreateTaskDto {
     @IsNotEmpty()
     @IsEnum(TASK_STATUS)
     status: string;
+
+    @IsMongoId()
+    @IsOptional()
+    assignee?: string;
+
+    @IsMongoId()
+    @IsOptional()
+    section_id?: string;
 
     @IsDate()
     @Type(() => Date)

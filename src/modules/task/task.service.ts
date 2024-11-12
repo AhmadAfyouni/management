@@ -2,6 +2,8 @@ import { Injectable, NotFoundException, InternalServerErrorException, BadRequest
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EmpService } from '../emp/emp.service';
+import { JobTitlesService } from '../job-titles/job-titles.service';
+import { SectionService } from '../section/section.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
 import { GetTaskDto } from './dtos/get-task.dto';
 import { TASK_STATUS } from './enums/task-status.enum';
@@ -12,30 +14,25 @@ export class TasksService {
     constructor(
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
         private readonly empService: EmpService,
+        private readonly sectionService: SectionService,
     ) { }
 
     async createTaskForDepartment(createTaskDto: CreateTaskDto) {
         if (!createTaskDto.department_id) {
             throw new BadRequestException('Department ID is required');
         }
-        const emps = await this.empService.getEmpByDepartment(createTaskDto.department_id);
-        if (!emps || emps.length === 0) {
-            throw new NotFoundException('No employees found in this department');
-        }
+        await this.sectionService.createInitialSections(createTaskDto.department_id);
+        const section_id = await this.sectionService.getPendingSectionId(createTaskDto.department_id);
+        createTaskDto.section_id = section_id;
+        const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
+        const taskData = {
+            ...createTaskDto,
+            emp: manager._id,
+            department_id: createTaskDto.department_id,
+        };
 
-        const tasks = await Promise.all(
-            emps.map(async (emp) => {
-                const taskData = {
-                    ...createTaskDto,
-                    emp: emp.id,
-                    department_id: createTaskDto.department_id,
-                };
-
-                const task = new this.taskModel(taskData);
-                return await task.save();
-            })
-        );
-        return tasks;
+        const task = new this.taskModel(taskData);
+        return await task.save();
     }
 
     async getRecurringTasks(): Promise<TaskDocument[]> {
@@ -46,11 +43,15 @@ export class TasksService {
         }).exec();
     }
 
-    async create(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
+    async createTaskForEmp(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         try {
+
             if (!createTaskDto.emp) {
                 throw new BadRequestException('Employee ID is required');
             }
+            await this.sectionService.createInitialSections(createTaskDto.department_id);
+            const section_id = await this.sectionService.getPendingSectionId(createTaskDto.department_id);
+            createTaskDto.section_id = section_id;
             const emp = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
             const task = new this.taskModel({
                 ...createTaskDto,
@@ -59,12 +60,11 @@ export class TasksService {
             await task.save();
             return { status: true, message: 'Task created successfully', data: task };
         } catch (error) {
-            throw new InternalServerErrorException('Failed to create Task');
+            throw new InternalServerErrorException('Failed to create Task', error.message);
         }
     }
 
-
-    async getTasks(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+    async getTasksByDepartmentId(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
             const tasks = await this.taskModel.find({ department_id: departmentId })
                 .populate({
@@ -85,8 +85,8 @@ export class TasksService {
                         }
                     ],
                 })
-                .populate('section_id')  // populate section information
-                .populate('subtasks')     // populate subtasks if needed
+                .populate('section_id')
+                .populate('subtasks')
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -179,44 +179,147 @@ export class TasksService {
         const taskDto = tasks.map((task) => new GetTaskDto(task));
         return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
     }
-
     async startTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
-        const task = await this.taskModel.findOne({ _id: taskId, emp: userId, status: TASK_STATUS.PENDING });
+        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId),
+             emp: userId,
+              status: TASK_STATUS.PENDING });
         if (!task) throw new NotFoundException('Task not found or already completed');
 
-        if (task.startTime) throw new BadRequestException('Task is already started');
+        const lastLog = task.timeLogs[task.timeLogs.length - 1];
+        if (lastLog && !lastLog.end) throw new BadRequestException('Task is already started');
 
-        task.startTime = new Date();
-        task.timeLogs.push({ start: task.startTime, end: undefined });
+        task.timeLogs.push({ start: new Date(), end: undefined });
         await task.save();
         return { status: true, message: 'Task started successfully' };
     }
 
     async pauseTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
-        const task = await this.taskModel.findOne({ _id: taskId, emp: userId, status: TASK_STATUS.PENDING });
-        if (!task || !task.startTime) throw new BadRequestException('Task is not started');
+        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId), 
+            emp: userId,
+             status: TASK_STATUS.PENDING });
+        if (!task || !task.timeLogs.length || task.timeLogs[task.timeLogs.length - 1].end) {
+            throw new BadRequestException('Task is not currently started or already paused');
+        }
 
         const now = new Date();
-        const timeDiff = Math.floor((now.getTime() - task.startTime.getTime()) / 60000);
+        const lastLog = task.timeLogs[task.timeLogs.length - 1];
+        lastLog.end = now;
+
+        const timeDiff = Math.floor((now.getTime() - lastLog.start.getTime()) / 60000);
         task.totalTimeSpent += timeDiff;
 
-        const lastLog = task.timeLogs[task.timeLogs.length - 1];
-        if (lastLog) lastLog.end = now;
-
-        task.startTime = undefined;
         await task.save();
         return { status: true, message: 'Task paused successfully' };
     }
 
     async completeTask(taskId: string, userId: string): Promise<{ status: boolean, message: string, finalTime: number }> {
-        const task = await this.taskModel.findOne({ _id: taskId, emp: userId });
+        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId), emp: userId });
         if (!task) throw new NotFoundException('Task not found');
 
-        if (task.startTime) await this.pauseTask(taskId, userId);
+        const lastLog = task.timeLogs[task.timeLogs.length - 1];
+        if (lastLog && !lastLog.end) await this.pauseTask(taskId, userId);
 
         task.status = TASK_STATUS.DONE;
         await task.save();
+
         return { status: true, message: 'Task completed successfully', finalTime: task.totalTimeSpent };
     }
 
+
+    async markAsComplete(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
+        const task = await this.taskModel.findOne({ _id: taskId, emp: userId });
+        if (!task) throw new NotFoundException('Task not found');
+
+        task.status = TASK_STATUS.DONE;
+        await task.save();
+
+        return { status: true, message: 'Task marked as complete successfully' };
+    }
+
+    async addSubtask(taskId: string, createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
+        const parentTask = await this.taskModel.findById(taskId);
+        if (!parentTask) throw new NotFoundException('Parent task not found');
+        await this.sectionService.createInitialSections(createTaskDto.department_id);
+        const section_id = await this.sectionService.getPendingSectionId(createTaskDto.department_id);
+        createTaskDto.section_id = section_id;
+        const subtask = new this.taskModel({ ...createTaskDto, status: TASK_STATUS.PENDING });
+        await subtask.save();
+        parentTask.subtasks.push(subtask._id);
+        await parentTask.save();
+
+        return { status: true, message: 'Subtask added successfully', data: subtask };
+    }
+
+    async updateTaskStatus(taskId: string, userId: string, newStatus: TASK_STATUS): Promise<{ status: boolean, message: string }> {
+        const task = await this.taskModel.findById(taskId);
+        if (!task) throw new NotFoundException('Task not found');
+        switch (newStatus) {
+            case TASK_STATUS.ON_TEST:
+                task.status = TASK_STATUS.ON_TEST;
+                break;
+            case TASK_STATUS.DONE:
+                if (task.assignee?.toString() !== userId || task.status !== TASK_STATUS.ON_TEST) {
+                    throw new BadRequestException('Only the assignee can approve the task, and it must be in test status');
+                }
+                task.status = TASK_STATUS.DONE;
+                break;
+
+            case TASK_STATUS.ONGOING:
+                task.status = TASK_STATUS.ONGOING;
+                break;
+
+            case TASK_STATUS.PENDING:
+                task.status = TASK_STATUS.PENDING;
+                break;
+
+            default:
+                throw new BadRequestException('Invalid status update');
+        }
+
+        await task.save();
+
+        let message = `Task status updated to ${newStatus}`;
+
+        return { status: true, message };
+    }
+
+    async updateDescription(taskId: string, newDescription: string): Promise<{ status: boolean, message: string }> {
+        const task = await this.taskModel.findById(taskId);
+        if (!task) throw new NotFoundException('Task not found');
+
+        task.description = newDescription;
+        await task.save();
+
+        return { status: true, message: 'Task description updated successfully' };
+    }
+
+    async getWeeklyTasks(userId: string): Promise<{ status: boolean, message: string, data: TaskDocument[] }> {
+        const today = new Date();
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+
+        const weeklyTasks = await this.taskModel.find({
+            emp: userId,
+            createdAt: { $gte: startOfWeek, $lte: today },
+        }).exec();
+
+        return { status: true, message: 'Weekly tasks retrieved successfully', data: weeklyTasks };
+    }
+
+    async getMonthlyTasks(userId: string): Promise<{ status: boolean, message: string, data: TaskDocument[] }> {
+        const today = new Date();
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+        const monthlyTasks = await this.taskModel.find({
+            emp: userId,
+            createdAt: { $gte: startOfMonth, $lte: today },
+        }).exec();
+
+        return { status: true, message: 'Monthly tasks retrieved successfully', data: monthlyTasks };
+    }
+
+    async getOnTestTask(department_id: string) {
+        const tasks = await this.taskModel.find({ department_id, status: TASK_STATUS.ON_TEST }).exec();
+        return tasks;
+    }
 }

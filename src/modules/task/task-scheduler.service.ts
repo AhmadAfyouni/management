@@ -36,7 +36,7 @@ export class TaskSchedulerService {
                             files: task.files,
                         };
 
-                        await this.taskService.create(taskData);
+                        await this.taskService.createTaskForEmp(taskData);
                         break;
                     }
                     nextDueDate.setDate(nextDueDate.getDate() + intervalInDays);

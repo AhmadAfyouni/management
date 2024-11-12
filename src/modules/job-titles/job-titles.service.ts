@@ -78,7 +78,7 @@ export class JobTitlesService {
   async findOne(id: string): Promise<GetJobTitlesDto> {
     try {
       const jobTitle = await this.jobTitlesModel
-        .findById(id)
+        .findById(new Types.ObjectId(id))
         .populate('department_id permissions category')
         .exec();
       if (!jobTitle) {
@@ -128,6 +128,18 @@ export class JobTitlesService {
       return deletedJobTitle;
     } catch (error) {
       throw new InternalServerErrorException(`Failed to delete job title with id ${id}`, error.message);
+    }
+  }
+
+  async findByDepartmentId(id: string): Promise<JobTitlesDocument> {
+    try {
+      const jobTitle = await this.jobTitlesModel.findOne({ department_id: id, is_manager: true }).lean().exec();
+      if (!jobTitle) {
+        throw new NotFoundException(`No manager found for department id ${id}`);
+      }
+      return jobTitle;
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to find job titles by department id ${id}`, error.message);
     }
   }
 }

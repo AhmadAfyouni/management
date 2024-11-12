@@ -46,6 +46,18 @@ export class EmpService {
         return await this.empModel.find({ job_id: jobId }).lean().exec();
     }
 
+    async findManagerByDepartment(departmentId: string): Promise<EmpDocument> {
+        try {
+            const jobTitleDoc = await this.jobTitleService.findByDepartmentId(departmentId);
+            if (!jobTitleDoc) throw new NotFoundException('Job Title not found');
+            const manager = await this.empModel.findOne({ job_id: jobTitleDoc._id.toString() }).exec();
+            if (!manager) throw new NotFoundException('Manager not found for this job title');
+            return manager;
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to fetch manager', error.message);
+        }
+    }
+
     async getAllDeptEmp(departmentIds: string[]): Promise<{ [departmentName: string]: GetEmpDto[] }> {
         try {
             const emps = await this.empModel

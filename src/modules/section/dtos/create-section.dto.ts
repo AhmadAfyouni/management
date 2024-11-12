@@ -1,10 +1,15 @@
-import { IsString, IsNotEmpty, IsMongoId } from 'class-validator';
+import { IsString, IsNotEmpty, IsMongoId, IsOptional } from 'class-validator';
 
 export class CreateSectionDto {
     @IsString()
     @IsNotEmpty()
     name: string;
 
+    @IsOptional()
     @IsMongoId()
-    project: string;
+    project?: string;
+
+    @IsOptional()
+    @IsMongoId()
+    department?: string;
 }
