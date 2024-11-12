@@ -64,6 +64,38 @@ export class TasksService {
         }
     }
 
+
+    async getAllTasks(): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+        try {
+            const tasks = await this.taskModel.find({})
+                .populate({
+                    path: "emp",
+                    model: "Emp",
+                    populate: [
+                        {
+                            path: "job_id",
+                            model: "JobTitles",
+                            populate: {
+                                path: "category",
+                                model: "JobCategory",
+                            },
+                        },
+                        {
+                            path: "department_id",
+                            model: "Department",
+                        }
+                    ],
+                })
+                .populate('section_id')
+                .populate('subtasks')
+                .populate("assignee")
+                .exec();
+            const tasksDto = tasks.map(task => new GetTaskDto(task));
+            return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
+        }
+    }
     async getTasksByDepartmentId(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
             const tasks = await this.taskModel.find({ department_id: departmentId })
@@ -87,6 +119,7 @@ export class TasksService {
                 })
                 .populate('section_id')
                 .populate('subtasks')
+                .populate("assignee")
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -108,6 +141,7 @@ export class TasksService {
                 })
                 .populate('section_id')
                 .populate('subtasks')
+                .populate("assignee")
                 .exec();
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
@@ -174,15 +208,18 @@ export class TasksService {
             })
             .populate('section_id')
             .populate('subtasks')
+            .populate("assignee")
             .lean()
             .exec();
         const taskDto = tasks.map((task) => new GetTaskDto(task));
         return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
     }
     async startTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
-        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId),
-             emp: userId,
-              status: TASK_STATUS.PENDING });
+        const task = await this.taskModel.findOne({
+            _id: new Types.ObjectId(taskId),
+            emp: userId,
+            status: TASK_STATUS.PENDING
+        });
         if (!task) throw new NotFoundException('Task not found or already completed');
 
         const lastLog = task.timeLogs[task.timeLogs.length - 1];
@@ -194,9 +231,11 @@ export class TasksService {
     }
 
     async pauseTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
-        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId), 
+        const task = await this.taskModel.findOne({
+            _id: new Types.ObjectId(taskId),
             emp: userId,
-             status: TASK_STATUS.PENDING });
+            status: TASK_STATUS.PENDING
+        });
         if (!task || !task.timeLogs.length || task.timeLogs[task.timeLogs.length - 1].end) {
             throw new BadRequestException('Task is not currently started or already paused');
         }
@@ -319,7 +358,30 @@ export class TasksService {
     }
 
     async getOnTestTask(department_id: string) {
-        const tasks = await this.taskModel.find({ department_id, status: TASK_STATUS.ON_TEST }).exec();
+        const tasks = await this.taskModel.find({ department_id, status: TASK_STATUS.ON_TEST })
+            .populate({
+                path: "emp",
+                model: "Emp",
+                populate: [
+                    {
+                        path: "job_id",
+                        model: "JobTitles",
+                        populate: {
+                            path: "category",
+                            model: "JobCategory",
+                        },
+                    },
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                ],
+            })
+            .populate('section_id')
+            .populate('subtasks')
+            .populate("assignee")
+            .lean()
+            .exec();
         return tasks;
     }
 }

@@ -14,6 +14,7 @@ export class GetTaskDto {
     files?: string[];
     is_over_due: boolean;
     section: any;
+    assignee: any;
     constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
@@ -27,5 +28,6 @@ export class GetTaskDto {
         this.files = task.files || [];
         this.is_over_due = task.due_date < new Date() && task.status !== TASK_STATUS.DONE;
         this.section = task.section_id;
+        this.assignee = task.assignee;
     }
 }

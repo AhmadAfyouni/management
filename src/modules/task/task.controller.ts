@@ -73,6 +73,13 @@ export class TasksController {
         return this.taskService.getEmpTasks(userId);
     }
 
+
+    @Roles(UserRole.ADMIN)
+    @Get("get-all-tasks")
+    async getAllTasks() {
+        return this.taskService.getAllTasks();
+    }
+
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
     @Post('update-status/:taskId')
@@ -120,7 +127,7 @@ export class TasksController {
     async getOnTestTasks(@GetDepartment() departmentId) {
         return this.taskService.getOnTestTask(departmentId);
     }
-    
+
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
     @Get('start/:taskId')
