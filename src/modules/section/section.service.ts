@@ -18,7 +18,7 @@ export class SectionService {
 
 
     async createInitialSections(departmentId?: string, projectId?: string): Promise<Section[]> {
-        const sectionsToCreate = ['Pending', 'Ongoing', 'On Test'];
+        const sectionsToCreate = ['Recently Assigned', 'This Week', 'Next Week', 'Later'];
         const createdSections: Section[] = [];
 
         for (const name of sectionsToCreate) {
@@ -39,9 +39,9 @@ export class SectionService {
         return createdSections;
     }
 
-    async getPendingSectionId(departmentId?: string, projectId?: string): Promise<string> {
+    async getRecentlySectionId(departmentId?: string, projectId?: string): Promise<string> {
         const query = {
-            name: 'Pending',
+            name: 'Recently Assigned',
             department: departmentId ?? null,
             project: projectId ?? null
         };

@@ -22,7 +22,7 @@ export class TasksService {
             throw new BadRequestException('Department ID is required');
         }
         await this.sectionService.createInitialSections(createTaskDto.department_id);
-        const section_id = await this.sectionService.getPendingSectionId(createTaskDto.department_id);
+        const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
         createTaskDto.section_id = section_id;
         const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
         const taskData = {
@@ -50,7 +50,7 @@ export class TasksService {
                 throw new BadRequestException('Employee ID is required');
             }
             await this.sectionService.createInitialSections(createTaskDto.department_id);
-            const section_id = await this.sectionService.getPendingSectionId(createTaskDto.department_id);
+            const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
             createTaskDto.section_id = section_id;
             const emp = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
             const task = new this.taskModel({
@@ -279,7 +279,7 @@ export class TasksService {
         const parentTask = await this.taskModel.findById(taskId);
         if (!parentTask) throw new NotFoundException('Parent task not found');
         await this.sectionService.createInitialSections(createTaskDto.department_id);
-        const section_id = await this.sectionService.getPendingSectionId(createTaskDto.department_id);
+        const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
         createTaskDto.section_id = section_id;
         const subtask = new this.taskModel({ ...createTaskDto, status: TASK_STATUS.PENDING });
         await subtask.save();
