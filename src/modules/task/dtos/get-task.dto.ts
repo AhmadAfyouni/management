@@ -15,6 +15,9 @@ export class GetTaskDto {
     is_over_due: boolean;
     section: any;
     assignee: any;
+    totalTimeSpent: any;
+    startTime: any;
+    timeLogs: any;
     constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
@@ -29,5 +32,8 @@ export class GetTaskDto {
         this.is_over_due = task.due_date < new Date() && task.status !== TASK_STATUS.DONE;
         this.section = task.section_id;
         this.assignee = task.assignee;
+        this.totalTimeSpent = task.totalTimeSpent;
+        this.startTime = task.startTime;
+        this.timeLogs = task.timeLogs;
     }
 }
