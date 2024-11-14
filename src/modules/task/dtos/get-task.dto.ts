@@ -20,7 +20,8 @@ export class GetTaskDto {
     startTime: any;
     timeLogs: any;
     subTasks: any;
-    parent_task: any
+    parent_task: any;
+    department: any;
     constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
@@ -40,5 +41,6 @@ export class GetTaskDto {
         this.timeLogs = task.timeLogs;
         this.subTasks = task.subtasks;
         this.parent_task = task.parent_task;
+        this.department= task.department_id || undefined
     }
 }

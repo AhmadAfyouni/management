@@ -103,6 +103,7 @@ export class TasksService {
                     ],
                 })
                 .populate('section_id')
+                .populate("department_id")
                 .populate("assignee")
                 .populate({
                     path: 'subtasks',
@@ -138,7 +139,7 @@ export class TasksService {
                 }).lean()
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
-            return { status: true, message: 'Tasks retrieved successfully', data: tasks };
+            return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
         }
