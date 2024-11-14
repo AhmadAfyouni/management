@@ -39,7 +39,7 @@ export class SectionService {
         return createdSections;
     }
 
-    async getRecentlySectionId(departmentId?: string, projectId?: string): Promise<string> {
+    async getRecentlySectionId(departmentId?: string | null, projectId?: string): Promise<string> {
         const query = {
             name: 'Recently Assigned',
             department: departmentId ?? null,

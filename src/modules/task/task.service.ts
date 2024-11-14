@@ -43,7 +43,9 @@ export class TasksService {
             throw new BadRequestException('Project ID is required');
         }
         const project = await this.projectService.getProjectById(createTaskDto.project_id);
-
+        await this.sectionService.createInitialSections(undefined, createTaskDto.project_id);
+        const section_id = await this.sectionService.getRecentlySectionId(null, createTaskDto.project_id);
+        createTaskDto.section_id = section_id;
         if (!project) {
             throw new NotFoundException('Project not found');
         }
