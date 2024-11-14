@@ -7,7 +7,7 @@ export class GetTaskDto {
     name: string;
     description: string;
     priority: number;
-    emp?: GetEmpDto;
+    emp?: GetEmpDto | null;
     status: TASK_STATUS;
     createdAt: Date;
     updatedAt: Date;
@@ -26,7 +26,7 @@ export class GetTaskDto {
         this.name = task.name;
         this.description = task.description;
         this.priority = task.priority;
-        this.emp = new GetEmpDto(task.emp);
+        this.emp = task.emp ? new GetEmpDto(task.emp) : null;
         this.status = task.status;
         this.createdAt = task.createdAt;
         this.updatedAt = task.updatedAt;

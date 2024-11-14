@@ -7,6 +7,7 @@ import { ProjectService } from '../project/project.service';
 import { SectionService } from '../section/section.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
 import { GetTaskDto } from './dtos/get-task.dto';
+import { UpdateTaskDto } from './dtos/update-task.dto';
 import { TASK_STATUS } from './enums/task-status.enum';
 import { Task, TaskDocument } from './schema/task.schema';
 
@@ -80,7 +81,7 @@ export class TasksService {
     }
 
 
-    async getAllTasks(): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+    async getAllTasks(): Promise<{ status: boolean, message: string, data: any[] }> {
         try {
             const tasks = await this.taskModel.find({})
                 .populate({
@@ -137,7 +138,7 @@ export class TasksService {
                 }).lean()
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
-            return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
+            return { status: true, message: 'Tasks retrieved successfully', data: tasks };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
         }
@@ -250,8 +251,11 @@ export class TasksService {
         }
     }
 
-    async updateTask(id: string, updateTaskDto: any): Promise<{ status: boolean, message: string }> {
+    async updateTask(id: string, updateTaskDto: UpdateTaskDto): Promise<{ status: boolean, message: string }> {
         try {
+            if (updateTaskDto.section_id) {
+
+            }
             const updatedTask = await this.taskModel.findByIdAndUpdate(id, updateTaskDto, { new: true }).exec();
             if (!updatedTask) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
