@@ -20,7 +20,7 @@ export class ProjectService {
 
 
     async getContributorsProject(projectId: string) {
-        const project = await this.projectModel.findById(parseObject(projectId)).populate("members").lean().exec();
+        const project = await this.projectModel.findById(parseObject(projectId)).populate("members sections departments").lean().exec();
         const deparmentsId = project?.departments;
         const members = project?.members;
         let mangers;
@@ -31,7 +31,7 @@ export class ProjectService {
     }
 
     async getAllProject() {
-        return await this.projectModel.find().populate('sections').exec();
+        return await this.projectModel.find().populate('members sections departments').exec();
     }
     async createProject(createProjectDto: CreateProjectDto): Promise<Project> {
         try {
@@ -58,11 +58,11 @@ export class ProjectService {
     }
 
     async getProjectsByDepartment(departmentId: string): Promise<Project[]> {
-        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('sections').exec();
+        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members sections departments').exec();
     }
 
     async getProjectById(id: string): Promise<Project> {
-        const project = await this.projectModel.findById(parseObject(id)).populate('sections').exec();
+        const project = await this.projectModel.findById(parseObject(id)).populate('members sections departments').exec();
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
