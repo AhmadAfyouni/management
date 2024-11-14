@@ -166,6 +166,7 @@ export class TasksService {
                     ],
                 })
                 .populate('section_id')
+                .populate("department_id")
                 .populate("assignee")
                 .populate({
                     path: 'subtasks',
@@ -219,6 +220,7 @@ export class TasksService {
                     },
                 })
                 .populate('section_id')
+                .populate("department_id")
                 .populate("assignee")
                 .populate({
                     path: 'subtasks',
@@ -307,6 +309,7 @@ export class TasksService {
             })
             .populate('section_id')
             .populate("assignee")
+            .populate("department_id")
             .populate({
                 path: 'subtasks',
                 model: "Task",
