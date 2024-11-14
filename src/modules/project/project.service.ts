@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { parseObject } from 'src/helper/parse-object';
+import { DepartmentService } from '../department/depratment.service';
+import { EmpService } from '../emp/emp.service';
+import { EmpDocument } from '../emp/schemas/emp.schema';
+import { SectionService } from '../section/section.service';
 import { CreateProjectDto } from './dtos/create-project.dto';
 import { UpdateProjectDto } from './dtos/update-project.dto';
 import { Project, ProjectDocument } from './schema/project.schema';
@@ -9,8 +14,25 @@ import { Project, ProjectDocument } from './schema/project.schema';
 export class ProjectService {
     constructor(
         @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
+        private readonly empService: EmpService,
+        private readonly sectionService: SectionService,
     ) { }
 
+
+    async getContributorsProject(projectId: string) {
+        const project = await this.projectModel.findById(parseObject(projectId)).populate("members").lean().exec();
+        const deparmentsId = project?.departments;
+        const members = project?.members;
+        let mangers;
+        if (deparmentsId) {
+            mangers = deparmentsId.map(async (department) => await this.empService.findManagerByDepartment(department.toString()));
+        }
+        return { mangers, members }
+    }
+
+    async getAllProject() {
+        return await this.projectModel.find().populate('sections').exec();
+    }
     async createProject(createProjectDto: CreateProjectDto): Promise<Project> {
         try {
             const parsedStartDate = new Date(createProjectDto.startDate.replace(/-/g, '/'));
@@ -26,7 +48,9 @@ export class ProjectService {
                 endDate: parsedEndDate,
             };
 
-            const project = new this.projectModel(projectData);
+            const project = new this.projectModel(projectData) as any;
+            const sections = await this.sectionService.createInitialSections(undefined, project._id.toString());
+            project.sections = sections.map(section => section._id);
             return await project.save();
         } catch (error) {
             throw new BadRequestException(error.message || 'Failed to create project');
@@ -38,11 +62,19 @@ export class ProjectService {
     }
 
     async getProjectById(id: string): Promise<Project> {
-        const project = await this.projectModel.findById(id).populate('sections').exec();
+        const project = await this.projectModel.findById(parseObject(id)).populate('sections').exec();
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
         return project;
+    }
+
+    async getEmpProject(empId: string) {
+        return await this.projectModel.find({ members: { $in: empId } }).populate('members sections departments').lean().exec();
+    }
+
+    async getManagerProject(departmentId: string) {
+        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members sections departments').lean().exec();
     }
 
     async updateProject(id: string, updateProjectDto: UpdateProjectDto): Promise<Project> {

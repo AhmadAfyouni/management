@@ -22,8 +22,8 @@ export class Task {
     @Prop({ enum: PRIORITY_TYPE, required: true, default: PRIORITY_TYPE.LOW })
     priority: PRIORITY_TYPE;
 
-    @Prop({ type: Types.ObjectId, required: true, ref: Emp.name })
-    emp: Types.ObjectId;
+    @Prop({ type: Types.ObjectId,ref: Emp.name })
+    emp?: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: Emp.name, required: false })
     assignee?: Types.ObjectId;
@@ -52,8 +52,8 @@ export class Task {
     @Prop({ type: Number, default: 1 })
     intervalInDays?: number;
 
-    @Prop({ type: Types.ObjectId, required: true, ref: Department.name })
-    department_id: Types.ObjectId;
+    @Prop({ type: Types.ObjectId, ref: Department.name })
+    department_id?: Types.ObjectId;
 
 
     @Prop({ type: Types.ObjectId, ref: Project.name })
@@ -74,6 +74,8 @@ export class Task {
     @Prop({ type: [{ start: Date, end: Date }], default: [] })
     timeLogs: { start: Date; end?: Date }[];
 
+    @Prop({ type: Types.ObjectId, ref: Task.name, default: null })
+    parent_task?: Types.ObjectId;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

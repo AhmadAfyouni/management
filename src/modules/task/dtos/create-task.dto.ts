@@ -12,7 +12,6 @@ export class CreateTaskDto {
     @IsNotEmpty()
     description: string;
 
-
     @IsEnum(PRIORITY_TYPE)
     @IsString()
     priority: PRIORITY_TYPE;
@@ -20,6 +19,10 @@ export class CreateTaskDto {
     @IsMongoId()
     @IsOptional()
     emp?: string;
+
+    @IsMongoId()
+    @IsOptional()
+    project_id?: string;
 
     @IsMongoId()
     @IsOptional()

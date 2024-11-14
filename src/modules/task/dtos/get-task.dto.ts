@@ -1,5 +1,6 @@
 import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
 import { TASK_STATUS } from '../enums/task-status.enum';
+import { TaskDocument } from '../schema/task.schema';
 
 export class GetTaskDto {
     id: string;
@@ -18,6 +19,7 @@ export class GetTaskDto {
     totalTimeSpent: any;
     startTime: any;
     timeLogs: any;
+    subTasks: any;
     constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
@@ -35,5 +37,6 @@ export class GetTaskDto {
         this.totalTimeSpent = task.totalTimeSpent;
         this.startTime = task.startTime;
         this.timeLogs = task.timeLogs;
+        this.subTasks = task.subtasks;
     }
 }

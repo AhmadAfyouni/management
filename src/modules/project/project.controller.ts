@@ -1,15 +1,27 @@
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dtos/create-project.dto';
 import { UpdateProjectDto } from './dtos/update-project.dto';
+import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/role.decorator';
+import { UserRole } from 'src/config/role.enum';
 
+
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('projects')
 export class ProjectController {
-    constructor(private readonly projectService: ProjectService) {}
+    constructor(private readonly projectService: ProjectService) { }
 
     @Post()
     async createProject(@Body() createProjectDto: CreateProjectDto) {
         return this.projectService.createProject(createProjectDto);
+    }
+
+    @Get('get-contributors-project/:projectId')
+    async getContributorsProject(@Param('projectId') projectId: string) {
+        return this.projectService.getContributorsProject(projectId);
     }
 
     @Get('department/:departmentId')
@@ -17,12 +29,29 @@ export class ProjectController {
         return this.projectService.getProjectsByDepartment(departmentId);
     }
 
-    @Get(':id')
+    @Get('get-project-by-id/:id')
     async getProjectById(@Param('id') id: string) {
         return this.projectService.getProjectById(id);
     }
 
-    @Put(':id')
+    @Get('get-all-projects')
+    async getAllProject() {
+        return this.projectService.getAllProject();
+    }
+
+    @Get('get-emp-project')
+    async getEmpProject(@GetAccount() accountId) {
+        return await this.projectService.getEmpProject(accountId);
+    }
+
+
+    @Roles(UserRole.PRIMARY_USER)
+    @Get('get-manager-project')
+    async getMyProject(@GetDepartment() departmentId) {
+        return await this.projectService.getManagerProject(departmentId);
+    }
+
+    @Post('update/:id')
     async updateProject(
         @Param('id') id: string,
         @Body() updateProjectDto: UpdateProjectDto

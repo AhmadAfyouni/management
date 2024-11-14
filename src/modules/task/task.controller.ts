@@ -32,6 +32,14 @@ export class TasksController {
     }
 
     @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_ADD)
+    @Post('create-task-project/:projectId')
+    async createTaskForProject(@Body() createTaskDto: CreateTaskDto, @GetAccount() userId,@Param("projectId") projectId) {
+        createTaskDto.assignee = userId;
+        createTaskDto.project_id = projectId;
+        return this.taskService.createTaskForProject(createTaskDto);
+    }
+    @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get("get-my-dept-tasks")
     async getMyDeptTasks(@GetDepartment() departmentId) {

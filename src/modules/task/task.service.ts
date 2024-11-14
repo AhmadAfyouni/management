@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EmpService } from '../emp/emp.service';
 import { JobTitlesService } from '../job-titles/job-titles.service';
+import { ProjectService } from '../project/project.service';
 import { SectionService } from '../section/section.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
 import { GetTaskDto } from './dtos/get-task.dto';
@@ -15,6 +16,7 @@ export class TasksService {
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
         private readonly empService: EmpService,
         private readonly sectionService: SectionService,
+        private readonly projectService: ProjectService
     ) { }
 
     async createTaskForDepartment(createTaskDto: CreateTaskDto) {
@@ -32,6 +34,19 @@ export class TasksService {
         };
 
         const task = new this.taskModel(taskData);
+        return await task.save();
+    }
+
+    async createTaskForProject(createTaskDto: CreateTaskDto) {
+        if (!createTaskDto.project_id) {
+            throw new BadRequestException('Project ID is required');
+        }
+        const project = await this.projectService.getProjectById(createTaskDto.project_id);
+
+        if (!project) {
+            throw new NotFoundException('Project not found');
+        }
+        const task = new this.taskModel(createTaskDto);
         return await task.save();
     }
 
@@ -87,8 +102,39 @@ export class TasksService {
                     ],
                 })
                 .populate('section_id')
-                .populate('subtasks')
                 .populate("assignee")
+                .populate({
+                    path: 'subtasks',
+                    model: "Task",
+                    populate: [
+                        {
+                            path: "department_id",
+                            model: "Department",
+                        },
+                        {
+                            path: "assignee",
+                            model: "Emp",
+                        },
+                        {
+                            path: "emp",
+                            model: "Emp",
+                            populate: [
+                                {
+                                    path: "job_id",
+                                    model: "JobTitles",
+                                    populate: {
+                                        path: "category",
+                                        model: "JobCategory",
+                                    },
+                                },
+                                {
+                                    path: "department_id",
+                                    model: "Department",
+                                }
+                            ],
+                        }
+                    ],
+                }).lean()
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -118,8 +164,39 @@ export class TasksService {
                     ],
                 })
                 .populate('section_id')
-                .populate('subtasks')
                 .populate("assignee")
+                .populate({
+                    path: 'subtasks',
+                    model: "Task",
+                    populate: [
+                        {
+                            path: "department_id",
+                            model: "Department",
+                        },
+                        {
+                            path: "assignee",
+                            model: "Emp",
+                        },
+                        {
+                            path: "emp",
+                            model: "Emp",
+                            populate: [
+                                {
+                                    path: "job_id",
+                                    model: "JobTitles",
+                                    populate: {
+                                        path: "category",
+                                        model: "JobCategory",
+                                    },
+                                },
+                                {
+                                    path: "department_id",
+                                    model: "Department",
+                                }
+                            ],
+                        }
+                    ],
+                }).lean()
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -140,8 +217,25 @@ export class TasksService {
                     },
                 })
                 .populate('section_id')
-                .populate('subtasks')
                 .populate("assignee")
+                .populate({
+                    path: 'subtasks',
+                    model: "Task",
+                    populate: [
+                        {
+                            path: "department_id",
+                            model: "Department",
+                        },
+                        {
+                            path: "assignee",
+                            model: "Emp",
+                        },
+                        {
+                            path: "emp",
+                            model: "Emp"
+                        }
+                    ],
+                }).lean()
                 .exec();
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
@@ -207,8 +301,25 @@ export class TasksService {
                 ],
             })
             .populate('section_id')
-            .populate('subtasks')
             .populate("assignee")
+            .populate({
+                path: 'subtasks',
+                model: "Task",
+                populate: [
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                    {
+                        path: "assignee",
+                        model: "Emp",
+                    },
+                    {
+                        path: "emp",
+                        model: "Emp",
+                    }
+                ],
+            }).lean()
             .lean()
             .exec();
         const taskDto = tasks.map((task) => new GetTaskDto(task));
@@ -281,11 +392,10 @@ export class TasksService {
         await this.sectionService.createInitialSections(createTaskDto.department_id);
         const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
         createTaskDto.section_id = section_id;
-        const subtask = new this.taskModel({ ...createTaskDto, status: TASK_STATUS.PENDING });
+        const subtask = new this.taskModel({ ...createTaskDto, status: TASK_STATUS.PENDING, parent_task: parentTask._id.toString() });
         await subtask.save();
         parentTask.subtasks.push(subtask._id);
         await parentTask.save();
-
         return { status: true, message: 'Subtask added successfully', data: subtask };
     }
 
@@ -340,7 +450,24 @@ export class TasksService {
         const weeklyTasks = await this.taskModel.find({
             emp: userId,
             createdAt: { $gte: startOfWeek, $lte: today },
-        }).exec();
+        }).populate({
+            path: 'subtasks',
+            model: "Task",
+            populate: [
+                {
+                    path: "department_id",
+                    model: "Department",
+                },
+                {
+                    path: "assignee",
+                    model: "Emp",
+                },
+                {
+                    path: "emp",
+                    model: "Emp",
+                }
+            ],
+        }).lean().exec();
 
         return { status: true, message: 'Weekly tasks retrieved successfully', data: weeklyTasks };
     }
@@ -352,7 +479,24 @@ export class TasksService {
         const monthlyTasks = await this.taskModel.find({
             emp: userId,
             createdAt: { $gte: startOfMonth, $lte: today },
-        }).exec();
+        }).populate({
+            path: 'subtasks',
+            model: "Task",
+            populate: [
+                {
+                    path: "department_id",
+                    model: "Department",
+                },
+                {
+                    path: "assignee",
+                    model: "Emp",
+                },
+                {
+                    path: "emp",
+                    model: "Emp",
+                }
+            ],
+        }).lean().exec();
 
         return { status: true, message: 'Monthly tasks retrieved successfully', data: monthlyTasks };
     }
@@ -378,8 +522,25 @@ export class TasksService {
                 ],
             })
             .populate('section_id')
-            .populate('subtasks')
             .populate("assignee")
+            .populate({
+                path: 'subtasks',
+                model: "Task",
+                populate: [
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                    {
+                        path: "assignee",
+                        model: "Emp",
+                    },
+                    {
+                        path: "emp",
+                        model: "Emp",
+                    }
+                ],
+            }).lean()
             .lean()
             .exec();
         return tasks;

@@ -9,6 +9,8 @@ export class CreateProjectDto {
     @IsNotEmpty()
     description: string;
 
+
+    @IsOptional()
     @IsArray()
     @IsMongoId({ each: true })
     departments: string[];

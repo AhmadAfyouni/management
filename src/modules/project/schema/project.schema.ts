@@ -11,7 +11,7 @@ export class Project {
     @Prop({ required: true })
     description: string;
 
-    @Prop({ type: [Types.ObjectId], ref: "Department", required: true })
+    @Prop({ type: [Types.ObjectId], ref: "Department", default: [] })
     departments: Types.ObjectId[];
 
     @Prop({ type: [Types.ObjectId], ref: 'Section', default: [] })
@@ -20,10 +20,10 @@ export class Project {
     @Prop({ type: [Types.ObjectId], ref: 'Emp', default: [] })
     members: Types.ObjectId[];
 
-    @Prop({ type: Date, required: true }) 
+    @Prop({ type: Date, required: true })
     startDate: Date;
 
-    @Prop({ type: Date, required: true }) 
+    @Prop({ type: Date, required: true })
     endDate: Date;
 }
 
