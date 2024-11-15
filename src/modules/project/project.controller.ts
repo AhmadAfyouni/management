@@ -44,7 +44,6 @@ export class ProjectController {
         return await this.projectService.getEmpProject(accountId);
     }
 
-
     @Roles(UserRole.PRIMARY_USER)
     @Get('get-manager-project')
     async getMyProject(@GetDepartment() departmentId) {

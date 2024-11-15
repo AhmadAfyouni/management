@@ -2,10 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
-import { DepartmentService } from '../department/depratment.service';
 import { EmpService } from '../emp/emp.service';
-import { EmpDocument } from '../emp/schemas/emp.schema';
-import { SectionService } from '../section/section.service';
 import { CreateProjectDto } from './dtos/create-project.dto';
 import { UpdateProjectDto } from './dtos/update-project.dto';
 import { Project, ProjectDocument } from './schema/project.schema';
@@ -15,12 +12,11 @@ export class ProjectService {
     constructor(
         @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
         private readonly empService: EmpService,
-        private readonly sectionService: SectionService,
     ) { }
 
 
     async getContributorsProject(projectId: string) {
-        const project = await this.projectModel.findById(parseObject(projectId)).populate("members sections departments").lean().exec();
+        const project = await this.projectModel.findById(parseObject(projectId)).populate("members  departments").lean().exec();
         const deparmentsId = project?.departments;
         const members = project?.members;
         let mangers;
@@ -31,7 +27,7 @@ export class ProjectService {
     }
 
     async getAllProject() {
-        return await this.projectModel.find().populate('members sections departments').exec();
+        return await this.projectModel.find().populate('members  departments').exec();
     }
     async createProject(createProjectDto: CreateProjectDto): Promise<Project> {
         try {
@@ -49,8 +45,6 @@ export class ProjectService {
             };
 
             const project = new this.projectModel(projectData) as any;
-            const sections = await this.sectionService.createInitialSections(undefined, project._id.toString());
-            project.sections = sections.map(section => section._id);
             return await project.save();
         } catch (error) {
             throw new BadRequestException(error.message || 'Failed to create project');
@@ -58,11 +52,11 @@ export class ProjectService {
     }
 
     async getProjectsByDepartment(departmentId: string): Promise<Project[]> {
-        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members sections departments').exec();
+        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members  departments').exec();
     }
 
     async getProjectById(id: string): Promise<Project> {
-        const project = await this.projectModel.findById(parseObject(id)).populate('members sections departments').exec();
+        const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').exec();
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
@@ -70,11 +64,11 @@ export class ProjectService {
     }
 
     async getEmpProject(empId: string) {
-        return await this.projectModel.find({ members: { $in: empId } }).populate('members sections departments').lean().exec();
+        return await this.projectModel.find({ members: { $in: empId } }).populate('members  departments').lean().exec();
     }
 
     async getManagerProject(departmentId: string) {
-        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members sections departments').lean().exec();
+        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members  departments').lean().exec();
     }
 
     async updateProject(id: string, updateProjectDto: UpdateProjectDto): Promise<Project> {
@@ -96,6 +90,7 @@ export class ProjectService {
                 }
                 updateFields.startDate = parsedStartDate;
             }
+
 
             if (updateProjectDto.endDate) {
                 const parsedEndDate = new Date(updateProjectDto.endDate.replace(/-/g, '/'));
