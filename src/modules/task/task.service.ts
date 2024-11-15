@@ -289,6 +289,52 @@ export class TasksService {
         }
     }
 
+    async getProjectTasks(projectId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
+        const tasks = await this.taskModel.find({ project_id: projectId })
+            .populate({
+                path: "emp",
+                model: "Emp",
+                populate: [
+                    {
+                        path: "job_id",
+                        model: "JobTitles",
+                        populate: {
+                            path: "category",
+                            model: "JobCategory",
+                        },
+                    },
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                ],
+            })
+            .populate('section_id')
+            .populate("assignee")
+            .populate("department_id")
+            .populate({
+                path: 'subtasks',
+                model: "Task",
+                populate: [
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                    {
+                        path: "assignee",
+                        model: "Emp",
+                    },
+                    {
+                        path: "emp",
+                        model: "Emp",
+                    }
+                ],
+            }).lean()
+            .lean()
+            .exec();
+        const taskDto = tasks.map((task) => new GetTaskDto(task));
+        return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
+    }
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
         const tasks = await this.taskModel.find({ emp: empId })
             .populate({

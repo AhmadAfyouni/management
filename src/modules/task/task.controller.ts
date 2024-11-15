@@ -81,6 +81,14 @@ export class TasksController {
     }
 
 
+
+    @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
+    @Get("get-project-tasks/:projectId")
+    async getProjectTasks(@Param("projectId") projectId) {
+        return this.taskService.getProjectTasks(projectId);
+    }
+
     @Roles(UserRole.ADMIN)
     @Get("get-all-tasks")
     async getAllTasks() {
