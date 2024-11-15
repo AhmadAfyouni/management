@@ -498,7 +498,7 @@ export class TasksService {
         return { status: true, message: 'Task description updated successfully' };
     }
 
-    async getWeeklyTasks(userId: string): Promise<{ status: boolean, message: string, data: TaskDocument[] }> {
+    async getWeeklyTasks(userId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         const today = new Date();
         const startOfWeek = new Date(today);
         startOfWeek.setDate(today.getDate() - today.getDay());
@@ -507,28 +507,52 @@ export class TasksService {
             emp: userId,
             createdAt: { $gte: startOfWeek, $lte: today },
         }).populate({
-            path: 'subtasks',
-            model: "Task",
+            path: "emp",
+            model: "Emp",
             populate: [
+                {
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory",
+                    },
+                },
                 {
                     path: "department_id",
                     model: "Department",
                 },
-                {
-                    path: "assignee",
-                    model: "Emp",
-                },
-                {
-                    path: "emp",
-                    model: "Emp",
-                }
             ],
-        }).lean().exec();
+        })
+            .populate('section_id')
+            .populate("assignee")
+            .populate("department_id")
+            .populate({
+                path: 'subtasks',
+                model: "Task",
+                populate: [
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                    {
+                        path: "assignee",
+                        model: "Emp",
+                    },
+                    {
+                        path: "emp",
+                        model: "Emp",
+                    }
+                ],
+            }).lean()
+            .lean()
+            .exec();
+        const taskDto = weeklyTasks.map((task) => new GetTaskDto(task));
 
-        return { status: true, message: 'Weekly tasks retrieved successfully', data: weeklyTasks };
+        return { status: true, message: 'Weekly tasks retrieved successfully', data: taskDto };
     }
 
-    async getMonthlyTasks(userId: string): Promise<{ status: boolean, message: string, data: TaskDocument[] }> {
+    async getMonthlyTasks(userId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         const today = new Date();
         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
@@ -536,25 +560,49 @@ export class TasksService {
             emp: userId,
             createdAt: { $gte: startOfMonth, $lte: today },
         }).populate({
-            path: 'subtasks',
-            model: "Task",
+            path: "emp",
+            model: "Emp",
             populate: [
+                {
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory",
+                    },
+                },
                 {
                     path: "department_id",
                     model: "Department",
                 },
-                {
-                    path: "assignee",
-                    model: "Emp",
-                },
-                {
-                    path: "emp",
-                    model: "Emp",
-                }
             ],
-        }).lean().exec();
+        })
+            .populate('section_id')
+            .populate("assignee")
+            .populate("department_id")
+            .populate({
+                path: 'subtasks',
+                model: "Task",
+                populate: [
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                    {
+                        path: "assignee",
+                        model: "Emp",
+                    },
+                    {
+                        path: "emp",
+                        model: "Emp",
+                    }
+                ],
+            }).lean()
+            .lean()
+            .exec();
+        const taskDto = monthlyTasks.map((task) => new GetTaskDto(task));
 
-        return { status: true, message: 'Monthly tasks retrieved successfully', data: monthlyTasks };
+        return { status: true, message: 'Monthly tasks retrieved successfully', data: taskDto };
     }
 
     async getOnTestTask(department_id: string) {
@@ -599,6 +647,8 @@ export class TasksService {
             }).lean()
             .lean()
             .exec();
-        return tasks;
+        const taskDto = tasks.map((task) => new GetTaskDto(task));
+
+        return taskDto;
     }
 }
