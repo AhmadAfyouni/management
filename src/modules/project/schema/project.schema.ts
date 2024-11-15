@@ -14,9 +14,6 @@ export class Project {
     @Prop({ type: [Types.ObjectId], ref: "Department", default: [] })
     departments: Types.ObjectId[];
 
-    @Prop({ type: [Types.ObjectId], ref: 'Section', default: [] })
-    sections: Types.ObjectId[];
-
     @Prop({ type: [Types.ObjectId], ref: 'Emp', default: [] })
     members: Types.ObjectId[];
 

@@ -63,19 +63,22 @@ export class TasksService {
 
     async createTaskForEmp(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         try {
+            console.log(createTaskDto);
             if (!createTaskDto.emp) {
                 throw new BadRequestException('Employee ID is required');
             }
-            const emp = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
-            if (!emp) {
-                throw new NotFoundException('Employee not found');
+            const departmentId = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
+            if (!departmentId) {
+                throw new NotFoundException('Department Id not found for this employee');
             }
-            await this.sectionService.createInitialSections(emp.department_id.toString());
-            const section_id = await this.sectionService.getRecentlySectionId(emp.department_id.toString());
+            console.log(departmentId);
+            
+            await this.sectionService.createInitialSections(departmentId);
+            const section_id = await this.sectionService.getRecentlySectionId(departmentId);
             createTaskDto.section_id = section_id;
             const task = new this.taskModel({
                 ...createTaskDto,
-                department_id: emp?.department_id,
+                department_id: departmentId,
             });
             await task.save();
             return { status: true, message: 'Task created successfully', data: task };

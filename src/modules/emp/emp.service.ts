@@ -10,6 +10,7 @@ import { UpdateEmpDto } from './dto/update-emp.dto';
 import { JobTitlesService } from '../job-titles/job-titles.service';
 import { UserRole } from 'src/config/role.enum';
 import { ConflictException } from '@nestjs/common/exceptions';
+import { parseObject } from 'src/helper/parse-object';
 
 @Injectable()
 export class EmpService {
@@ -210,10 +211,10 @@ export class EmpService {
     }
 
 
-    async findDepartmentIdByEmpId(id: string): Promise<EmpDocument | null> {
+    async findDepartmentIdByEmpId(id: string) {
         try {
-            const emp = await this.empModel.findById(id).lean().exec();
-            return emp;
+            const emp = await this.empModel.findById(parseObject(id)).lean().exec();
+            return emp?.department_id.toString();
         } catch (error) {
             throw new InternalServerErrorException('Failed to find employee by ID', error.message);
         }

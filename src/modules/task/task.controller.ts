@@ -20,6 +20,7 @@ export class TasksController {
     @Post('create')
     async createTask(@Body() createTaskDto: CreateTaskDto, @GetAccount() userId) {
         createTaskDto.assignee = userId;
+        console.log(createTaskDto);
         return this.taskService.createTaskForEmp(createTaskDto);
     }
 
