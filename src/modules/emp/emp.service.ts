@@ -195,7 +195,11 @@ export class EmpService {
         try {
             const emp = await this.empModel.findById(id).populate({
                 path: "job_id",
-                model: "JobTitles"
+                model: "JobTitles",
+                populate: {
+                    path: "category",
+                    model: "JobCategory"
+                }
             }).populate({
                 path: "department_id",
                 model: "Department",
