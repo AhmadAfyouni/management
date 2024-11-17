@@ -71,7 +71,7 @@ export class AuthService {
             }
             return this.login(user);
         } catch (error) {
-            throw new UnauthorizedException('Invalid refresh token');
+            throw new UnauthorizedException(' ');
         }
     }
 

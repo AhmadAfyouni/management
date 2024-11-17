@@ -1,8 +1,10 @@
 import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { parseObject } from 'src/helper/parse-object';
 import { CreateJobCategoryDto } from './dtos/create-category.dto';
 import { GetJobCategoryDto } from './dtos/get-category.dto';
+import { UpdateCategoryDto } from './dtos/update-category.dto';
 import { JobCategory, JobCategoryDocument } from './schemas/job-category.schema';
 
 @Injectable()
@@ -19,7 +21,10 @@ export class JobCategoryService {
             throw new InternalServerErrorException('Failed to create job category', error.message);
         }
     }
-
+    async update(id: string, updateJobCategoryDto: UpdateCategoryDto) {
+        const updatedCategory = await this.jobCategoryModel.findByIdAndUpdate(parseObject(id), updateJobCategoryDto, { new: true }).exec();
+        return updatedCategory;
+    }
     async findAll(): Promise<GetJobCategoryDto[]> {
         try {
             const categories = await this.jobCategoryModel.find().lean().exec();
@@ -55,16 +60,16 @@ export class JobCategoryService {
 
     async findUniqueEducationAndExperience(): Promise<{ requiredEducation: string[], requiredExperience: string[] }> {
         try {
-          const requiredEducation = await this.jobCategoryModel.distinct('required_education').exec();
-          const requiredExperience = await this.jobCategoryModel.distinct('required_experience').exec();
-          
-          return {
-            requiredEducation,
-            requiredExperience,
-          };
+            const requiredEducation = await this.jobCategoryModel.distinct('required_education').exec();
+            const requiredExperience = await this.jobCategoryModel.distinct('required_experience').exec();
+
+            return {
+                requiredEducation,
+                requiredExperience,
+            };
         } catch (error) {
-          throw new InternalServerErrorException('Failed to retrieve unique education and experience levels', error.message);
+            throw new InternalServerErrorException('Failed to retrieve unique education and experience levels', error.message);
         }
-      }
-    
+    }
+
 }
