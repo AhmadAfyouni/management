@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { parseObject } from 'src/helper/parse-object';
 import { EmpService } from '../emp/emp.service';
 import { JobTitlesService } from '../job-titles/job-titles.service';
 import { ProjectService } from '../project/project.service';
@@ -72,7 +73,7 @@ export class TasksService {
                 throw new NotFoundException('Department Id not found for this employee');
             }
             console.log(departmentId);
-            
+
             await this.sectionService.createInitialSections(departmentId);
             const section_id = await this.sectionService.getRecentlySectionId(departmentId);
             createTaskDto.section_id = section_id;
@@ -261,15 +262,32 @@ export class TasksService {
         }
     }
 
-    async updateTask(id: string, updateTaskDto: UpdateTaskDto): Promise<{ status: boolean, message: string }> {
+    async updateTask(
+        id: string,
+        updateTaskDto: UpdateTaskDto
+    ): Promise<{ status: boolean; message: string }> {
         try {
             if (updateTaskDto.section_id) {
-
+                const subTasks = await this.getSubTasksByParentTask(id);
+                await Promise.all(
+                    subTasks?.map(async (task) => {
+                        task.section_id = updateTaskDto.section_id as any;
+                        const updatedSubTask = await task.save();
+                        if (!updatedSubTask) {
+                            throw new NotFoundException(`Subtask with ID ${task._id} not found`);
+                        }
+                    })
+                );
             }
-            const updatedTask = await this.taskModel.findByIdAndUpdate(id, updateTaskDto, { new: true }).exec();
+
+            const updatedTask = await this.taskModel
+                .findByIdAndUpdate(id, updateTaskDto, { new: true })
+                .exec();
+
             if (!updatedTask) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
+
             return { status: true, message: 'Task updated successfully' };
         } catch (error) {
             if (error instanceof NotFoundException) {
@@ -278,7 +296,7 @@ export class TasksService {
             throw new InternalServerErrorException('Failed to update task', error.message);
         }
     }
-
+    
     async deleteTask(id: string): Promise<{ status: boolean, message: string }> {
         try {
             const result = await this.taskModel.findByIdAndDelete(id).exec();
@@ -340,6 +358,7 @@ export class TasksService {
         const taskDto = tasks.map((task) => new GetTaskDto(task));
         return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
     }
+
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
         const tasks = await this.taskModel.find({ emp: empId })
             .populate({
@@ -386,6 +405,7 @@ export class TasksService {
         const taskDto = tasks.map((task) => new GetTaskDto(task));
         return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
     }
+
     async startTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
         const task = await this.taskModel.findOne({
             _id: new Types.ObjectId(taskId),
@@ -436,7 +456,6 @@ export class TasksService {
         return { status: true, message: 'Task completed successfully', finalTime: task.totalTimeSpent };
     }
 
-
     async markAsComplete(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
         const task = await this.taskModel.findOne({ _id: taskId, emp: userId });
         if (!task) throw new NotFoundException('Task not found');
@@ -450,14 +469,18 @@ export class TasksService {
     async addSubtask(taskId: string, createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         const parentTask = await this.taskModel.findById(taskId);
         if (!parentTask) throw new NotFoundException('Parent task not found');
-        await this.sectionService.createInitialSections(createTaskDto.department_id);
-        const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
-        createTaskDto.section_id = section_id;
+        createTaskDto.section_id = parentTask.section_id as any;
+        createTaskDto.department_id = parentTask.department_id as any;
         const subtask = new this.taskModel({ ...createTaskDto, status: TASK_STATUS.PENDING, parent_task: parentTask._id.toString() });
         await subtask.save();
         parentTask.subtasks.push(subtask._id);
         await parentTask.save();
         return { status: true, message: 'Subtask added successfully', data: subtask };
+    }
+
+    async getSubTasksByParentTask(parent_id: string): Promise<TaskDocument[]> {
+        const subTasks = await this.taskModel.find({ parent_task: parent_id }).exec();
+        return subTasks;
     }
 
     async updateTaskStatus(taskId: string, userId: string, newStatus: TASK_STATUS): Promise<{ status: boolean, message: string }> {
