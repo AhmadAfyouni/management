@@ -41,7 +41,7 @@ export class DepartmentController {
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
     @Get("tree")
-    async getDepartmentTree(@GetDepartment() departmentId,@GetAccessDepartment() departments): Promise<GetDepartmentDto> {
+    async getDepartmentTree(@GetDepartment() departmentId,@GetAccessDepartment() departments): Promise<any> {
         return await this.departmentService.getDepartmentTree(departmentId,departments);
     }
 

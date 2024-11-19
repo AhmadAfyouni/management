@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Inject } from '@nestjs/common/decorators';
+import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
 import { EmpService } from '../emp/emp.service';
+import { TASK_STATUS } from '../task/enums/task-status.enum';
+import { TasksService } from '../task/task.service';
 import { CreateProjectDto } from './dtos/create-project.dto';
 import { UpdateProjectDto } from './dtos/update-project.dto';
 import { Project, ProjectDocument } from './schema/project.schema';
@@ -12,6 +16,8 @@ export class ProjectService {
     constructor(
         @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
         private readonly empService: EmpService,
+        @Inject(forwardRef(() => TasksService))
+        private readonly taskService: TasksService,
     ) { }
 
 
@@ -123,5 +129,18 @@ export class ProjectService {
         if (!result) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
+    }
+
+    async getProjectDetails(id: string) {
+        const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').lean().exec();
+        if (!project) {
+            throw new NotFoundException(`Project with ID ${id} not found`);
+        }
+        const projectTasks = await this.taskService.getProjectTaskDetails(id);
+        const taskDone = projectTasks.filter((task) => task.status === TASK_STATUS.DONE).length;
+        const taskOnGoing = projectTasks.filter((task) => task.status === TASK_STATUS.ONGOING).length;
+        const taskOnTest = projectTasks.filter((task) => task.status === TASK_STATUS.ON_TEST).length;
+        const taskPending = projectTasks.filter((task) => task.status === TASK_STATUS.PENDING).length;
+        return { ...project, is_over_due: project.endDate < new Date(), projectTasks, taskDone, taskOnGoing, taskOnTest, taskPending };
     }
 }

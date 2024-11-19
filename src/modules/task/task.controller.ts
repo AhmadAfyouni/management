@@ -174,4 +174,8 @@ export class TasksController {
         return this.taskService.completeTask(taskId, userId);
     }
 
+    @Get("tree")
+    async getTaskTree(@GetAccount() empId: string) {
+        return this.taskService.buildTaskTree(empId);
+    }
 }

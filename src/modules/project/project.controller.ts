@@ -62,4 +62,9 @@ export class ProjectController {
     async deleteProject(@Param('id') id: string) {
         return this.projectService.deleteProject(id);
     }
+
+    @Get("project-details/:id")
+    async getProjectDetails(@Param('id') id: string) {
+        return this.projectService.getProjectDetails(id);
+    }
 }

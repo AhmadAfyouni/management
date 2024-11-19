@@ -1,7 +1,7 @@
 import { Controller, Post } from "@nestjs/common";
 import { Body, Get, Param, UseGuards } from "@nestjs/common/decorators";
 import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
-import { GetAccessEmp, GetDepartment } from "src/common/decorators/user-guard";
+import { GetAccessEmp, GetAccount, GetDepartment } from "src/common/decorators/user-guard";
 import { PermissionsEnum } from "src/config/permissions.enum";
 import { UserRole } from "src/config/role.enum";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -39,8 +39,8 @@ export class EmpController {
     }
 
     @Get("tree")
-    async getEmployeeTree(@GetAccessEmp() departmentId, @GetAccessEmp() employeeIds) {
-        return await this.empService.buildEmployeeTree(departmentId, employeeIds);
+    async getEmployeeTree(@GetAccount() empId, @GetAccessEmp() employeeIds) {
+        return await this.empService.buildEmployeeTree(empId);
     }
 
     @Roles(UserRole.ADMIN)

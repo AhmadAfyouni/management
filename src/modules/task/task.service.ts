@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Inject } from '@nestjs/common/decorators';
+import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
@@ -18,6 +20,7 @@ export class TasksService {
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
         private readonly empService: EmpService,
         private readonly sectionService: SectionService,
+        @Inject(forwardRef(() => ProjectService))
         private readonly projectService: ProjectService
     ) { }
 
@@ -296,7 +299,7 @@ export class TasksService {
             throw new InternalServerErrorException('Failed to update task', error.message);
         }
     }
-    
+
     async deleteTask(id: string): Promise<{ status: boolean, message: string }> {
         try {
             const result = await this.taskModel.findByIdAndDelete(id).exec();
@@ -359,6 +362,19 @@ export class TasksService {
         return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
     }
 
+
+    async getProjectTaskDetails(projectId: string) {
+        const tasks = await this.taskModel.find({ project_id: projectId }).lean().exec();
+        const newTask = tasks.map((task) => {
+            return {
+                ...task,
+                is_over_due: task.due_date < new Date() && task.status !== TASK_STATUS.DONE
+            }
+        })
+        return newTask;
+    }
+
+
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
         const tasks = await this.taskModel.find({ emp: empId })
             .populate({
@@ -409,8 +425,7 @@ export class TasksService {
     async startTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
         const task = await this.taskModel.findOne({
             _id: new Types.ObjectId(taskId),
-            emp: userId,
-            status: TASK_STATUS.PENDING
+            // emp: userId,
         });
         if (!task) throw new NotFoundException('Task not found or already completed');
 
@@ -425,23 +440,36 @@ export class TasksService {
     async pauseTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
         const task = await this.taskModel.findOne({
             _id: new Types.ObjectId(taskId),
-            emp: userId,
-            status: TASK_STATUS.PENDING
+            // emp: new Types.ObjectId(userId),
         });
-        if (!task || !task.timeLogs.length || task.timeLogs[task.timeLogs.length - 1].end) {
-            throw new BadRequestException('Task is not currently started or already paused');
+    
+        if (!task) {
+            throw new NotFoundException('Task not found or does not belong to the user');
         }
-
-        const now = new Date();
+    
+        if (!task.timeLogs.length) {
+            throw new BadRequestException('No time logs found for this task');
+        }
+    
         const lastLog = task.timeLogs[task.timeLogs.length - 1];
+        if (lastLog.end) {
+            throw new BadRequestException('Task is already paused');
+        }
+    
+        const now = new Date();
         lastLog.end = now;
-
-        const timeDiff = Math.floor((now.getTime() - lastLog.start.getTime()) / 60000);
-        task.totalTimeSpent += timeDiff;
-
+    
+        const timeDiffInMilliseconds = now.getTime() - lastLog.start.getTime();
+        const timeDiffInMinutes = Math.round(timeDiffInMilliseconds / (1000)); // Convert ms to minutes
+        
+        task.totalTimeSpent = (task.totalTimeSpent || 0) + parseFloat(timeDiffInMinutes.toFixed(2)); // Keep 2 decimal places
+    
+        
         await task.save();
+    
         return { status: true, message: 'Task paused successfully' };
     }
+    
 
     async completeTask(taskId: string, userId: string): Promise<{ status: boolean, message: string, finalTime: number }> {
         const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId), emp: userId });
@@ -678,5 +706,22 @@ export class TasksService {
         const taskDto = tasks.map((task) => new GetTaskDto(task));
 
         return taskDto;
+    }
+
+    async buildTaskTree(empId: string): Promise<any> {
+        const tasks = await this.taskModel.find({ emp: empId })
+            .lean()
+            .lean()
+            .exec();
+        const taskDto = tasks.map((task) => {
+            return {
+                id: task._id.toString(),
+                name: task.name,
+                parentId: task.parent_task
+                    ? task.parent_task.toString()
+                    : null,
+            }
+        });
+        return taskDto
     }
 }

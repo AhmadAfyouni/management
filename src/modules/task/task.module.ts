@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common/decorators";
+import { forwardRef } from "@nestjs/common/utils";
 import { MongooseModule } from "@nestjs/mongoose";
 import { DepartmentModule } from "../department/depratment.module";
 import { EmpModule } from "../emp/emp.module";
@@ -15,7 +16,7 @@ import { TasksService } from "./task.service";
         EmpModule,
         JobTitlesModule,
         SectionModule,
-        ProjectModule,
+        forwardRef(()=> ProjectModule),
         MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }])
     ],
     providers: [TasksService, TaskSchedulerService],

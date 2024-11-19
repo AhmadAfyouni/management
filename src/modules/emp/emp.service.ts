@@ -292,58 +292,61 @@ export class EmpService {
         }
     }
 
-    async buildEmployeeTree(
-        id: string,
-        accessibleEmployees?: string[],
-    ): Promise<any[]> {
+
+
+    async getMyEmp(deptId: string) {
+        return await this.empModel.find({ department_id: deptId }).exec();
+    }
+    async buildEmployeeTree(id: string): Promise<any[]> {
+        console.log(id);
+        
+        let allEmployees: any[] = []; // قائمة لجميع الموظفين
+
+        // التحقق من صحة الـ ID
+        if (!Types.ObjectId.isValid(id)) {
+            throw new BadRequestException('Invalid Employee ID');
+        }
+
+        // جلب بيانات الموظف الأساسي
         const employee = await this.empModel
             .findById(new Types.ObjectId(id))
+            .populate("job_id") // assuming job_id contains the department-related info
             .lean()
-            .exec();
+            .exec() as any;
 
         if (!employee) {
-            throw new NotFoundException(`Employee with ID ${id} not found`);
+            throw new NotFoundException('Employee not found');
         }
 
-        const employeeList: any[] = [];
-
-        const supervisorId = await this.empModel.findOne({
-            $and: [{ department_id: employee.department_id, role: UserRole.PRIMARY_USER }]
-        }).lean().select("_id").exec() as any;
-        
-        const employeeDto = {
-            id: employee._id.toString(),
-            name: employee.name,
-            supervisorId: supervisorId.toString() || null,
-        };
-
-        employeeList.push(employeeDto);
-
-        const subordinates = await this.empModel
+        // 1. جلب زملاء الموظف في نفس القسم
+        const departmentColleagues = await this.empModel
             .find({ department_id: employee.department_id })
-            .lean()
-            .exec();
+            .lean();
 
-        for (const subordinate of subordinates) {
-            const subordinateTree = await this.buildEmployeeTree(
-                subordinate._id.toString(),
-            );
-            employeeList.push(...subordinateTree);
-        }
+        // إضافة زملاء القسم إلى القائمة
+        allEmployees.push(...departmentColleagues);
 
-        if (accessibleEmployees && accessibleEmployees.length > 0) {
-            for (const empId of accessibleEmployees) {
-                if (!employeeList.find((e) => e.id === empId)) {
-                    const accessibleEmployeeTree = await this.buildEmployeeTree(
-                        empId,
-                    );
-                    employeeList.push(...accessibleEmployeeTree);
-                }
+        // 2. جلب الموظفين المباشرين الذين يديرهم هذا الموظف
+        const directReports = await this.empModel
+            .find({ department_id: employee.job_id.department_id }) // assuming `manager_id` links employees to their manager
+            .lean();
+
+        allEmployees.push(...directReports);
+
+        // 3. جلب موظفي كل موظف مباشر (تكرار العملية)
+        for (const report of directReports) {
+            if (report._id.toString() !== employee._id.toString() && !allEmployees.includes(report)) {
+                const subTree = await this.buildEmployeeTree(report._id.toString()); // استدعاء الدالة بشكل متكرر
+                allEmployees.push(...subTree); // إضافة النتائج إلى القائمة
             }
         }
 
-        return employeeList;
+        return allEmployees; // إرجاع جميع الموظفين
     }
+
+
+
+
 
 
 }
