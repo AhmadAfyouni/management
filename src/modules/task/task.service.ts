@@ -442,43 +442,59 @@ export class TasksService {
             _id: new Types.ObjectId(taskId),
             // emp: new Types.ObjectId(userId),
         });
-    
+
         if (!task) {
             throw new NotFoundException('Task not found or does not belong to the user');
         }
-    
+
         if (!task.timeLogs.length) {
             throw new BadRequestException('No time logs found for this task');
         }
-    
+
         const lastLog = task.timeLogs[task.timeLogs.length - 1];
         if (lastLog.end) {
             throw new BadRequestException('Task is already paused');
         }
-    
+
         const now = new Date();
         lastLog.end = now;
-    
+
         const timeDiffInMilliseconds = now.getTime() - lastLog.start.getTime();
         const timeDiffInMinutes = Math.round(timeDiffInMilliseconds / (1000)); // Convert ms to minutes
-        
+
         task.totalTimeSpent = (task.totalTimeSpent || 0) + parseFloat(timeDiffInMinutes.toFixed(2)); // Keep 2 decimal places
-    
-        
+
+
         await task.save();
-    
+
         return { status: true, message: 'Task paused successfully' };
     }
-    
+
 
     async completeTask(taskId: string, userId: string): Promise<{ status: boolean, message: string, finalTime: number }> {
-        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId), emp: userId });
+        const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId) });
         if (!task) throw new NotFoundException('Task not found');
 
         const lastLog = task.timeLogs[task.timeLogs.length - 1];
         if (lastLog && !lastLog.end) await this.pauseTask(taskId, userId);
 
         task.status = TASK_STATUS.DONE;
+
+        const now = new Date();
+        let durationInSeconds;
+        if (task.timeLogs.length > 0) {
+            const firstLogStart = new Date(task.timeLogs[0].start).getTime();
+            const nowTime = now.getTime();
+
+            const durationInMilliseconds = nowTime - firstLogStart;
+            durationInSeconds = Math.floor(durationInMilliseconds / 1000);
+            console.log(`Time from first log's start to now: ${durationInSeconds} seconds`);
+        } else {
+            durationInSeconds = 0;
+            console.log('No time logs available');
+        }
+
+        task.over_all_time = durationInSeconds.toString();
         await task.save();
 
         return { status: true, message: 'Task completed successfully', finalTime: task.totalTimeSpent };

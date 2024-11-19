@@ -22,7 +22,7 @@ export class Task {
     @Prop({ enum: PRIORITY_TYPE, required: true, default: PRIORITY_TYPE.LOW })
     priority: PRIORITY_TYPE;
 
-    @Prop({ type: Types.ObjectId,ref: Emp.name })
+    @Prop({ type: Types.ObjectId, ref: Emp.name })
     emp?: Types.ObjectId;
 
     @Prop({ type: Types.ObjectId, ref: Emp.name, required: false })
@@ -76,6 +76,9 @@ export class Task {
 
     @Prop({ type: Types.ObjectId, ref: Task.name, default: null })
     parent_task?: Types.ObjectId;
+
+    @Prop({ type: String })
+    over_all_time?: String;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);
