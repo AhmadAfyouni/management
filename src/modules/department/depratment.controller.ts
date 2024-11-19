@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
 import { Param, UseGuards } from "@nestjs/common/decorators";
 import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
-import { GetAccessDepartment, GetDepartment } from "src/common/decorators/user-guard";
+import { GetAccessDepartment, GetAccessEmp, GetDepartment } from "src/common/decorators/user-guard";
 import { PermissionsEnum } from "src/config/permissions.enum";
 import { UserRole } from "src/config/role.enum";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -41,8 +41,8 @@ export class DepartmentController {
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
     @Get("tree")
-    async getDepartmentTree(@GetDepartment() departmentId): Promise<GetDepartmentDto> {
-        return await this.departmentService.getDepartmentTree(departmentId);
+    async getDepartmentTree(@GetDepartment() departmentId,@GetAccessDepartment() departments): Promise<GetDepartmentDto> {
+        return await this.departmentService.getDepartmentTree(departmentId,departments);
     }
 
     @Roles(UserRole.PRIMARY_USER)

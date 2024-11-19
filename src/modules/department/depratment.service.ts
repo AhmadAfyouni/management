@@ -5,6 +5,7 @@ import { DepartmentDocument } from './schema/department.schema';
 import { GetDepartmentDto } from './dto/get-department.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { TreeDTO } from './dto/tree-dto';
 
 @Injectable()
 export class DepartmentService {
@@ -109,27 +110,64 @@ export class DepartmentService {
 
         return results;
     }
-
-    private async buildDepartmentTree(id: string): Promise<GetDepartmentDto> {
+    private async buildDepartmentTree(
+        id: string,
+        accessibleDepartments?: string[]
+    ): Promise<TreeDTO[]> {
         const objectId = new Types.ObjectId(id);
-        const department = await this.departmentModel.findById(objectId).populate("parent_department_id").exec();
+    
+        // Find the main department by ID
+        const department = await this.departmentModel.findById(objectId).exec();
         if (!department) {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
-
-        const departmentDto = new GetDepartmentDto(department);
-        const subDepartments = await this.departmentModel.find({ parent_department_id: objectId }).exec();
-
-        departmentDto['subDepartments'] = [];
+    
+        // Initialize the flat list
+        const departmentList: TreeDTO[] = [];
+    
+        // Transform the department into TreeDTO format
+        const departmentDto: TreeDTO = {
+            id: department._id.toString(),
+            name: department.name,
+            parentId: department.parent_department_id
+                ? department.parent_department_id.toString()
+                : null,
+        };
+    
+        // Add the main department to the list
+        departmentList.push(departmentDto);
+    
+        // Find subdepartments of the current department
+        const subDepartments = await this.departmentModel
+            .find({ parent_department_id: objectId })
+            .exec();
+    
+        // Recursively add each subdepartment to the list
         for (const subDept of subDepartments) {
-            departmentDto['subDepartments'].push(await this.buildDepartmentTree(subDept._id.toString()));
+            const subDepartmentList = await this.buildDepartmentTree(
+                subDept._id.toString()
+            );
+            departmentList.push(...subDepartmentList);
         }
-
-        return departmentDto;
+    
+        // Check if accessibleDepartments is provided
+        if (accessibleDepartments && accessibleDepartments.length > 0) {
+            for (const departmentId of accessibleDepartments) {
+                // Recursively build trees for accessible departments
+                const accessibleDepartmentList = await this.buildDepartmentTree(
+                    departmentId
+                );
+                departmentList.push(...accessibleDepartmentList);
+            }
+        }
+    
+        return departmentList;
     }
+    
 
-    async getDepartmentTree(departmentId: string): Promise<GetDepartmentDto> {
-        return await this.buildDepartmentTree(departmentId);
+
+    async getDepartmentTree(departmentId: string, departments?: string[]): Promise<any> {
+        return await this.buildDepartmentTree(departmentId, departments);
     }
 
 

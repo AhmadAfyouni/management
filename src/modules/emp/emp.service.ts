@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { CreateEmpDto } from './dto/create-emp.dto';
 import { GetEmpDto } from './dto/get-emp.dto';
@@ -291,4 +291,59 @@ export class EmpService {
             throw new InternalServerErrorException('Failed to update employee', error.message);
         }
     }
+
+    async buildEmployeeTree(
+        id: string,
+        accessibleEmployees?: string[],
+    ): Promise<any[]> {
+        const employee = await this.empModel
+            .findById(new Types.ObjectId(id))
+            .lean()
+            .exec();
+
+        if (!employee) {
+            throw new NotFoundException(`Employee with ID ${id} not found`);
+        }
+
+        const employeeList: any[] = [];
+
+        const supervisorId = await this.empModel.findOne({
+            $and: [{ department_id: employee.department_id, role: UserRole.PRIMARY_USER }]
+        }).lean().select("_id").exec() as any;
+        
+        const employeeDto = {
+            id: employee._id.toString(),
+            name: employee.name,
+            supervisorId: supervisorId.toString() || null,
+        };
+
+        employeeList.push(employeeDto);
+
+        const subordinates = await this.empModel
+            .find({ department_id: employee.department_id })
+            .lean()
+            .exec();
+
+        for (const subordinate of subordinates) {
+            const subordinateTree = await this.buildEmployeeTree(
+                subordinate._id.toString(),
+            );
+            employeeList.push(...subordinateTree);
+        }
+
+        if (accessibleEmployees && accessibleEmployees.length > 0) {
+            for (const empId of accessibleEmployees) {
+                if (!employeeList.find((e) => e.id === empId)) {
+                    const accessibleEmployeeTree = await this.buildEmployeeTree(
+                        empId,
+                    );
+                    employeeList.push(...accessibleEmployeeTree);
+                }
+            }
+        }
+
+        return employeeList;
+    }
+
+
 }

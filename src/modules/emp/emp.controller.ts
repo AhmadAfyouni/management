@@ -38,6 +38,11 @@ export class EmpController {
         return await this.empService.getAllEmp();
     }
 
+    @Get("tree")
+    async getEmployeeTree(@GetAccessEmp() departmentId, @GetAccessEmp() employeeIds) {
+        return await this.empService.buildEmployeeTree(departmentId, employeeIds);
+    }
+
     @Roles(UserRole.ADMIN)
     @Post("create")
     async createEmp(@Body() createEmpDto: CreateEmpDto) {
