@@ -84,6 +84,8 @@ export class Emp {
 
     @Prop({ type: String, enum: UserRole, required: true, default: UserRole.SECONDARY_USER })
     role: UserRole;
+    @Prop()
+    parentId?: string;
 }
 
 export const EmpSchema = SchemaFactory.createForClass(Emp);

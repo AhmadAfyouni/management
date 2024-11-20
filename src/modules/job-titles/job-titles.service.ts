@@ -26,12 +26,13 @@ export class JobTitlesService {
         createJobTitleDto.permissions = permissions;
       }
 
+
       const existingManager = await this.jobTitlesModel
         .findOne({ department_id: createJobTitleDto.department_id, is_manager: true })
         .lean()
         .exec();
 
-      if (existingManager) {
+      if (existingManager && createJobTitleDto.is_manager) {
         throw new BadRequestException('A manager already exists for this department.');
       }
 
@@ -142,4 +143,6 @@ export class JobTitlesService {
       throw new InternalServerErrorException(`Failed to find job titles by department id ${id}`, error.message);
     }
   }
+
+  
 }

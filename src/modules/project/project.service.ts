@@ -4,6 +4,7 @@ import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
+import { DepartmentService } from '../department/depratment.service';
 import { EmpService } from '../emp/emp.service';
 import { TASK_STATUS } from '../task/enums/task-status.enum';
 import { TasksService } from '../task/task.service';
@@ -18,6 +19,8 @@ export class ProjectService {
         private readonly empService: EmpService,
         @Inject(forwardRef(() => TasksService))
         private readonly taskService: TasksService,
+
+        private readonly departmentService: DepartmentService
     ) { }
 
 
@@ -132,11 +135,19 @@ export class ProjectService {
     }
 
     async getProjectDetails(id: string) {
-        const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').lean().exec();
+        const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').lean().exec() as any;
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
-        const projectTasks = await this.taskService.getProjectTaskDetails(id);
+        if (project?.departments) {
+            project.departments = project.departments.map((department) => ({
+                id: department._id.toString(),
+                name: department.name,
+                parentId: department.parent_department_id || null, // Add null if no parentId exists
+            }));
+        }
+
+        const projectTasks = await (await this.taskService.getProjectTasks(id)).data;
         const taskDone = projectTasks.filter((task) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task) => task.status === TASK_STATUS.ONGOING).length;
         const taskOnTest = projectTasks.filter((task) => task.status === TASK_STATUS.ON_TEST).length;

@@ -39,6 +39,7 @@ export class EmpController {
     }
 
     @Get("tree")
+    // @Roles(UserRole.PRIMARY_USER)
     async getEmployeeTree(@GetAccount() empId, @GetAccessEmp() employeeIds) {
         return await this.empService.buildEmployeeTree(empId);
     }

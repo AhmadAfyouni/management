@@ -16,6 +16,7 @@ import { TasksService } from "./task.service";
         EmpModule,
         JobTitlesModule,
         SectionModule,
+        DepartmentModule,
         forwardRef(()=> ProjectModule),
         MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }])
     ],

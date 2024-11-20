@@ -20,7 +20,6 @@ export class TasksController {
     @Post('create')
     async createTask(@Body() createTaskDto: CreateTaskDto, @GetAccount() userId) {
         createTaskDto.assignee = userId;
-        console.log(createTaskDto);
         return this.taskService.createTaskForEmp(createTaskDto);
     }
 
@@ -144,6 +143,10 @@ export class TasksController {
         return this.taskService.getOnTestTask(departmentId);
     }
 
+    @Get("get-sub-tasks/:parentId")
+    async getSubTaskByParnetTask(@Param("parentId") parentId: string) {
+        return await this.taskService.getSubTaskByParentTask(parentId);
+    }
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
     @Get('start/:taskId')

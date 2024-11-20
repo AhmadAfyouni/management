@@ -118,9 +118,11 @@ export class EmpService {
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
 
+            const manager = await this.findManagerByDepartment(employee.department_id.toString());
             const emp = new this.empModel({
                 ...employee,
                 role,
+                parentId: manager._id.toString()
             });
             return await emp.save();
         } catch (error) {
@@ -297,51 +299,60 @@ export class EmpService {
     async getMyEmp(deptId: string) {
         return await this.empModel.find({ department_id: deptId }).exec();
     }
-    async buildEmployeeTree(id: string): Promise<any[]> {
+    async buildEmployeeTree(id: string, start: boolean = true): Promise<any[]> {
         console.log(id);
-        
-        let allEmployees: any[] = []; // قائمة لجميع الموظفين
 
-        // التحقق من صحة الـ ID
+        let allEmployees: any[] = [];
         if (!Types.ObjectId.isValid(id)) {
             throw new BadRequestException('Invalid Employee ID');
         }
 
-        // جلب بيانات الموظف الأساسي
+
         const employee = await this.empModel
             .findById(new Types.ObjectId(id))
-            .populate("job_id") // assuming job_id contains the department-related info
+            .populate("job_id")
             .lean()
             .exec() as any;
+
+        if (!employee.job_id.is_manager) {
+            return [];
+        }
 
         if (!employee) {
             throw new NotFoundException('Employee not found');
         }
 
-        // 1. جلب زملاء الموظف في نفس القسم
-        const departmentColleagues = await this.empModel
-            .find({ department_id: employee.department_id })
-            .lean();
-
-        // إضافة زملاء القسم إلى القائمة
-        allEmployees.push(...departmentColleagues);
-
-        // 2. جلب الموظفين المباشرين الذين يديرهم هذا الموظف
-        const directReports = await this.empModel
-            .find({ department_id: employee.job_id.department_id }) // assuming `manager_id` links employees to their manager
-            .lean();
-
-        allEmployees.push(...directReports);
-
-        // 3. جلب موظفي كل موظف مباشر (تكرار العملية)
-        for (const report of directReports) {
-            if (report._id.toString() !== employee._id.toString() && !allEmployees.includes(report)) {
-                const subTree = await this.buildEmployeeTree(report._id.toString()); // استدعاء الدالة بشكل متكرر
-                allEmployees.push(...subTree); // إضافة النتائج إلى القائمة
-            }
+        if (start) {
+            allEmployees.push({
+                id: employee._id.toString(),
+                name: employee.name,
+                parentId: employee.parentId || null,
+                is_manager: employee.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
+            });
         }
 
-        return allEmployees; // إرجاع جميع الموظفين
+        const directReports = await this.empModel
+            .find({ department_id: employee.job_id.department_id })
+            .exec();
+        const directReportsDto = directReports.map((report) => {
+            return {
+                id: report._id.toString(),
+                name: report.name,
+                parentId: report.parentId || null,
+                is_manager: report.role === UserRole.PRIMARY_USER || report.role === UserRole.ADMIN,
+            }
+        });
+
+        allEmployees.push(...directReportsDto);
+        for (const report of directReports) {
+            if (report._id.toString() !== employee._id.toString()) {
+                report.parentId = id ?? null;
+                await report.save();
+                const subTree = await this.buildEmployeeTree(report._id.toString(), false);
+                allEmployees.push(...subTree);
+            }
+        }
+        return allEmployees;
     }
 
 
