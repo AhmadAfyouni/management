@@ -119,7 +119,7 @@ export class EmpService {
             if (!manager) {
                 const managerParent = await this.departmentService.findById(employee.department_id.toString());
                 manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
-                employee.department_id = managerParent?.parent_department!._id!;
+                employee.department_id = managerParent?.parent_department!._id!.toString() as any;
             }
             const emp = new this.empModel({
                 ...employee,
