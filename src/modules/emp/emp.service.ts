@@ -113,11 +113,17 @@ export class EmpService {
 
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
-            const manager = await this.findManagerByDepartment(employee.department_id.toString());
+
+            let manager;
+            manager = await this.findManagerByDepartment(employee.department_id.toString());
+            if (!manager) {
+                const managerParent = await this.departmentService.findById(employee.department_id.toString());
+                manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
+            }
             const emp = new this.empModel({
                 ...employee,
                 role,
-                parentId: manager!=null ? manager._id.toString() : null
+                parentId: manager._id.toString()
             });
             return await emp.save();
         } catch (error) {
