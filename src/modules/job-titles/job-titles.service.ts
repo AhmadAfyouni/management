@@ -94,6 +94,15 @@ export class JobTitlesService {
 
   async update(id: string, updateJobTitleDto: UpdateJobTitleDto): Promise<{ message: string; jobTitle: JobTitles }> {
     try {
+
+      if (!updateJobTitleDto.permissions || updateJobTitleDto.permissions.length === 0) {
+        const permissions = updateJobTitleDto.is_manager
+          ? DefaultPermissions[UserRole.PRIMARY_USER]
+          : DefaultPermissions[UserRole.SECONDARY_USER];
+
+        updateJobTitleDto.permissions = permissions;
+      }
+
       const updatedJobTitle = await this.jobTitlesModel.findByIdAndUpdate(
         id,
         updateJobTitleDto,
@@ -144,5 +153,5 @@ export class JobTitlesService {
     }
   }
 
-  
+
 }
