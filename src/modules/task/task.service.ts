@@ -50,7 +50,7 @@ export class TasksService {
         const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
         const taskData = {
             ...createTaskDto,
-            emp: manager._id,
+            emp: manager!._id,
             department_id: createTaskDto.department_id,
         };
 
@@ -601,7 +601,7 @@ export class TasksService {
 
             if (createTaskDto.project_id && createTaskDto.department_id) {
                 const emp = await this.empService.findManagerByDepartment(createTaskDto.department_id);
-                createTaskDto.emp = emp._id.toString();
+                createTaskDto.emp = emp!._id.toString();
                 const project = await this.projectService.getProjectById(createTaskDto.project_id);
                 if (!project) throw new NotFoundException('Project not found');
 

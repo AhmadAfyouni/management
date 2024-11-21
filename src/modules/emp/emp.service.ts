@@ -49,16 +49,10 @@ export class EmpService {
         return await this.empModel.find({ job_id: jobId }).lean().exec();
     }
 
-    async findManagerByDepartment(departmentId: string): Promise<EmpDocument> {
-        try {
-            const jobTitleDoc = await this.jobTitleService.findByDepartmentId(departmentId);
-            if (!jobTitleDoc) throw new NotFoundException('Job Title not found');
-            const manager = await this.empModel.findOne({ job_id: jobTitleDoc._id.toString() }).exec();
-            if (!manager) throw new NotFoundException('Manager not found for this job title');
-            return manager;
-        } catch (error) {
-            throw new InternalServerErrorException('Failed to fetch manager', error.message);
-        }
+    async findManagerByDepartment(departmentId: string): Promise<EmpDocument | null> {
+        const jobTitleDoc = await this.jobTitleService.findByDepartmentId(departmentId);
+        const manager = await this.empModel.findOne({ job_id: jobTitleDoc._id.toString() }).exec();
+        return manager;
     }
 
     async getAllDeptEmp(departmentIds: string[]): Promise<{ [departmentName: string]: GetEmpDto[] }> {
@@ -119,12 +113,11 @@ export class EmpService {
 
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
-            const dapartment = await this.departmentService.findById(employee.department_id.toString());
-            const manager = await this.findManagerByDepartment(dapartment?.parent_department?._id?.toString()!);
+            const manager = await this.findManagerByDepartment(employee.department_id.toString());
             const emp = new this.empModel({
                 ...employee,
                 role,
-                parentId: manager._id.toString()
+                parentId: manager!=null ? manager._id.toString() : null
             });
             return await emp.save();
         } catch (error) {
