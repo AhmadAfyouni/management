@@ -6,7 +6,6 @@ export class GetJobTitlesDto {
   id: string;
   name: string;
   title: string;
-  grade_level: string;
   description: string;
   responsibilities: string[];
   department?: GetDepartmentDto;
@@ -18,7 +17,6 @@ export class GetJobTitlesDto {
     this.id = jobTitles._id.toString();
     this.name = jobTitles.name;
     this.title = jobTitles.title;
-    this.grade_level = jobTitles.grade_level;
     this.description = jobTitles.description;
     this.responsibilities = jobTitles.responsibilities;
     this.permissions = jobTitles.permissions || [];

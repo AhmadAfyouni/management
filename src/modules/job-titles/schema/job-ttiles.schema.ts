@@ -15,8 +15,6 @@ export class JobTitles {
     @Prop({ required: true })
     title: string;
 
-    @Prop({ required: true })
-    grade_level: string;
 
     @Prop({ required: true })
     description: string;

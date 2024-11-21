@@ -12,10 +12,6 @@ export class CreateJobTitleDto {
 
   @IsString()
   @IsNotEmpty()
-  grade_level: string;
-
-  @IsString()
-  @IsNotEmpty()
   description: string;
 
   @IsArray()
