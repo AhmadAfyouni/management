@@ -50,8 +50,11 @@ export class EmpService {
     }
 
     async findManagerByDepartment(departmentId: string): Promise<EmpDocument | null> {
+        let manager;
         const jobTitleDoc = await this.jobTitleService.findByDepartmentId(departmentId);
-        const manager = await this.empModel.findOne({ job_id: jobTitleDoc._id.toString() }).exec();
+        if (jobTitleDoc) {
+            manager = await this.empModel.findOne({ job_id: jobTitleDoc._id.toString() }).exec();
+        }
         return manager;
     }
 
@@ -289,6 +292,18 @@ export class EmpService {
                 const hashedNewPassword = await bcrypt.hash(updateEmpDto.password, 10);
                 updateEmpDto.password = hashedNewPassword;
             }
+
+            // if (updateEmpDto.department_id) {
+            //     let manager;
+            //     manager = await this.findManagerByDepartment(updateEmpDto.department_id.toString());
+            //     if (!manager) {
+            //         const managerParent = await this.departmentService.findById(updateEmpDto.department_id.toString());
+            //         manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
+            //         employee.department_id = managerParent?.parent_department!._id!.toString() as any;
+            //     }
+            // }
+
+
 
             return await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true, new: true }).exec();
         } catch (error) {

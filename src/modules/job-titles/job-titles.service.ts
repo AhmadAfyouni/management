@@ -141,16 +141,9 @@ export class JobTitlesService {
     }
   }
 
-  async findByDepartmentId(id: string): Promise<JobTitlesDocument> {
-    try {
-      const jobTitle = await this.jobTitlesModel.findOne({ department_id: id, is_manager: true }).lean().exec();
-      if (!jobTitle) {
-        throw new NotFoundException(`No manager found for department id ${id}`);
-      }
-      return jobTitle;
-    } catch (error) {
-      throw new InternalServerErrorException(`Failed to find job titles by department id ${id}`, error.message);
-    }
+  async findByDepartmentId(id: string): Promise<JobTitlesDocument | null> {
+    const jobTitle = await this.jobTitlesModel.findOne({ department_id: id, is_manager: true }).lean().exec();
+    return jobTitle;
   }
 
 
