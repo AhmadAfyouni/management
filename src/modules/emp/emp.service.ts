@@ -11,6 +11,7 @@ import { JobTitlesService } from '../job-titles/job-titles.service';
 import { UserRole } from 'src/config/role.enum';
 import { ConflictException } from '@nestjs/common/exceptions';
 import { parseObject } from 'src/helper/parse-object';
+import { DepartmentService } from '../department/depratment.service';
 
 @Injectable()
 export class EmpService {
@@ -18,6 +19,7 @@ export class EmpService {
         @InjectModel(Emp.name) private readonly empModel: Model<EmpDocument>,
         @Inject(forwardRef(() => JobTitlesService))
         private readonly jobTitleService: JobTitlesService,
+        private readonly departmentService: DepartmentService
     ) { }
 
     async getAllEmp(): Promise<GetEmpDto[]> {
@@ -117,8 +119,8 @@ export class EmpService {
 
             const hashedNewPassword = await bcrypt.hash(employee.password, 10);
             employee.password = hashedNewPassword;
-
-            const manager = await this.findManagerByDepartment(employee.department_id.toString());
+            const dapartment = await this.departmentService.findById(employee.department_id.toString());
+            const manager = await this.findManagerByDepartment(dapartment?.parent_department?._id?.toString()!);
             const emp = new this.empModel({
                 ...employee,
                 role,
