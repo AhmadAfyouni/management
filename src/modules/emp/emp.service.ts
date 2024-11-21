@@ -111,6 +111,10 @@ export class EmpService {
             const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
             let role: UserRole = UserRole.SECONDARY_USER;
             if (jobTitle?.is_manager) {
+                const emp = await this.empModel.find({ job_id: employee.job_id });
+                if (emp) {
+                    throw new ConflictException('Cannot create two primary user under a manager.');
+                }
                 role = UserRole.PRIMARY_USER;
             }
 
