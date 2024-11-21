@@ -85,7 +85,16 @@ export class ProjectService {
             const updateFields: any = {};
 
             if (updateProjectDto.departments) {
-                updateFields.departments = updateProjectDto.departments.map(deptId => new Types.ObjectId(deptId));
+                const existingProject = await this.projectModel.findById(id).exec();
+                if (!existingProject) {
+                    throw new NotFoundException(`Project with ID ${id} not found`);
+                }
+
+                const existingDepartments = existingProject.departments.map((deptId: any) => deptId.toString());
+                const newDepartments = updateProjectDto.departments.map(deptId => deptId.toString());
+                const mergedDepartments = Array.from(new Set([...existingDepartments, ...newDepartments]));
+
+                updateFields.departments = mergedDepartments.map(deptId => new Types.ObjectId(deptId));
             }
 
             if (updateProjectDto.members) {
@@ -99,7 +108,6 @@ export class ProjectService {
                 }
                 updateFields.startDate = parsedStartDate;
             }
-
 
             if (updateProjectDto.endDate) {
                 const parsedEndDate = new Date(updateProjectDto.endDate.replace(/-/g, '/'));
@@ -143,15 +151,19 @@ export class ProjectService {
             project.departments = project.departments.map((department) => ({
                 id: department._id.toString(),
                 name: department.name,
-                parentId: department.parent_department_id || null, // Add null if no parentId exists
+                parentId: department.parent_department_id || null,
             }));
         }
-
         const projectTasks = await (await this.taskService.getProjectTasks(id)).data;
         const taskDone = projectTasks.filter((task) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task) => task.status === TASK_STATUS.ONGOING).length;
         const taskOnTest = projectTasks.filter((task) => task.status === TASK_STATUS.ON_TEST).length;
         const taskPending = projectTasks.filter((task) => task.status === TASK_STATUS.PENDING).length;
         return { ...project, is_over_due: project.endDate < new Date(), projectTasks, taskDone, taskOnGoing, taskOnTest, taskPending };
+    }
+
+    async getTaskDetailsProject(departmentId: string, projectId: string) {
+        const tasks = await this.taskService.getTaskProjectByDepartmentId(departmentId, projectId);
+        return tasks;
     }
 }

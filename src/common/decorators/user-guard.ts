@@ -50,7 +50,8 @@ export const GetDepartment = createParamDecorator(
         const request = context.switchToHttp().getRequest();
 
         const account = (request.user as JwtPayload).department;
-
+        console.log(account);
+        
         return account;
     },
 );
@@ -69,5 +70,10 @@ export const GetAccount = createParamDecorator(
         return account;
     },
 );
+
+
+
+
+
 
 

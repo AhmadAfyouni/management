@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Body, UseGuards, Req, Post } from '@nestjs/common';
+import { Controller, Get, Param, Body, UseGuards, Req, Post, BadRequestException } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TasksService } from './task.service';
@@ -89,6 +89,26 @@ export class TasksController {
         return this.taskService.getProjectTasks(projectId);
     }
 
+
+    @Post('get-project-tasks-by-dept')
+    async getProjectTasksByDept(
+        @Body() body: { project_id: string; department_id: string }
+    ): Promise<any> {
+        const { project_id, department_id } = body;
+        if (!project_id || !department_id) {
+            throw new BadRequestException('Project ID and Department ID are required');
+        }
+        console.log(project_id);
+
+        try {
+            const tasks = await this.taskService.getTaskProjectByDepartmentId(project_id, department_id);
+            return tasks;
+        } catch (error) {
+            throw new BadRequestException(error.message || 'Failed to fetch tasks');
+        }
+    }
+
+
     @Roles(UserRole.ADMIN)
     @Get("get-all-tasks")
     async getAllTasks() {
@@ -110,7 +130,6 @@ export class TasksController {
     @RequiredPermissions(PermissionsEnum.TASK_ADD)
     @Post('add-subtask/:taskId')
     async addSubtask(@Param('taskId') taskId: string, @Body() createTaskDto: CreateTaskDto, @GetAccount() userId, @GetDepartment() departmentId) {
-        createTaskDto.department_id = departmentId
         createTaskDto.assignee = userId;
         return this.taskService.addSubtask(taskId, createTaskDto);
     }

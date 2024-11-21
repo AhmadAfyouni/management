@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, InternalServerErrorException, BadRequest
 import { Inject } from '@nestjs/common/decorators';
 import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
+import { create } from 'domain';
 import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
 import { EmpService } from '../emp/emp.service';
@@ -21,7 +22,7 @@ export class TasksService {
         private readonly empService: EmpService,
         private readonly sectionService: SectionService,
         @Inject(forwardRef(() => ProjectService))
-        private readonly projectService: ProjectService
+        private readonly projectService: ProjectService,
     ) { }
     private async paginate(query: any, page: number, limit: number) {
         const skip = (page - 1) * limit;
@@ -171,7 +172,7 @@ export class TasksService {
     }
     async getTasksByDepartmentId(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
-            const tasks = await this.taskModel.find({ department_id: departmentId })
+            const tasks = await this.taskModel.find({ department_id: departmentId, project_id: null })
                 .populate({
                     path: "emp",
                     model: "Emp",
@@ -297,6 +298,23 @@ export class TasksService {
                 );
             }
 
+            if (updateTaskDto.due_date) {
+                const subTasks = await this.taskModel.find({
+                    parent_task: id
+                }).exec();
+                console.log(subTasks);
+
+                Promise.all(
+                    subTasks.map(async (subTask) => {
+                        if (new Date(subTask.due_date!) > new Date(updateTaskDto.due_date!)) {
+                            subTask.due_date = updateTaskDto.due_date!;
+                            await subTask.save();
+                        }
+                    })
+                );
+
+            }
+
             const updatedTask = await this.taskModel
                 .findByIdAndUpdate(id, updateTaskDto, { new: true })
                 .exec();
@@ -388,9 +406,55 @@ export class TasksService {
         return newTask;
     }
 
+    async getTaskProjectByDepartmentId(projectId: string, departmentId: string,) {
+        const tasks = await this.taskModel.find({ department_id: departmentId, project_id: projectId }).populate({
+            path: "emp",
+            model: "Emp",
+            populate: [
+                {
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory",
+                    },
+                },
+                {
+                    path: "department_id",
+                    model: "Department",
+                },
+            ],
+        })
+            .populate('section_id')
+            .populate("assignee")
+            .populate("department_id")
+            .populate({
+                path: 'subtasks',
+                model: "Task",
+                populate: [
+                    {
+                        path: "department_id",
+                        model: "Department",
+                    },
+                    {
+                        path: "assignee",
+                        model: "Emp",
+                    },
+                    {
+                        path: "emp",
+                        model: "Emp",
+                    }
+                ],
+            }).lean()
+            .lean()
+            .exec();
+        const taskDto = tasks.map((task) => new GetTaskDto(task));
+        return taskDto;
+    }
+
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
         try {
-            const tasks = await this.taskModel.find({ emp: empId })
+            const tasks = await this.taskModel.find({ emp: empId, project_id: null })
                 .populate({
                     path: "emp",
                     model: "Emp",
@@ -529,16 +593,46 @@ export class TasksService {
     }
 
     async addSubtask(taskId: string, createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
-        const parentTask = await this.taskModel.findById(taskId);
-        if (!parentTask) throw new NotFoundException('Parent task not found');
-        createTaskDto.section_id = parentTask.section_id as any;
-        createTaskDto.department_id = parentTask.department_id as any;
-        const subtask = new this.taskModel({ ...createTaskDto, status: TASK_STATUS.PENDING, parent_task: parentTask._id.toString() });
-        await subtask.save();
-        parentTask.subtasks.push(subtask._id);
-        await parentTask.save();
-        return { status: true, message: 'Subtask added successfully', data: subtask };
+        try {
+            const parentTask = await this.taskModel.findById(taskId);
+            if (!parentTask) throw new NotFoundException('Parent task not found');
+
+            createTaskDto.section_id = parentTask.section_id as any;
+
+            if (createTaskDto.project_id && createTaskDto.department_id) {
+                const emp = await this.empService.findManagerByDepartment(createTaskDto.department_id);
+                createTaskDto.emp = emp._id.toString();
+                const project = await this.projectService.getProjectById(createTaskDto.project_id);
+                if (!project) throw new NotFoundException('Project not found');
+
+                await this.projectService.updateProject(createTaskDto.project_id, {
+                    departments: [createTaskDto.department_id],
+                });
+            } else {
+                createTaskDto.department_id = parentTask.department_id as any;
+            }
+
+            const subtask = new this.taskModel({
+                ...createTaskDto,
+                status: TASK_STATUS.PENDING,
+                parent_task: parentTask._id.toString(),
+            });
+
+            await subtask.save();
+
+            parentTask.subtasks.push(subtask._id);
+            await parentTask.save();
+
+            return {
+                status: true,
+                message: 'Subtask added successfully',
+                data: subtask,
+            };
+        } catch (error) {
+            throw new BadRequestException(error.message || 'Failed to add subtask');
+        }
     }
+
 
     async getSubTasksByParentTask(parent_id: string): Promise<TaskDocument[]> {
         const subTasks = await this.taskModel.find({ parent_task: parent_id }).exec();
