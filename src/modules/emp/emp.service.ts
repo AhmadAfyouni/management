@@ -355,7 +355,7 @@ export class EmpService {
         }
 
         const directReports = await this.empModel
-            .find({ department_id: employee.job_id.department_id })
+            .find({ parentId: employee._id.toString() })
             .exec();
         const directReportsDto = directReports.map((report) => {
             return {
@@ -369,8 +369,6 @@ export class EmpService {
         allEmployees.push(...directReportsDto);
         for (const report of directReports) {
             if (report._id.toString() !== employee._id.toString()) {
-                report.parentId = id ?? null;
-                await report.save();
                 const subTree = await this.buildEmployeeTree(report._id.toString(), false);
                 allEmployees.push(...subTree);
             }
