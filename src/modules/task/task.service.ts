@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, InternalServerErrorException, BadRequest
 import { Inject } from '@nestjs/common/decorators';
 import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
+import { Type } from 'class-transformer';
 import { Model, Types } from 'mongoose';
 import { EmpService } from '../emp/emp.service';
 import { ProjectService } from '../project/project.service';
@@ -37,6 +38,7 @@ export class TasksService {
             totalPages: Math.ceil(total / limit),
         };
     }
+
     async createTaskForDepartment(createTaskDto: CreateTaskDto) {
         if (!createTaskDto.department_id) {
             throw new BadRequestException('Department ID is required');
@@ -47,7 +49,7 @@ export class TasksService {
         const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
         const taskData = {
             ...createTaskDto,
-            emp: manager!._id,
+            emp: manager!._id.toString(),
             department_id: createTaskDto.department_id,
         };
 
@@ -342,8 +344,11 @@ export class TasksService {
         }
     }
 
-    async getProjectTasks(projectId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
-        const tasks = await this.taskModel.find({ project_id: projectId })
+    async getProjectTasks(projectId: string, empId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+        const emps = await this.empService.buildEmployeeTree(empId);
+        const empIds = emps.map((emp) => emp.id);
+
+        const tasks = await this.taskModel.find({ project_id: projectId, emp: { $in: empIds } })
             .populate({
                 path: "emp",
                 model: "Emp",
@@ -449,7 +454,9 @@ export class TasksService {
 
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
         try {
-            const tasks = await this.taskModel.find({ emp: empId, project_id: null })
+            const emps = await this.empService.buildEmployeeTree(empId);
+            const empIds = emps.map((emp) => emp.id);
+            const tasks = await this.taskModel.find({ emp: { $in: empIds }, project_id: null })
                 .populate({
                     path: "emp",
                     model: "Emp",
@@ -498,7 +505,6 @@ export class TasksService {
             return { status: false, message: "Failed to retrieve tasks", data: [] };
         }
     }
-
 
     async startTask(taskId: string, userId: string): Promise<{ status: boolean, message: string }> {
         const task = await this.taskModel.findOne({
@@ -599,14 +605,12 @@ export class TasksService {
                 createTaskDto.emp = emp!._id.toString();
                 const project = await this.projectService.getProjectById(createTaskDto.project_id);
                 if (!project) throw new NotFoundException('Project not found');
-
                 await this.projectService.updateProject(createTaskDto.project_id, {
                     departments: [createTaskDto.department_id],
                 });
             } else {
                 createTaskDto.department_id = parentTask.department_id as any;
             }
-
             const subtask = new this.taskModel({
                 ...createTaskDto,
                 status: TASK_STATUS.PENDING,
@@ -627,7 +631,6 @@ export class TasksService {
             throw new BadRequestException(error.message || 'Failed to add subtask');
         }
     }
-
 
     async getSubTasksByParentTask(parent_id: string): Promise<TaskDocument[]> {
         const subTasks = await this.taskModel.find({ parent_task: parent_id }).exec();
@@ -833,42 +836,39 @@ export class TasksService {
 
     async buildTaskTree(empId: string): Promise<any> {
         const fullTree: any[] = [];
-    
+
         const processTask = async (task: any, parentId: string | null = null) => {
             fullTree.push({
                 id: task._id.toString(),
                 name: task.name,
                 parentId: parentId,
             });
-    
+
             if (task.subtasks && task.subtasks.length > 0) {
                 for (const subTask of task.subtasks) {
                     const fetchedSubTask = await this.taskModel
                         .findById(new Types.ObjectId(subTask._id))
                         .lean()
                         .exec();
-    
+
                     if (fetchedSubTask) {
                         await processTask(fetchedSubTask, task._id.toString());
                     }
                 }
             }
         };
-    
+
         const tasks = await this.taskModel
             .find({ emp: new Types.ObjectId(empId), project_id: null })
             .lean()
             .exec();
-    
+
         for (const task of tasks) {
             await processTask(task);
         }
-    
-        return fullTree; 
+
+        return fullTree;
     }
-    
-
-
 
     async getSubTaskByParentTask(parentId: string) {
         const tasks = await this.taskModel.find({ parent_task: parentId }).populate({

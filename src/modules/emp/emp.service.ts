@@ -329,22 +329,14 @@ export class EmpService {
         if (!Types.ObjectId.isValid(id)) {
             throw new BadRequestException('Invalid Employee ID');
         }
-
-
         const employee = await this.empModel
             .findById(new Types.ObjectId(id))
-            .populate("job_id")
             .lean()
             .exec() as any;
-
-        if (!employee.job_id.is_manager) {
-            return [];
-        }
 
         if (!employee) {
             throw new NotFoundException('Employee not found');
         }
-
         if (start) {
             allEmployees.push({
                 id: employee._id.toString(),
@@ -353,6 +345,25 @@ export class EmpService {
                 is_manager: employee.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
             });
         }
+        if (employee.role == UserRole.ADMIN) {
+            allEmployees = [];
+            const emps = await this.empModel.find({}).lean().exec();
+            emps.map((emp) => {
+                allEmployees.push({
+                    id: emp._id.toString(),
+                    name: emp.name,
+                    parentId: emp.parentId || null,
+                    is_manager: emp.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
+                })
+            });
+            return allEmployees;
+        }
+        if (employee.role == UserRole.SECONDARY_USER) {
+            return [];
+        }
+
+
+
 
         const directReports = await this.empModel
             .find({ parentId: employee._id.toString() })

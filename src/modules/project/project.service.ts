@@ -19,7 +19,6 @@ export class ProjectService {
         private readonly empService: EmpService,
         @Inject(forwardRef(() => TasksService))
         private readonly taskService: TasksService,
-
         private readonly departmentService: DepartmentService
     ) { }
 
@@ -141,7 +140,7 @@ export class ProjectService {
         }
     }
 
-    async getProjectDetails(id: string) {
+    async getProjectDetails(id: string,departmentId:string) {
         const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').lean().exec() as any;
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
@@ -153,7 +152,7 @@ export class ProjectService {
                 parentId: department.parent_department_id || null,
             }));
         }
-        const projectTasks = await (await this.taskService.getProjectTasks(id)).data;
+        const projectTasks = await (await this.taskService.getProjectTasks(id,departmentId)).data;
         const taskDone = projectTasks.filter((task) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task) => task.status === TASK_STATUS.ONGOING).length;
         const taskOnTest = projectTasks.filter((task) => task.status === TASK_STATUS.ON_TEST).length;
