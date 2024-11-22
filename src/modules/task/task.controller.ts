@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Body, UseGuards, Req, Post, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Param, Body, UseGuards, Req, Post, BadRequestException,Query } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TasksService } from './task.service';
@@ -9,6 +9,7 @@ import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
 import { CreateTaskDto } from './dtos/create-task.dto';
 import { UpdateTaskDto } from './dtos/update-task.dto';
 import { TASK_STATUS } from './enums/task-status.enum';
+import { GetTreeDto } from './dtos/get-tree.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tasks')
@@ -197,7 +198,7 @@ export class TasksController {
     }
 
     @Get("tree")
-    async getTaskTree(@GetAccount() empId: string) {
-        return this.taskService.buildTaskTree(empId);
+    async getTaskTree(@Query() treeDto: GetTreeDto, @GetAccount() empId: string) {
+        return this.taskService.buildTaskTree(treeDto, empId);
     }
 }

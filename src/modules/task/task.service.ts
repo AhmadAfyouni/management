@@ -9,6 +9,7 @@ import { ProjectService } from '../project/project.service';
 import { SectionService } from '../section/section.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
 import { GetTaskDto } from './dtos/get-task.dto';
+import { GetTreeDto } from './dtos/get-tree.dto';
 import { UpdateTaskDto } from './dtos/update-task.dto';
 import { TASK_STATUS } from './enums/task-status.enum';
 import { Task, TaskDocument } from './schema/task.schema';
@@ -834,39 +835,25 @@ export class TasksService {
         return taskDto;
     }
 
-    async buildTaskTree(empId: string): Promise<any> {
+    async buildTaskTree(treeDto: GetTreeDto, empId: string): Promise<any> {
         const fullTree: any[] = [];
+        let tasks: TaskDocument[];
+        if (treeDto.departemtId && treeDto.projectId) {
+            tasks = await this.taskModel.find({ department_id: treeDto.departemtId, project_id: treeDto.projectId });
 
-        const processTask = async (task: any, parentId: string | null = null) => {
+        } else if (treeDto.departemtId) {
+            tasks = await this.taskModel.find({ department_id: treeDto.departemtId, project_id: null });
+
+        } else {
+            tasks = await this.taskModel.find({ emp: empId, project_id: null });
+        }
+        tasks.map((task) => {
             fullTree.push({
                 id: task._id.toString(),
                 name: task.name,
-                parentId: parentId,
-            });
-
-            if (task.subtasks && task.subtasks.length > 0) {
-                for (const subTask of task.subtasks) {
-                    const fetchedSubTask = await this.taskModel
-                        .findById(new Types.ObjectId(subTask._id))
-                        .lean()
-                        .exec();
-
-                    if (fetchedSubTask) {
-                        await processTask(fetchedSubTask, task._id.toString());
-                    }
-                }
-            }
-        };
-
-        const tasks = await this.taskModel
-            .find({ emp: new Types.ObjectId(empId), project_id: null })
-            .lean()
-            .exec();
-
-        for (const task of tasks) {
-            await processTask(task);
-        }
-
+                parentId: task.parent_task,
+            })
+        })
         return fullTree;
     }
 
