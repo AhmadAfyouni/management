@@ -2,11 +2,8 @@ import { Injectable, NotFoundException, InternalServerErrorException, BadRequest
 import { Inject } from '@nestjs/common/decorators';
 import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
-import { create } from 'domain';
 import { Model, Types } from 'mongoose';
-import { parseObject } from 'src/helper/parse-object';
 import { EmpService } from '../emp/emp.service';
-import { JobTitlesService } from '../job-titles/job-titles.service';
 import { ProjectService } from '../project/project.service';
 import { SectionService } from '../section/section.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
@@ -91,8 +88,6 @@ export class TasksService {
             if (!departmentId) {
                 throw new NotFoundException('Department Id not found for this employee');
             }
-            console.log(departmentId);
-
             await this.sectionService.createInitialSections(departmentId);
             const section_id = await this.sectionService.getRecentlySectionId(departmentId);
             createTaskDto.section_id = section_id;

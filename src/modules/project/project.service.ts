@@ -46,7 +46,7 @@ export class ProjectService {
             if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
                 throw new BadRequestException('Invalid date format for startDate or endDate');
             }
-
+            createProjectDto
             const projectData = {
                 ...createProjectDto,
                 startDate: parsedStartDate,
@@ -94,7 +94,6 @@ export class ProjectService {
                 const newDepartments = updateProjectDto.departments.map(deptId => deptId.toString());
                 const mergedDepartments = Array.from(new Set([...existingDepartments, ...newDepartments]));
 
-                updateFields.departments = mergedDepartments.map(deptId => new Types.ObjectId(deptId));
             }
 
             if (updateProjectDto.members) {
