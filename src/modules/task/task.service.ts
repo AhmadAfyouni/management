@@ -832,7 +832,7 @@ export class TasksService {
     }
 
     async buildTaskTree(empId: string): Promise<any> {
-        const tasks = await this.taskModel.find({ emp: empId, project_id: null })
+        const tasks = await this.taskModel.find({ emp: new Types.ObjectId(empId), project_id: null })
             .lean()
             .lean()
             .exec();
