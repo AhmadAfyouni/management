@@ -11,8 +11,8 @@ import { Emp, EmpSchema } from "./schemas/emp.schema";
     {
         imports: [
             MongooseModule.forFeature([{ name: Emp.name, schema: EmpSchema },]),
-            DepartmentModule,
-            forwardRef(()=> JobTitlesModule),
+            forwardRef(() => DepartmentModule),
+            forwardRef(() => JobTitlesModule),
         ],
 
         controllers: [EmpController],

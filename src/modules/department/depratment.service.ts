@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { forwardRef, Injectable, InternalServerErrorException, NotFoundException, Inject } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { DepartmentDocument } from './schema/department.schema';
@@ -6,11 +6,14 @@ import { GetDepartmentDto } from './dto/get-department.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { TreeDTO } from './dto/tree-dto';
+import { EmpService } from '../emp/emp.service';
 
 @Injectable()
 export class DepartmentService {
     constructor(
         @InjectModel("Department") private readonly departmentModel: Model<DepartmentDocument>,
+        @Inject(forwardRef(() => EmpService))
+        private readonly empService: EmpService
     ) { }
 
     async getAllDepts(): Promise<GetDepartmentDto[]> {
@@ -69,7 +72,14 @@ export class DepartmentService {
                     runValidators: true,
                 }
             ).exec();
-
+            if (parent_department_id) {
+                const manager = await this.empService.findManagerByDepartment(parent_department_id.toString());
+                const manager2 = await this.empService.findManagerByDepartment(id);
+                if (manager && manager2) {
+                    manager2.parentId! = manager?._id.toString();
+                    manager2.save();
+                }
+            }
             if (!result) {
                 throw new NotFoundException(`Department with ID ${id} not found`);
             }
@@ -115,33 +125,29 @@ export class DepartmentService {
         accessibleDepartments?: string[]
     ): Promise<TreeDTO[]> {
         const objectId = new Types.ObjectId(id);
-    
+
         // Find the main department by ID
         const department = await this.departmentModel.findById(objectId).exec();
         if (!department) {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
-    
-        // Initialize the flat list
+
         const departmentList: TreeDTO[] = [];
-    
-        // Transform the department into TreeDTO format
+
         const departmentDto: TreeDTO = {
             id: department._id.toString(),
             name: department.name,
-            parentId: department.parent_department_id
+            parentId: department.parent_department_id?.toString()
                 ? department.parent_department_id.toString()
                 : null,
         };
-    
-        // Add the main department to the list
+
         departmentList.push(departmentDto);
-    
-        // Find subdepartments of the current department
+
         const subDepartments = await this.departmentModel
             .find({ parent_department_id: objectId })
             .exec();
-    
+
         // Recursively add each subdepartment to the list
         for (const subDept of subDepartments) {
             const subDepartmentList = await this.buildDepartmentTree(
@@ -149,7 +155,7 @@ export class DepartmentService {
             );
             departmentList.push(...subDepartmentList);
         }
-    
+
         // Check if accessibleDepartments is provided
         if (accessibleDepartments && accessibleDepartments.length > 0) {
             for (const departmentId of accessibleDepartments) {
@@ -160,10 +166,10 @@ export class DepartmentService {
                 departmentList.push(...accessibleDepartmentList);
             }
         }
-    
+
         return departmentList;
     }
-    
+
 
 
     async getDepartmentTree(departmentId: string, departments?: string[]): Promise<any> {

@@ -19,6 +19,7 @@ export class EmpService {
         @InjectModel(Emp.name) private readonly empModel: Model<EmpDocument>,
         @Inject(forwardRef(() => JobTitlesService))
         private readonly jobTitleService: JobTitlesService,
+        @Inject(forwardRef(() => DepartmentService))
         private readonly departmentService: DepartmentService
     ) { }
 
@@ -112,10 +113,8 @@ export class EmpService {
             let role: UserRole = UserRole.SECONDARY_USER;
             if (jobTitle?.is_manager) {
                 const emp = await this.empModel.findOne({ job_id: employee.job_id.toString() });
-                console.log(emp);
-                
                 if (emp) {
-                    throw new ConflictException('Cannot create two primary user under a manager.');
+                    throw new ConflictException('Cannot create two primary user for that job title.');
                 }
                 role = UserRole.PRIMARY_USER;
             }
@@ -142,6 +141,35 @@ export class EmpService {
         }
     }
 
+
+    async updateEmp(id: string, updateEmpDto: UpdateEmpDto) {
+        try {
+            const empExist = await this.empModel.findById(id);
+            if (!empExist) {
+                throw new NotFoundException('Employee not found');
+            }
+
+            if (updateEmpDto.password) {
+                const hashedNewPassword = await bcrypt.hash(updateEmpDto.password, 10);
+                updateEmpDto.password = hashedNewPassword;
+            }
+
+            // if (updateEmpDto.department_id) {
+            //     let manager;
+            //     manager = await this.findManagerByDepartment(updateEmpDto.department_id.toString());
+            //     if (!manager) {
+            //         const managerParent = await this.departmentService.findById(updateEmpDto.department_id.toString());
+            //         manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
+            //     }
+            // }
+
+
+
+            return await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true, new: true }).exec();
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to update employee', error.message);
+        }
+    }
 
 
 
@@ -287,35 +315,7 @@ export class EmpService {
         }
     }
 
-    async updateEmp(id: string, updateEmpDto: UpdateEmpDto) {
-        try {
-            const empExist = await this.empModel.findById(id);
-            if (!empExist) {
-                throw new NotFoundException('Employee not found');
-            }
 
-            if (updateEmpDto.password) {
-                const hashedNewPassword = await bcrypt.hash(updateEmpDto.password, 10);
-                updateEmpDto.password = hashedNewPassword;
-            }
-
-            // if (updateEmpDto.department_id) {
-            //     let manager;
-            //     manager = await this.findManagerByDepartment(updateEmpDto.department_id.toString());
-            //     if (!manager) {
-            //         const managerParent = await this.departmentService.findById(updateEmpDto.department_id.toString());
-            //         manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
-            //         employee.department_id = managerParent?.parent_department!._id!.toString() as any;
-            //     }
-            // }
-
-
-
-            return await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true, new: true }).exec();
-        } catch (error) {
-            throw new InternalServerErrorException('Failed to update employee', error.message);
-        }
-    }
 
 
 

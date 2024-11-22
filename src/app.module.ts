@@ -13,6 +13,7 @@ import { JobCategoryModule } from "./modules/job-category/job-category.module";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ProjectModule } from "./modules/project/project.module";
 import { SectionModule } from "./modules/section/section.module";
+import { UploadModule } from "./modules/upload/upload.module";
 
 @Module(
   {
@@ -35,6 +36,7 @@ import { SectionModule } from "./modules/section/section.module";
       AuthModule,
       DatabaseModule,
       DepartmentModule,
+      UploadModule,
     ],
   }
 )
