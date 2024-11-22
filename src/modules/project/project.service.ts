@@ -151,4 +151,16 @@ export class ProjectService {
         const tasks = await this.taskService.getTaskProjectByDepartmentId(departmentId, projectId);
         return tasks;
     }
+
+    async getDepartmentProject(departmentId: string, projectId: string) {
+        const project = await this.projectModel.findById(new Types.ObjectId(projectId));
+        const myDepartments = await this.departmentService.getDepartmentTree(departmentId);
+        const projectDepts = project?.departments;
+        if (projectDepts) {
+            const projectDeptsIds = projectDepts.map((deptId) => deptId.toString());
+            const departmentMatch = myDepartments.filter((dept) => projectDeptsIds.includes(dept.id));
+            return departmentMatch ? departmentMatch : [];
+        }
+        return [];
+    }
 }
