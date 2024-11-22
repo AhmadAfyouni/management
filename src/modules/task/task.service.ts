@@ -832,21 +832,42 @@ export class TasksService {
     }
 
     async buildTaskTree(empId: string): Promise<any> {
-        const tasks = await this.taskModel.find({ emp: new Types.ObjectId(empId), project_id: null })
-            .lean()
-            .lean()
-            .exec();
-        const taskDto = tasks.map((task) => {
-            return {
+        const fullTree: any[] = [];
+    
+        const processTask = async (task: any, parentId: string | null = null) => {
+            fullTree.push({
                 id: task._id.toString(),
                 name: task.name,
-                parentId: task.parent_task
-                    ? task.parent_task.toString()
-                    : null,
+                parentId: parentId,
+            });
+    
+            if (task.subtasks && task.subtasks.length > 0) {
+                for (const subTask of task.subtasks) {
+                    const fetchedSubTask = await this.taskModel
+                        .findById(new Types.ObjectId(subTask._id))
+                        .lean()
+                        .exec();
+    
+                    if (fetchedSubTask) {
+                        await processTask(fetchedSubTask, task._id.toString());
+                    }
+                }
             }
-        });
-        return taskDto
+        };
+    
+        const tasks = await this.taskModel
+            .find({ emp: new Types.ObjectId(empId), project_id: null })
+            .lean()
+            .exec();
+    
+        for (const task of tasks) {
+            await processTask(task);
+        }
+    
+        return fullTree; 
     }
+    
+
 
 
     async getSubTaskByParentTask(parentId: string) {
