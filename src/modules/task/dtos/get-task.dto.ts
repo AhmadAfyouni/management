@@ -40,7 +40,7 @@ export class GetTaskDto {
         this.totalTimeSpent = task.totalTimeSpent;
         this.startTime = task.startTime;
         this.timeLogs = task.timeLogs;
-        this.subTasks = task.subtasks;
+        this.subTasks = task.subtasks.map(subTask => new GetTaskDto(subTask));
         this.parent_task = task.parent_task;
         this.department = task.department_id || undefined
         this.over_all_time = task.over_all_time || undefined;
