@@ -39,20 +39,7 @@ export class ProjectService {
     }
     async createProject(createProjectDto: CreateProjectDto): Promise<Project> {
         try {
-            const parsedStartDate = new Date(createProjectDto.startDate.replace(/-/g, '/'));
-            const parsedEndDate = new Date(createProjectDto.endDate.replace(/-/g, '/'));
-
-            if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
-                throw new BadRequestException('Invalid date format for startDate or endDate');
-            }
-            createProjectDto
-            const projectData = {
-                ...createProjectDto,
-                startDate: parsedStartDate,
-                endDate: parsedEndDate,
-            };
-
-            const project = new this.projectModel(projectData) as any;
+            const project = new this.projectModel(createProjectDto) as any;
             return await project.save();
         } catch (error) {
             throw new BadRequestException(error.message || 'Failed to create project');
@@ -140,7 +127,7 @@ export class ProjectService {
         }
     }
 
-    async getProjectDetails(id: string,departmentId:string) {
+    async getProjectDetails(id: string, departmentId: string) {
         const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').lean().exec() as any;
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
@@ -152,7 +139,7 @@ export class ProjectService {
                 parentId: department.parent_department_id || null,
             }));
         }
-        const projectTasks = await (await this.taskService.getProjectTasks(id,departmentId)).data;
+        const projectTasks = await (await this.taskService.getProjectTasks(id, departmentId)).data;
         const taskDone = projectTasks.filter((task) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task) => task.status === TASK_STATUS.ONGOING).length;
         const taskOnTest = projectTasks.filter((task) => task.status === TASK_STATUS.ON_TEST).length;
