@@ -63,11 +63,12 @@ export class TasksService {
             throw new BadRequestException('Project ID is required');
         }
         const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
-        if(!manager) {
-            throw new BadRequestException('No manager found for this department'); 
+        if (!manager) {
+            throw new BadRequestException('No manager found for this department');
         }
         const project = await this.projectService.getProjectById(createTaskDto.project_id!);
-        const section_id = await this.sectionService.getRecentlySectionId(null, createTaskDto.department_id);
+        await this.sectionService.createInitialSections(createTaskDto.department_id);
+        const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
         createTaskDto.section_id = section_id;
         createTaskDto.emp = manager._id.toString();
         if (!project) {
