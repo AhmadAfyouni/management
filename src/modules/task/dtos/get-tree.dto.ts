@@ -4,8 +4,8 @@ export class GetTreeDto {
     @IsOptional()
     @IsMongoId()
     projectId?: string;
-    
+
     @IsOptional()
     @IsMongoId()
-    departemtId?: string;
+    departmentId?: string;
 }
