@@ -838,8 +838,8 @@ export class TasksService {
     async buildTaskTree(treeDto: GetTreeDto, empId: string): Promise<any> {
         const fullTree: any[] = [];
         let tasks: TaskDocument[];
-        if (treeDto.departemtId && treeDto.projectId) {
-            tasks = await this.taskModel.find({ department_id: treeDto.departemtId, project_id: treeDto.projectId,parent_task:null }).populate({
+        if (treeDto.departmentId && treeDto.projectId) {
+            tasks = await this.taskModel.find({ department_id: treeDto.departmentId, project_id: treeDto.projectId,parent_task:null }).populate({
                 path: "emp",
                 model: "Emp",
                 populate: [
@@ -876,8 +876,8 @@ export class TasksService {
             .lean()
             .exec();;
 
-        } else if (treeDto.departemtId) {
-            tasks = await this.taskModel.find({ department_id: treeDto.departemtId, project_id: null,parent_task:null }).populate({
+        } else if (treeDto.departmentId) {
+            tasks = await this.taskModel.find({ department_id: treeDto.departmentId, project_id: null,parent_task:null }).populate({
                 path: "emp",
                 model: "Emp",
                 populate: [
