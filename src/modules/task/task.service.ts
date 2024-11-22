@@ -59,12 +59,11 @@ export class TasksService {
     }
 
     async createTaskForProject(createTaskDto: CreateTaskDto) {
-        if (!createTaskDto.project_id) {
+        if (!createTaskDto.project_id || !createTaskDto.department_id) {
             throw new BadRequestException('Project ID is required');
         }
-        const project = await this.projectService.getProjectById(createTaskDto.project_id);
-        await this.sectionService.createInitialSections(undefined, createTaskDto.project_id);
-        const section_id = await this.sectionService.getRecentlySectionId(null, createTaskDto.project_id);
+        const project = await this.projectService.getProjectById(createTaskDto.project_id!);
+        const section_id = await this.sectionService.getRecentlySectionId(null, createTaskDto.department_id);
         createTaskDto.section_id = section_id;
         if (!project) {
             throw new NotFoundException('Project not found');
@@ -349,7 +348,7 @@ export class TasksService {
         const emps = await this.empService.buildEmployeeTree(empId);
         const empIds = emps.map((emp) => emp.id);
 
-        const tasks = await this.taskModel.find({ project_id: projectId, emp: { $in: empIds } })
+        const tasks = await this.taskModel.find({ project_id: projectId })
             .populate({
                 path: "emp",
                 model: "Emp",
