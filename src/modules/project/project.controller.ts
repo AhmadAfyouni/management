@@ -64,8 +64,8 @@ export class ProjectController {
     }
 
     @Get("project-details/:id")
-    async getProjectDetails(@Param('id') id: string, @GetAccount() empId) {
-        return this.projectService.getProjectDetails(id, empId);
+    async getProjectDetails(@Param('id') id: string, @GetDepartment() departmentId) {
+        return this.projectService.getProjectDetails(id, departmentId);
     }
     @Get("project-departments-tree/:projectId")
     async getTaskDetailsProject(@Param('projectId') projectId: string, @GetDepartment() deparmentId) {

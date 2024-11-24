@@ -674,9 +674,8 @@ export class TasksService {
 
         return taskDto;
     }
-    async buildFullTaskList(treeDto: GetTreeDto, empId: string): Promise<any> {
+    async buildFullTaskList(treeDto: GetTreeDto, empId: string): Promise<{ tree: any[], info: any[] }> {
         let parentTasks: TaskDocument[];
-
         if (treeDto.departmentId && treeDto.projectId) {
             parentTasks = await this.taskModel
                 .find({
