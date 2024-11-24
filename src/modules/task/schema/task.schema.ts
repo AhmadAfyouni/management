@@ -76,6 +76,9 @@ export class Task {
 
     @Prop({ type: String })
     over_all_time?: String;
+
+    @Prop({type:Number,default: 0,})
+    rate: Number;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

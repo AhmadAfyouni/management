@@ -41,8 +41,8 @@ export class DepartmentController {
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)
     @Get("tree")
-    async getDepartmentTree(@GetDepartment() departmentId,@GetAccessDepartment() departments): Promise<any> {
-        return await this.departmentService.getDepartmentTree(departmentId,departments);
+    async getDepartmentTree(@GetDepartment() departmentId, @GetAccessDepartment() departments): Promise<any> {
+        return await this.departmentService.getDepartmentTree(departmentId, departments);
     }
 
     @Roles(UserRole.PRIMARY_USER)
@@ -59,5 +59,10 @@ export class DepartmentController {
     @Get("view")
     async viewSpecificDepartments(@GetAccessDepartment() departments): Promise<GetDepartmentDto[]> {
         return await this.departmentService.viewAccessDepartment(departments);
+    }
+
+    @Get("get-level-one")
+    async getMyLevelOne(@GetDepartment() departmentId: string): Promise<any> {
+        return await this.departmentService.getMyLevelOne(departmentId);
     }
 }

@@ -185,7 +185,23 @@ export class DepartmentService {
     }
 
 
-
-
+    async getMyLevelOne(departmentId: string) {
+        let tree: any[];
+        const objectId = new Types.ObjectId(departmentId);
+        const department = await this.departmentModel.findById(objectId).exec();
+        if (!department) {
+            throw new NotFoundException(`Department with ID ${departmentId} not found`);
+        }
+        const subDepartment = await this.departmentModel.find({ parent_department_id: objectId }).lean().exec();
+        const sub = subDepartment.map(dept => ({
+            id: dept._id.toString(),
+            name: dept.name
+        }));
+        sub.push({
+            id: departmentId,
+            name: department.name
+        });
+        return sub;
+    }
 
 }

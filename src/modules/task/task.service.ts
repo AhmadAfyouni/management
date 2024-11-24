@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Inject } from '@nestjs/common/decorators';
 import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
@@ -284,9 +284,20 @@ export class TasksService {
 
     async updateTask(
         id: string,
-        updateTaskDto: UpdateTaskDto
+        updateTaskDto: UpdateTaskDto,
+        assigneeId: string
     ): Promise<{ status: boolean; message: string }> {
         try {
+
+            if (updateTaskDto.status === TASK_STATUS.DONE) {
+                const task = await this.taskModel.findById(new Types.ObjectId(id));
+                if (!task) {
+                    throw new NotFoundException(`Task with ID ${id} not found`);
+                }
+                if (task.assignee?.toString() !== assigneeId) {
+                    throw new ForbiddenException('You are not authorized to mark this task as done');
+                }
+            }
             if (updateTaskDto.section_id) {
                 const subTasks = await this.getSubTasksByParentTask(id);
                 await Promise.all(
@@ -416,24 +427,7 @@ export class TasksService {
             .populate('section_id')
             .populate("assignee")
             .populate("department_id")
-            .populate({
-                path: 'subtasks',
-                model: "Task",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                    },
-                    {
-                        path: "assignee",
-                        model: "Emp",
-                    },
-                    {
-                        path: "emp",
-                        model: "Emp",
-                    }
-                ],
-            }).lean()
+            .lean()
             .lean()
             .exec();
         const taskDto = tasks.map((task) => new GetTaskDto(task));
@@ -641,6 +635,7 @@ export class TasksService {
 
         const weeklyTasks = await this.taskModel.find({
             emp: userId,
+            project_id: null,
             createdAt: { $gte: startOfWeek, $lte: today },
         }).populate({
             path: "emp",
@@ -663,24 +658,7 @@ export class TasksService {
             .populate('section_id')
             .populate("assignee")
             .populate("department_id")
-            .populate({
-                path: 'subtasks',
-                model: "Task",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                    },
-                    {
-                        path: "assignee",
-                        model: "Emp",
-                    },
-                    {
-                        path: "emp",
-                        model: "Emp",
-                    }
-                ],
-            }).lean()
+            .lean()
             .lean()
             .exec();
         const taskDto = weeklyTasks.map((task) => new GetTaskDto(task));
@@ -694,6 +672,7 @@ export class TasksService {
 
         const monthlyTasks = await this.taskModel.find({
             emp: userId,
+            project_id: null,
             createdAt: { $gte: startOfMonth, $lte: today },
         }).populate({
             path: "emp",
@@ -716,24 +695,7 @@ export class TasksService {
             .populate('section_id')
             .populate("assignee")
             .populate("department_id")
-            .populate({
-                path: 'subtasks',
-                model: "Task",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                    },
-                    {
-                        path: "assignee",
-                        model: "Emp",
-                    },
-                    {
-                        path: "emp",
-                        model: "Emp",
-                    }
-                ],
-            }).lean()
+            .lean()
             .lean()
             .exec();
         const taskDto = monthlyTasks.map((task) => new GetTaskDto(task));
@@ -763,24 +725,7 @@ export class TasksService {
             })
             .populate('section_id')
             .populate("assignee")
-            .populate({
-                path: 'subtasks',
-                model: "Task",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                    },
-                    {
-                        path: "assignee",
-                        model: "Emp",
-                    },
-                    {
-                        path: "emp",
-                        model: "Emp",
-                    }
-                ],
-            }).lean()
+            .lean()
             .lean()
             .exec();
         const taskDto = tasks.map((task) => new GetTaskDto(task));
@@ -882,7 +827,6 @@ export class TasksService {
             parentId: task.parent_task,
         });
         tasksInfo.push(task);
-        // Get subtasks for the current task
         const subTasks = await this.taskModel
             .find({ parent_task: task.id })
             .populate({
@@ -941,7 +885,7 @@ export class TasksService {
         }
         const subTask = await this.taskModel.find({ parent_task: id }).lean().exec();
         const completeSubTask = subTask.filter(task => task.status === TASK_STATUS.DONE);
-        return completeSubTask.length===subTask.length;
+        return completeSubTask.length === subTask.length;
     }
 
 }

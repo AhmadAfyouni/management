@@ -22,6 +22,7 @@ export class GetTaskDto {
     parent_task: any;
     department: any;
     over_all_time: any;
+    rate: any;
     constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
@@ -42,5 +43,6 @@ export class GetTaskDto {
         this.parent_task = task.parent_task;
         this.department = task.department_id || undefined
         this.over_all_time = task.over_all_time || undefined;
+        this.rate = task.rate || undefined;
     }
 }

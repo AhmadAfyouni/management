@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsMongoId, IsDate, IsInt, IsArray, IsOptional, IsBoolean, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsMongoId, IsDate, IsInt, IsArray, IsOptional, IsBoolean, IsEnum, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 import { TASK_STATUS } from '../enums/task-status.enum';
 import { PRIORITY_TYPE } from '../enums/priority.enum';
@@ -61,4 +61,8 @@ export class CreateTaskDto {
     @IsInt()
     @IsOptional()
     intervalInDays?: number;
+
+    @IsOptional()
+    @IsNumber()
+    rate?: number;
 }
