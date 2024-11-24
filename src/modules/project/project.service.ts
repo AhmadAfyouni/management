@@ -135,7 +135,7 @@ export class ProjectService {
                 parentId: department.parent_department_id || null,
             }));
         }
-        const projectTasks = await (await this.taskService.buildFullTaskList({ departmentId: departmentId, projectId: id }, "")).data;
+        const projectTasks = (await this.taskService.buildFullTaskList({ departmentId: departmentId, projectId: id }, "")).info;
         const taskDone = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.ONGOING).length;
         const taskOnTest = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.ON_TEST).length;
