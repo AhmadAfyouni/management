@@ -10,6 +10,7 @@ import { TASK_STATUS } from '../task/enums/task-status.enum';
 import { TasksService } from '../task/task.service';
 import { CreateProjectDto } from './dtos/create-project.dto';
 import { UpdateProjectDto } from './dtos/update-project.dto';
+import { ProjectStatus } from './enums/project-status';
 import { Project, ProjectDocument } from './schema/project.schema';
 
 @Injectable()
@@ -26,12 +27,11 @@ export class ProjectService {
     async getContributorsProject(projectId: string) {
         const project = await this.projectModel.findById(parseObject(projectId)).populate("members  departments").lean().exec();
         const deparmentsId = project?.departments;
-        const members = project?.members;
         let mangers;
         if (deparmentsId) {
             mangers = deparmentsId.map(async (department) => await this.empService.findManagerByDepartment(department.toString()));
         }
-        return { mangers, members }
+        return { mangers }
     }
 
     async getAllProject() {
@@ -69,7 +69,13 @@ export class ProjectService {
     async updateProject(id: string, updateProjectDto: UpdateProjectDto): Promise<Project> {
         try {
             const updateFields: any = {};
-
+            if (updateProjectDto.status === ProjectStatus.COMPLETED) {
+                const tasks = await this.taskService.getProjectTaskDetails(id);
+                const completedTasks = tasks.filter(task => task.status === TASK_STATUS.DONE);
+                if (tasks.length !== completedTasks.length) {
+                    throw new BadRequestException('Project cannot be marked as completed because some tasks are not completed');
+                }
+            }
             if (updateProjectDto.departments) {
                 const existingProject = await this.projectModel.findById(id).exec();
                 if (!existingProject) {
@@ -98,6 +104,16 @@ export class ProjectService {
         }
     }
 
+
+    async canCompleteProject(id: string): Promise<boolean> {
+        const project = await this.projectModel.findById(new Types.ObjectId(id)).exec();
+        if (!project) {
+            throw new NotFoundException(`Project with ID ${id} not found`);
+        }
+        const tasks = await this.taskService.getProjectTaskDetails(id);
+        const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE).length;
+        return tasks.length === completedTasks;
+    }
 
 
     async deleteProject(id: string): Promise<void> {

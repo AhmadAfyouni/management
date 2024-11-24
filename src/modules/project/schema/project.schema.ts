@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { ProjectStatus } from '../enums/project-status';
 
 export type ProjectDocument = Project & Document;
 
@@ -14,9 +15,8 @@ export class Project {
     @Prop({ type: [Types.ObjectId], ref: "Department", default: [] })
     departments: Types.ObjectId[];
 
-    @Prop({ type: [Types.ObjectId], ref: 'Emp', default: [] })
-    members: Types.ObjectId[];
-
+    @Prop({ type: String, enum: ProjectStatus, default: ProjectStatus.PENDING })
+    status: ProjectStatus;
     @Prop({ type: Date, required: true })
     startDate: Date;
 

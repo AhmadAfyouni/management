@@ -71,4 +71,9 @@ export class ProjectController {
     async getTaskDetailsProject(@Param('projectId') projectId: string, @GetDepartment() deparmentId) {
         return this.projectService.getDepartmentProject(deparmentId, projectId);
     }
+
+    @Get("complete-project/:projectId")
+    async canCompleteProject(@Param('projectId') projectId: string) {
+        return await this.projectService.canCompleteProject(projectId);
+    }
 }

@@ -933,4 +933,15 @@ export class TasksService {
         return tasks.map((subTask) => new GetTaskDto(subTask));
     }
 
+
+    async canCompleteTask(id: string): Promise<boolean> {
+        const task = await this.taskModel.findById(id).exec();
+        if (!task) {
+            throw new NotFoundException("Task not found");
+        }
+        const subTask = await this.taskModel.find({ parent_task: id }).lean().exec();
+        const completeSubTask = subTask.filter(task => task.status === TASK_STATUS.DONE);
+        return completeSubTask.length===subTask.length;
+    }
+
 }
