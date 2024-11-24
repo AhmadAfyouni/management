@@ -22,6 +22,9 @@ export class Project {
 
     @Prop({ type: Date, required: true })
     endDate: Date;
+
+    @Prop({ type: Number, default: 0 })
+    rate: Number;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);
