@@ -15,7 +15,8 @@ export class ProjectController {
     constructor(private readonly projectService: ProjectService) { }
 
     @Post()
-    async createProject(@Body() createProjectDto: CreateProjectDto) {
+    async createProject(@Body() createProjectDto: CreateProjectDto, @GetAccount() empId) {
+        createProjectDto.assignee = empId;
         return this.projectService.createProject(createProjectDto);
     }
 
@@ -53,9 +54,10 @@ export class ProjectController {
     @Post('update/:id')
     async updateProject(
         @Param('id') id: string,
-        @Body() updateProjectDto: UpdateProjectDto
+        @Body() updateProjectDto: UpdateProjectDto,
+        @GetAccount() empId,
     ) {
-        return this.projectService.updateProject(id, updateProjectDto);
+        return this.projectService.updateProject(id, updateProjectDto, empId);
     }
 
     @Delete(':id')

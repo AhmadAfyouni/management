@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { Inject } from '@nestjs/common/decorators';
 import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
@@ -66,8 +66,15 @@ export class ProjectService {
         return await this.projectModel.find({ departments: { $in: departmentId } }).populate('departments').lean().exec();
     }
 
-    async updateProject(id: string, updateProjectDto: UpdateProjectDto): Promise<Project> {
+    async updateProject(id: string, updateProjectDto: UpdateProjectDto, empId: string): Promise<Project> {
         try {
+            const project = await this.projectModel.findById(new Types.ObjectId(id)).lean().exec();
+            if (!project) {
+                throw new NotFoundException(`Project with ID ${id} not found`);
+            }
+            if (empId !== project.assignee?.toString()) {
+                throw new ForbiddenException('You are not authorized to update this project');
+            }
             const updateFields: any = {};
             if (updateProjectDto.status === ProjectStatus.COMPLETED) {
                 const tasks = await this.taskService.getProjectTaskDetails(id);

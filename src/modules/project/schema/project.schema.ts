@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { Emp } from 'src/modules/emp/schemas/emp.schema';
 import { ProjectStatus } from '../enums/project-status';
 
 export type ProjectDocument = Project & Document;
@@ -22,6 +23,9 @@ export class Project {
 
     @Prop({ type: Date, required: true })
     endDate: Date;
+
+    @Prop({ type: Types.ObjectId, ref: Emp.name, required: false })
+    assignee?: Types.ObjectId;
 
     @Prop({ type: Number, default: 0 })
     rate: Number;

@@ -11,6 +11,9 @@ export class CreateProjectDto {
     @IsNotEmpty()
     description: string;
 
+    @IsMongoId()
+    @IsOptional()
+    assignee?: string;
 
     @IsOptional()
     @IsArray()
