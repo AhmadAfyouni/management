@@ -135,11 +135,11 @@ export class ProjectService {
                 parentId: department.parent_department_id || null,
             }));
         }
-        const projectTasks = await (await this.taskService.getProjectTasks(id, departmentId)).data;
-        const taskDone = projectTasks.filter((task) => task.status === TASK_STATUS.DONE).length;
-        const taskOnGoing = projectTasks.filter((task) => task.status === TASK_STATUS.ONGOING).length;
-        const taskOnTest = projectTasks.filter((task) => task.status === TASK_STATUS.ON_TEST).length;
-        const taskPending = projectTasks.filter((task) => task.status === TASK_STATUS.PENDING).length;
+        const projectTasks = await (await this.taskService.buildFullTaskList({ departmentId: departmentId, projectId: id }, "")).data;
+        const taskDone = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.DONE).length;
+        const taskOnGoing = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.ONGOING).length;
+        const taskOnTest = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.ON_TEST).length;
+        const taskPending = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.PENDING).length;
         return { ...project, is_over_due: project.endDate < new Date(), projectTasks, taskDone, taskOnGoing, taskOnTest, taskPending };
     }
 
@@ -155,8 +155,8 @@ export class ProjectService {
         if (projectDepts) {
             const projectDeptsIds = projectDepts.map((deptId) => deptId.toString());
             const departmentMatch = myDepartments.filter((dept) => projectDeptsIds.includes(dept.id));
-            return departmentMatch ? departmentMatch : [];
+            return departmentMatch ? { tree: departmentMatch } : { tree: [] };
         }
-        return [];
+        return { tree: [] };
     }
 }

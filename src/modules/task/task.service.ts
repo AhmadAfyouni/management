@@ -306,9 +306,6 @@ export class TasksService {
     }
 
     async getProjectTasks(projectId: string, empId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
-        const emps = await (await this.empService.buildEmployeeTree(empId)).tree;
-        const empIds = emps.map((emp) => emp.id);
-
         const tasks = await this.taskModel.find({ project_id: projectId })
             .populate({
                 path: "emp",
@@ -793,8 +790,6 @@ export class TasksService {
             .exec();
 
         const subTaskDtos = subTasks.map((subTask) => new GetTaskDto(subTask));
-
-        // Recursively collect subtasks
         for (const subTask of subTaskDtos) {
             await this.collectTasksRecursively(subTask, fullList, tasksInfo);
         }
