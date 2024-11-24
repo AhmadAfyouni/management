@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Body, UseGuards, Req, Post, BadRequestException,Query } from '@nestjs/common';
+import { Controller, Get, Param, Body, UseGuards, Req, Post, BadRequestException, Query } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { TasksService } from './task.service';
@@ -116,16 +116,16 @@ export class TasksController {
         return this.taskService.getAllTasks();
     }
 
-    @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
-    @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
-    @Post('update-status/:taskId')
-    async updateTaskStatus(
-        @Param('taskId') taskId: string,
-        @GetAccount() userId: string,
-        @Body('newStatus') newStatus: TASK_STATUS
-    ) {
-        return this.taskService.updateTaskStatus(taskId, userId, newStatus);
-    }
+    // @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
+    // @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
+    // @Post('update-status/:taskId')
+    // async updateTaskStatus(
+    //     @Param('taskId') taskId: string,
+    //     @GetAccount() userId: string,
+    //     @Body('newStatus') newStatus: TASK_STATUS
+    // ) {
+    //     return this.taskService.updateTaskStatus(taskId, userId, newStatus);
+    // }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_ADD)
@@ -199,7 +199,13 @@ export class TasksController {
 
     @Get("tree")
     async getTaskTree(@Query() treeDto: GetTreeDto, @GetAccount() empId: string) {
-        
+
         return this.taskService.buildFullTaskList(treeDto, empId);
+    }
+
+
+    @Get("can-complete/:taskId")
+    async canCompleteTask(@Param('taskId') taskId: string) {
+        return this.taskService.canCompleteTask(taskId);
     }
 }
