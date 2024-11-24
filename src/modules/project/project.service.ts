@@ -25,7 +25,7 @@ export class ProjectService {
 
 
     async getContributorsProject(projectId: string) {
-        const project = await this.projectModel.findById(parseObject(projectId)).populate("members  departments").lean().exec();
+        const project = await this.projectModel.findById(parseObject(projectId)).populate("departments").lean().exec();
         const deparmentsId = project?.departments;
         let mangers;
         if (deparmentsId) {
@@ -35,7 +35,7 @@ export class ProjectService {
     }
 
     async getAllProject() {
-        return await this.projectModel.find().populate('members  departments').exec();
+        return await this.projectModel.find().populate('departments').exec();
     }
     async createProject(createProjectDto: CreateProjectDto): Promise<Project> {
         try {
@@ -47,11 +47,11 @@ export class ProjectService {
     }
 
     async getProjectsByDepartment(departmentId: string): Promise<Project[]> {
-        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members  departments').exec();
+        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('departments').exec();
     }
 
     async getProjectById(id: string): Promise<Project> {
-        const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').exec();
+        const project = await this.projectModel.findById(parseObject(id)).populate('departments').exec();
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
@@ -59,11 +59,11 @@ export class ProjectService {
     }
 
     async getEmpProject(empId: string) {
-        return await this.projectModel.find({ members: { $in: empId } }).populate('members  departments').lean().exec();
+        return await this.projectModel.find({ members: { $in: empId } }).populate('departments').lean().exec();
     }
 
     async getManagerProject(departmentId: string) {
-        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('members  departments').lean().exec();
+        return await this.projectModel.find({ departments: { $in: departmentId } }).populate('departments').lean().exec();
     }
 
     async updateProject(id: string, updateProjectDto: UpdateProjectDto): Promise<Project> {
