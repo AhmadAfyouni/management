@@ -99,7 +99,6 @@ export class TasksController {
         if (!project_id || !department_id) {
             throw new BadRequestException('Project ID and Department ID are required');
         }
-        console.log(project_id);
 
         try {
             const tasks = await this.taskService.getTaskProjectByDepartmentId(project_id, department_id);

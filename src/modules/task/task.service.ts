@@ -351,32 +351,9 @@ export class TasksService {
     }
 
     async getTaskProjectByDepartmentId(projectId: string, departmentId: string,) {
-        const tasks = await this.taskModel.find({ department_id: departmentId, project_id: projectId }).populate({
-            path: "emp",
-            model: "Emp",
-            populate: [
-                {
-                    path: "job_id",
-                    model: "JobTitles",
-                    populate: {
-                        path: "category",
-                        model: "JobCategory",
-                    },
-                },
-                {
-                    path: "department_id",
-                    model: "Department",
-                },
-            ],
-        })
-            .populate('section_id')
-            .populate("assignee")
-            .populate("department_id")
-            .lean()
-            .lean()
-            .exec();
-        const taskDto = tasks.map((task) => new GetTaskDto(task));
-        return taskDto;
+
+        const tasks = await (await this.buildFullTaskList({ projectId: projectId, departmentId: departmentId }, "")).info;
+        return tasks;
     }
 
     async getEmpTasks(empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto[] }> {
