@@ -88,7 +88,6 @@ export class TasksService {
 
     async createTaskForEmp(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
         try {
-            console.log(createTaskDto);
             if (!createTaskDto.emp) {
                 throw new BadRequestException('Employee ID is required');
             }
@@ -351,7 +350,7 @@ export class TasksService {
     }
 
     async getProjectTasks(projectId: string, empId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
-        const emps = await this.empService.buildEmployeeTree(empId);
+        const emps = await (await this.empService.buildEmployeeTree(empId)).tree;
         const empIds = emps.map((emp) => emp.id);
 
         const tasks = await this.taskModel.find({ project_id: projectId })
@@ -478,34 +477,12 @@ export class TasksService {
                 .populate("section_id")
                 .populate("assignee")
                 .populate("department_id")
-                .populate({
-                    path: "subtasks",
-                    model: "Task",
-                    populate: [
-                        { path: "department_id", model: "Department" },
-                        { path: "section_id", model: "Section" },
-                        { path: "assignee", model: "Emp" },
-                        {
-                            path: "emp", model: "Emp", populate: [
-                                {
-                                    path: "job_id",
-                                    model: "JobTitles",
-                                    populate: { path: "category", model: "JobCategory" },
-                                },
-                                { path: "department_id", model: "Department" },
-                            ],
-                        },
-                    ],
-                })
                 .lean()
                 .exec();
-
-            let subTaskDto;
             const taskDto = tasks.map((task) => {
-                subTaskDto = (task.subtasks || []).map((subTask: any) => new GetTaskDto(subTask));
                 return new GetTaskDto(task)
             });
-            return { status: true, message: 'Tasks retrieved successfully', data: [...taskDto, ...(subTaskDto || [])] };
+            return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
         } catch (error) {
             console.error("Error fetching tasks:", error);
             return { status: false, message: "Failed to retrieve tasks", data: [] };
@@ -603,20 +580,11 @@ export class TasksService {
         try {
             const parentTask = await this.taskModel.findById(taskId);
             if (!parentTask) throw new NotFoundException('Parent task not found');
-
-            createTaskDto.section_id = parentTask.section_id as any;
-
-            if (createTaskDto.project_id && createTaskDto.department_id) {
-                const emp = await this.empService.findManagerByDepartment(createTaskDto.department_id);
-                createTaskDto.emp = emp!._id.toString();
-                const project = await this.projectService.getProjectById(createTaskDto.project_id);
-                if (!project) throw new NotFoundException('Project not found');
-                await this.projectService.updateProject(createTaskDto.project_id, {
-                    departments: [createTaskDto.department_id],
-                });
-            } else {
-                createTaskDto.department_id = parentTask.department_id as any;
-            }
+            const emp = await this.empService.findById(createTaskDto.emp!);
+            createTaskDto.department_id = emp?.department_id._id.toString();
+            await this.sectionService.createInitialSections(createTaskDto.department_id);
+            const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
+            createTaskDto.section_id = section_id;
             const subtask = new this.taskModel({
                 ...createTaskDto,
                 status: TASK_STATUS.PENDING,
@@ -624,9 +592,6 @@ export class TasksService {
             });
 
             await subtask.save();
-
-            parentTask.subtasks.push(subtask._id);
-            await parentTask.save();
 
             return {
                 status: true,
@@ -839,139 +804,130 @@ export class TasksService {
 
         return taskDto;
     }
+    async buildFullTaskList(treeDto: GetTreeDto, empId: string): Promise<any> {
+        let parentTasks: TaskDocument[];
 
-    async buildTaskTree(treeDto: GetTreeDto, empId: string): Promise<any> {
-        const fullTree: any[] = [];
-        let tasks: TaskDocument[];
         if (treeDto.departmentId && treeDto.projectId) {
-            tasks = await this.taskModel.find({ department_id: treeDto.departmentId, project_id: treeDto.projectId, parent_task: null }).populate({
-                path: "emp",
-                model: "Emp",
-                populate: [
-                    {
-                        path: "job_id",
-                        model: "JobTitles",
-                        populate: { path: "category", model: "JobCategory" },
-                    },
-                    { path: "department_id", model: "Department" },
-                ],
-            })
+            parentTasks = await this.taskModel
+                .find({
+                    department_id: treeDto.departmentId,
+                    project_id: treeDto.projectId,
+                    parent_task: null,
+                })
+                .populate({
+                    path: "emp",
+                    model: "Emp",
+                    populate: [
+                        {
+                            path: "job_id",
+                            model: "JobTitles",
+                            populate: { path: "category", model: "JobCategory" },
+                        },
+                        { path: "department_id", model: "Department" },
+                    ],
+                })
                 .populate("section_id")
                 .populate("assignee")
                 .populate("department_id")
-                .populate({
-                    path: "subtasks",
-                    model: "Task",
-                    populate: [
-                        { path: "department_id", model: "Department" },
-                        { path: "section_id", model: "Section" },
-                        { path: "assignee", model: "Emp" },
-                        {
-                            path: "emp", model: "Emp", populate: [
-                                {
-                                    path: "job_id",
-                                    model: "JobTitles",
-                                    populate: { path: "category", model: "JobCategory" },
-                                },
-                                { path: "department_id", model: "Department" },
-                            ],
-                        },
-                    ],
-                })
                 .lean()
-                .exec();;
-
+                .exec();
         } else if (treeDto.departmentId) {
-            tasks = await this.taskModel.find({ department_id: treeDto.departmentId, project_id: null, parent_task: null }).populate({
-                path: "emp",
-                model: "Emp",
-                populate: [
-                    {
-                        path: "job_id",
-                        model: "JobTitles",
-                        populate: { path: "category", model: "JobCategory" },
-                    },
-                    { path: "department_id", model: "Department" },
-                ],
-            })
+            parentTasks = await this.taskModel
+                .find({
+                    department_id: treeDto.departmentId,
+                    project_id: null,
+                    parent_task: null,
+                })
+                .populate({
+                    path: "emp",
+                    model: "Emp",
+                    populate: [
+                        {
+                            path: "job_id",
+                            model: "JobTitles",
+                            populate: { path: "category", model: "JobCategory" },
+                        },
+                        { path: "department_id", model: "Department" },
+                    ],
+                })
                 .populate("section_id")
                 .populate("assignee")
                 .populate("department_id")
-                .populate({
-                    path: "subtasks",
-                    model: "Task",
-                    populate: [
-                        { path: "department_id", model: "Department" },
-                        { path: "section_id", model: "Section" },
-                        { path: "assignee", model: "Emp" },
-                        {
-                            path: "emp", model: "Emp", populate: [
-                                {
-                                    path: "job_id",
-                                    model: "JobTitles",
-                                    populate: { path: "category", model: "JobCategory" },
-                                },
-                                { path: "department_id", model: "Department" },
-                            ],
-                        },
-                    ],
-                })
                 .lean()
-                .exec();;
-
+                .exec();
         } else {
-            tasks = await this.taskModel.find({ emp: empId, project_id: null, parent_task: null }).populate({
-                path: "emp",
-                model: "Emp",
-                populate: [
-                    {
-                        path: "job_id",
-                        model: "JobTitles",
-                        populate: { path: "category", model: "JobCategory" },
-                    },
-                    { path: "department_id", model: "Department" },
-                ],
-            })
+            parentTasks = await this.taskModel
+                .find({
+                    emp: empId,
+                    project_id: null,
+                    parent_task: null,
+                })
+                .populate({
+                    path: "emp",
+                    model: "Emp",
+                    populate: [
+                        {
+                            path: "job_id",
+                            model: "JobTitles",
+                            populate: { path: "category", model: "JobCategory" },
+                        },
+                        { path: "department_id", model: "Department" },
+                    ],
+                })
                 .populate("section_id")
                 .populate("assignee")
                 .populate("department_id")
-                .populate({
-                    path: "subtasks",
-                    model: "Task",
-                    populate: [
-                        { path: "department_id", model: "Department" },
-                        { path: "section_id", model: "Section" },
-                        { path: "assignee", model: "Emp" },
-                        {
-                            path: "emp", model: "Emp", populate: [
-                                {
-                                    path: "job_id",
-                                    model: "JobTitles",
-                                    populate: { path: "category", model: "JobCategory" },
-                                },
-                                { path: "department_id", model: "Department" },
-                            ],
-                        },
-                    ],
-                })
                 .lean()
                 .exec();
         }
-        const taskDto = tasks.map((task) => new GetTaskDto(task));
-        taskDto.map((task) => {
-            fullTree.push({
-                id: task.id,
-                name: task.name,
-                subTask: task.subTasks.map(subTask => {
-                    return {
-                        id: subTask.id,
-                        name: subTask.name
-                    }
-                }),
-            })
-        })
-        return { tree: fullTree, info: taskDto };
+
+        const taskDtos = parentTasks.map((task) => new GetTaskDto(task));
+
+        const fullList: any[] = [];
+        const tasksInfo: any[] = [];
+        for (const task of taskDtos) {
+            await this.collectTasksRecursively(task, fullList, tasksInfo);
+        }
+
+        return { tree: fullList, info: tasksInfo };
     }
+
+    async collectTasksRecursively(task: GetTaskDto, fullList: any[], tasksInfo: any[]): Promise<void> {
+        fullList.push({
+            id: task.id,
+            name: task.name,
+            parentId: task.parent_task,
+        });
+        tasksInfo.push(task);
+        // Get subtasks for the current task
+        const subTasks = await this.taskModel
+            .find({ parent_task: task.id })
+            .populate({
+                path: "emp",
+                model: "Emp",
+                populate: [
+                    {
+                        path: "job_id",
+                        model: "JobTitles",
+                        populate: { path: "category", model: "JobCategory" },
+                    },
+                    { path: "department_id", model: "Department" },
+                ],
+            })
+            .populate("section_id")
+            .populate("assignee")
+            .populate("department_id")
+            .lean()
+            .exec();
+
+        const subTaskDtos = subTasks.map((subTask) => new GetTaskDto(subTask));
+
+        // Recursively collect subtasks
+        for (const subTask of subTaskDtos) {
+            await this.collectTasksRecursively(subTask, fullList, tasksInfo);
+        }
+    }
+
 
     async getSubTaskByParentTask(parentId: string) {
         const tasks = await this.taskModel.find({ parent_task: parentId }).populate({
@@ -989,27 +945,9 @@ export class TasksService {
             .populate("section_id")
             .populate("assignee")
             .populate("department_id")
-            .populate({
-                path: "subtasks",
-                model: "Task",
-                populate: [
-                    { path: "department_id", model: "Department" },
-                    { path: "section_id", model: "Section" },
-                    { path: "assignee", model: "Emp" },
-                    {
-                        path: "emp", model: "Emp", populate: [
-                            {
-                                path: "job_id",
-                                model: "JobTitles",
-                                populate: { path: "category", model: "JobCategory" },
-                            },
-                            { path: "department_id", model: "Department" },
-                        ],
-                    },
-                ],
-            })
             .lean()
             .exec();
         return tasks.map((subTask) => new GetTaskDto(subTask));
     }
+
 }

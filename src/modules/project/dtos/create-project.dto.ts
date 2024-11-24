@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsArray, IsMongoId, IsOptional, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsString, IsNotEmpty, IsArray, IsMongoId, IsOptional, Matches, IsDate } from 'class-validator';
 
 export class CreateProjectDto {
     @IsString()
@@ -20,11 +21,13 @@ export class CreateProjectDto {
     @IsMongoId({ each: true })
     members: string[];
 
-    @IsString()
+    @IsDate()
     @IsNotEmpty()
-    startDate: string;
+    @Type(() => Date)
+    startDate: Date;
 
-    @IsString()
+    @IsDate()
     @IsNotEmpty()
-    endDate: string;
+    @Type(() => Date) 
+    endDate: Date;
 }

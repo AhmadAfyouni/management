@@ -292,7 +292,7 @@ export class EmpService {
         }
     }
 
-    async getEmpByDepartment(depId: string): Promise<any[]> {
+    async getEmpByDepartment(depId: string): Promise<GetEmpDto[]> {
         try {
             const emps = await this.empModel.find({ department_id: depId }).populate({
                 path: "job_id",
@@ -322,15 +322,32 @@ export class EmpService {
     async getMyEmp(deptId: string) {
         return await this.empModel.find({ department_id: deptId }).exec();
     }
-    async buildEmployeeTree(id: string, start: boolean = true): Promise<any[]> {
-        console.log(id);
-
+    async buildEmployeeTree(id: string, start: boolean = true): Promise<{ tree: any[], info: any[] }> {
         let allEmployees: any[] = [];
+        let info: any[] = [];
         if (!Types.ObjectId.isValid(id)) {
             throw new BadRequestException('Invalid Employee ID');
         }
         const employee = await this.empModel
             .findById(new Types.ObjectId(id))
+            .populate([
+                {
+                    path: 'job_id',
+                    model: "JobTitles",
+                    populate: {
+                        path: 'category',
+                        model: "JobCategory"
+                    }
+                },
+                {
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: 'parent_department_id',
+                        model: "Department"
+                    }
+                }
+            ])
             .lean()
             .exec() as any;
 
@@ -343,23 +360,47 @@ export class EmpService {
                 name: employee.name,
                 parentId: employee.parentId || null,
                 is_manager: employee.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
+                title: employee.job_id.name,
+                department: employee.department_id.name
             });
+            info.push(new GetEmpDto(employee));
         }
         if (employee.role == UserRole.ADMIN) {
             allEmployees = [];
-            const emps = await this.empModel.find({}).lean().exec();
+            info = [];
+            const emps = await this.empModel.find({}).populate([
+                {
+                    path: 'job_id',
+                    model: "JobTitles",
+                    populate: {
+                        path: 'category',
+                        model: "JobCategory"
+                    }
+                },
+                {
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: 'parent_department_id',
+                        model: "Department"
+                    }
+                }
+            ]).lean().exec() as any;
             emps.map((emp) => {
                 allEmployees.push({
                     id: emp._id.toString(),
                     name: emp.name,
                     parentId: emp.parentId || null,
-                    is_manager: emp.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
-                })
+                    is_manager: emp.role === UserRole.PRIMARY_USER || emp.role === UserRole.ADMIN,
+                    title: emp.job_id.title,
+                    department: emp.department_id.name
+                });
+                info.push(new GetEmpDto(emp));
             });
-            return allEmployees;
+            return { tree: allEmployees, info };
         }
         if (employee.role == UserRole.SECONDARY_USER) {
-            return [];
+            return { tree: [], info: [] };
         }
 
 
@@ -367,24 +408,44 @@ export class EmpService {
 
         const directReports = await this.empModel
             .find({ parentId: employee._id.toString() })
-            .exec();
+            .populate([
+                {
+                    path: 'job_id',
+                    model: "JobTitles",
+                    populate: {
+                        path: 'category',
+                        model: "JobCategory"
+                    }
+                },
+                {
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: 'parent_department_id',
+                        model: "Department"
+                    }
+                }
+            ])
+            .exec() as any;
         const directReportsDto = directReports.map((report) => {
+            info.push(new GetEmpDto(report));
             return {
                 id: report._id.toString(),
                 name: report.name,
                 parentId: report.parentId || null,
                 is_manager: report.role === UserRole.PRIMARY_USER || report.role === UserRole.ADMIN,
+                title: report.job_id.title,
             }
         });
 
         allEmployees.push(...directReportsDto);
         for (const report of directReports) {
             if (report._id.toString() !== employee._id.toString()) {
-                const subTree = await this.buildEmployeeTree(report._id.toString(), false);
+                const subTree = await (await this.buildEmployeeTree(report._id.toString(), false)).tree;
                 allEmployees.push(...subTree);
             }
         }
-        return allEmployees;
+        return { tree: allEmployees, info: info };
     }
 
 

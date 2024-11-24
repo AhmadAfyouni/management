@@ -123,51 +123,59 @@ export class DepartmentService {
     private async buildDepartmentTree(
         id: string,
         accessibleDepartments?: string[]
-    ): Promise<TreeDTO[]> {
+    ): Promise<{ tree: any[], info: any[] }> {
         const objectId = new Types.ObjectId(id);
 
-        // Find the main department by ID
         const department = await this.departmentModel.findById(objectId).exec();
         if (!department) {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
 
-        const departmentList: TreeDTO[] = [];
-
-        const departmentDto: TreeDTO = {
+        let departmentList: any[] = [];
+        let departmentInfoList: any[] = [];
+        const emps = await this.empService.getEmpByDepartment(department._id.toString());
+        const departmentDto = {
             id: department._id.toString(),
             name: department.name,
             parentId: department.parent_department_id?.toString()
                 ? department.parent_department_id.toString()
                 : null,
+            emps: emps.map(emp => {
+                return {
+                    name: emp.name,
+                    id: emp.id,
+                    title: emp.job.title
+                }
+            })
         };
 
         departmentList.push(departmentDto);
+        departmentInfoList.push(new GetDepartmentDto(department));
 
         const subDepartments = await this.departmentModel
             .find({ parent_department_id: objectId })
             .exec();
 
-        // Recursively add each subdepartment to the list
         for (const subDept of subDepartments) {
             const subDepartmentList = await this.buildDepartmentTree(
                 subDept._id.toString()
             );
-            departmentList.push(...subDepartmentList);
+            departmentList.push(...subDepartmentList.tree);
+            departmentInfoList.push(...subDepartmentList.info);
+
         }
 
-        // Check if accessibleDepartments is provided
         if (accessibleDepartments && accessibleDepartments.length > 0) {
             for (const departmentId of accessibleDepartments) {
-                // Recursively build trees for accessible departments
                 const accessibleDepartmentList = await this.buildDepartmentTree(
                     departmentId
                 );
-                departmentList.push(...accessibleDepartmentList);
+                departmentList.push(...accessibleDepartmentList.tree);
+                departmentInfoList.push(...accessibleDepartmentList.info);
             }
         }
 
-        return departmentList;
+        return { tree: departmentList, info: departmentInfoList };
     }
 
 
@@ -177,7 +185,7 @@ export class DepartmentService {
     }
 
 
-    
+
 
 
 }

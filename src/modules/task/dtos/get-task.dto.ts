@@ -19,7 +19,6 @@ export class GetTaskDto {
     totalTimeSpent: any;
     startTime: any;
     timeLogs: any;
-    subTasks: any;
     parent_task: any;
     department: any;
     over_all_time: any;
@@ -40,7 +39,6 @@ export class GetTaskDto {
         this.totalTimeSpent = task.totalTimeSpent;
         this.startTime = task.startTime;
         this.timeLogs = task.timeLogs;
-        this.subTasks = task.subtasks.map(subTask => new GetTaskDto(subTask));
         this.parent_task = task.parent_task;
         this.department = task.department_id || undefined
         this.over_all_time = task.over_all_time || undefined;

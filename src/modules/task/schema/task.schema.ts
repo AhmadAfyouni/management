@@ -62,9 +62,6 @@ export class Task {
     @Prop({ type: Types.ObjectId, ref: Section.name, required: false })
     section_id?: Types.ObjectId;
 
-    @Prop({ type: [{ type: Types.ObjectId, ref: Task.name }], default: [] })
-    subtasks: Types.ObjectId[];
-
     @Prop({ type: Number, default: 0 })
     totalTimeSpent: number;
 

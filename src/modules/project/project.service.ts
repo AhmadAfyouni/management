@@ -82,26 +82,6 @@ export class ProjectService {
 
             }
 
-            if (updateProjectDto.members) {
-                updateFields.members = updateProjectDto.members.map(memberId => new Types.ObjectId(memberId));
-            }
-
-            if (updateProjectDto.startDate) {
-                const parsedStartDate = new Date(updateProjectDto.startDate.replace(/-/g, '/'));
-                if (isNaN(parsedStartDate.getTime())) {
-                    throw new BadRequestException('Invalid date format for startDate');
-                }
-                updateFields.startDate = parsedStartDate;
-            }
-
-            if (updateProjectDto.endDate) {
-                const parsedEndDate = new Date(updateProjectDto.endDate.replace(/-/g, '/'));
-                if (isNaN(parsedEndDate.getTime())) {
-                    throw new BadRequestException('Invalid date format for endDate');
-                }
-                updateFields.endDate = parsedEndDate;
-            }
-
             const updatedProject = await this.projectModel.findByIdAndUpdate(
                 id,
                 { $set: { ...updateProjectDto, ...updateFields } },

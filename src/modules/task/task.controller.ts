@@ -199,6 +199,7 @@ export class TasksController {
 
     @Get("tree")
     async getTaskTree(@Query() treeDto: GetTreeDto, @GetAccount() empId: string) {
-        return this.taskService.buildTaskTree(treeDto, empId);
+        
+        return this.taskService.buildFullTaskList(treeDto, empId);
     }
 }
