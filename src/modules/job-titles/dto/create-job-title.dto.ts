@@ -2,9 +2,7 @@ import { IsArray, IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString
 import { PermissionsEnum } from 'src/config/permissions.enum';
 
 export class CreateJobTitleDto {
-  @IsString()
-  @IsNotEmpty()
-  name: string;
+
 
   @IsString()
   @IsNotEmpty()

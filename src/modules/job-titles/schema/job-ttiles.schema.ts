@@ -9,8 +9,6 @@ export type JobTitlesDocument = JobTitles & Document;
 export class JobTitles {
 
     _id: Types.ObjectId;
-    @Prop({ required: true })
-    name: string;
 
     @Prop({ required: true })
     title: string;

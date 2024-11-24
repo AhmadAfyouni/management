@@ -4,7 +4,6 @@ import { GetDepartmentDto } from "../../../modules/department/dto/get-department
 
 export class GetJobTitlesDto {
   id: string;
-  name: string;
   title: string;
   description: string;
   responsibilities: string[];
@@ -15,7 +14,6 @@ export class GetJobTitlesDto {
   is_manager: boolean;
   constructor(jobTitles: any) {
     this.id = jobTitles._id.toString();
-    this.name = jobTitles.name;
     this.title = jobTitles.title;
     this.description = jobTitles.description;
     this.responsibilities = jobTitles.responsibilities;
