@@ -133,38 +133,7 @@ export class TasksService {
                 .populate('section_id')
                 .populate("department_id")
                 .populate("assignee")
-                .populate({
-                    path: 'subtasks',
-                    model: "Task",
-                    populate: [
-                        {
-                            path: "department_id",
-                            model: "Department",
-                        },
-                        {
-                            path: "assignee",
-                            model: "Emp",
-                        },
-                        {
-                            path: "emp",
-                            model: "Emp",
-                            populate: [
-                                {
-                                    path: "job_id",
-                                    model: "JobTitles",
-                                    populate: {
-                                        path: "category",
-                                        model: "JobCategory",
-                                    },
-                                },
-                                {
-                                    path: "department_id",
-                                    model: "Department",
-                                }
-                            ],
-                        }
-                    ],
-                }).lean()
+                .lean()
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -196,38 +165,7 @@ export class TasksService {
                 .populate('section_id')
                 .populate("department_id")
                 .populate("assignee")
-                .populate({
-                    path: 'subtasks',
-                    model: "Task",
-                    populate: [
-                        {
-                            path: "department_id",
-                            model: "Department",
-                        },
-                        {
-                            path: "assignee",
-                            model: "Emp",
-                        },
-                        {
-                            path: "emp",
-                            model: "Emp",
-                            populate: [
-                                {
-                                    path: "job_id",
-                                    model: "JobTitles",
-                                    populate: {
-                                        path: "category",
-                                        model: "JobCategory",
-                                    },
-                                },
-                                {
-                                    path: "department_id",
-                                    model: "Department",
-                                }
-                            ],
-                        }
-                    ],
-                }).lean()
+                .lean()
                 .exec();
             const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
@@ -285,17 +223,24 @@ export class TasksService {
     async updateTask(
         id: string,
         updateTaskDto: UpdateTaskDto,
-        assigneeId: string
+        empId: string
     ): Promise<{ status: boolean; message: string }> {
         try {
-
-            if (updateTaskDto.status === TASK_STATUS.DONE) {
-                const task = await this.taskModel.findById(new Types.ObjectId(id));
-                if (!task) {
-                    throw new NotFoundException(`Task with ID ${id} not found`);
-                }
-                if (task.assignee?.toString() !== assigneeId) {
+            const task = await this.taskModel.findById(new Types.ObjectId(id));
+            if (!task) {
+                throw new NotFoundException(`Task with ID ${id} not found`);
+            }
+            if (updateTaskDto.status === TASK_STATUS.DONE || updateTaskDto.priority) {
+                if (task.assignee?.toString() !== empId) {
+                    if (updateTaskDto.priority) {
+                        throw new ForbiddenException('You are not authorized to update this task');
+                    }
                     throw new ForbiddenException('You are not authorized to mark this task as done');
+                }
+            }
+            if (updateTaskDto.status) {
+                if (task.emp?.toString() != empId) {
+                    throw new ForbiddenException('You are not authorized to update this task');
                 }
             }
             if (updateTaskDto.section_id) {
