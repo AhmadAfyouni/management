@@ -375,24 +375,7 @@ export class TasksService {
             .populate('section_id')
             .populate("assignee")
             .populate("department_id")
-            .populate({
-                path: 'subtasks',
-                model: "Task",
-                populate: [
-                    {
-                        path: "department_id",
-                        model: "Department",
-                    },
-                    {
-                        path: "assignee",
-                        model: "Emp",
-                    },
-                    {
-                        path: "emp",
-                        model: "Emp",
-                    }
-                ],
-            }).lean()
+            .lean()
             .lean()
             .exec();
         const taskDto = tasks.map((task) => new GetTaskDto(task));

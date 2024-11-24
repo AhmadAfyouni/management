@@ -108,7 +108,7 @@ export class ProjectService {
     }
 
     async getProjectDetails(id: string, departmentId: string) {
-        const project = await this.projectModel.findById(parseObject(id)).populate('members  departments').lean().exec() as any;
+        const project = await this.projectModel.findById(parseObject(id)).populate('departments').lean().exec() as any;
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
@@ -134,7 +134,7 @@ export class ProjectService {
 
     async getDepartmentProject(departmentId: string, projectId: string) {
         const project = await this.projectModel.findById(new Types.ObjectId(projectId));
-        const myDepartments = await this.departmentService.getDepartmentTree(departmentId);
+        const myDepartments = (await this.departmentService.getDepartmentTree(departmentId)).tree;
         const projectDepts = project?.departments;
         if (projectDepts) {
             const projectDeptsIds = projectDepts.map((deptId) => deptId.toString());

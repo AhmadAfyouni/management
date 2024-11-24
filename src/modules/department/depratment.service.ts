@@ -180,7 +180,7 @@ export class DepartmentService {
 
 
 
-    async getDepartmentTree(departmentId: string, departments?: string[]): Promise<any> {
+    async getDepartmentTree(departmentId: string, departments?: string[]): Promise<{ tree: any[], info: any[] }> {
         return await this.buildDepartmentTree(departmentId, departments);
     }
 
