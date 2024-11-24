@@ -230,6 +230,9 @@ export class TasksService {
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
+            if (task.status === TASK_STATUS.DONE) {
+                throw new ForbiddenException('You are not authorized to update this task cause its done');
+            }
             if (updateTaskDto.status === TASK_STATUS.DONE || updateTaskDto.priority) {
                 if (task.assignee?.toString() !== empId) {
                     if (updateTaskDto.priority) {
