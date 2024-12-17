@@ -20,4 +20,4 @@ import { Emp, EmpSchema } from "./schemas/emp.schema";
         exports: [EmpService, MongooseModule]
     }
 )
-export class EmpModule { }
+export class EmpModule  { }
