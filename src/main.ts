@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule) as any;
-  const allowedOrigins = ["*", "https://company-managment-frontend-delta.vercel.app",];
+  const allowedOrigins = ["*", "https://task-management-demo-frontend.qnv2oe.easypanel.host",];
   app.enableCors({
     origin: (origin, callback) => {
       if (allowedOrigins.includes(origin) || !origin) {
