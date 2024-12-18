@@ -14,10 +14,13 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { ProjectModule } from "./modules/project/project.module";
 import { SectionModule } from "./modules/section/section.module";
 import { UploadModule } from "./modules/upload/upload.module";
+import { SeedModule } from "./modules/seed/seed.module";
 
 @Module(
   {
     imports: [
+
+      SeedModule,
       ConfigModule.forRoot(
         {
           envFilePath: ".env",
