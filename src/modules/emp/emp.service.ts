@@ -99,6 +99,52 @@ export class EmpService {
 
 
 
+    // async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
+    //     try {
+    //         const existingEmp = await this.empModel.findOne({
+    //             $or: [{ email: employee.email }, { phone: employee.phone }]
+    //         });
+    //         if (existingEmp) {
+    //             throw new ConflictException('Employee with this email or phone already exists.');
+    //         }
+    
+    //         const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
+    //         let role: UserRole = UserRole.SECONDARY_USER;
+    //         if (jobTitle?.is_manager) {
+    //             const emp = await this.empModel.findOne({ job_id: employee.job_id.toString() });
+    //             if (emp) {
+    //                 throw new ConflictException('Cannot create two primary user for that job title.');
+    //             }
+    //             role = UserRole.PRIMARY_USER;
+    //         }
+    
+    //         const hashedNewPassword = await bcrypt.hash(employee.password, 10);
+    //         employee.password = hashedNewPassword;
+    
+    //         let manager = await this.findManagerByDepartment(employee.department_id.toString());
+    //         let parentId:any = null;
+            
+    //         if (manager) {
+    //             parentId = manager._id.toString();
+    //         } else {
+    //             const managerParent = await this.departmentService.findById(employee.department_id.toString());
+    //             if (managerParent?.parent_department) {
+    //                 manager = await this.findManagerByDepartment(managerParent.parent_department._id.toString());
+    //                 parentId = manager?._id.toString();
+    //             }
+    //         }
+    
+    //         const emp = new this.empModel({
+    //             ...employee,
+    //             role,
+    //             parentId
+    //         });
+    //         return await emp.save();
+    //     } catch (error) {
+    //         throw new InternalServerErrorException('Failed to create employee', error.message);
+    //     }
+    // }
+
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
 
@@ -140,6 +186,7 @@ export class EmpService {
             throw new InternalServerErrorException('Failed to create employee', error.message);
         }
     }
+
 
 
     async updateEmp(id: string, updateEmpDto: UpdateEmpDto) {
