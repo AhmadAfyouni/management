@@ -99,45 +99,81 @@ export class EmpService {
 
 
 
-    async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
+  async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
-
+            // 1. Check if employee already exists by email or phone.
             const existingEmp = await this.empModel.findOne({
-                $or: [{ email: employee.email }, { phone: employee.phone }]
+                $or: [{ email: employee.email }, { phone: employee.phone }],
             });
             if (existingEmp) {
-                throw new ConflictException('Employee with this email or phone already exists.');
+                throw new ConflictException(
+                    'Employee with this email or phone already exists.',
+                );
             }
 
+            // 2. Determine the role (PRIMARY_USER or SECONDARY_USER).
             const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
             let role: UserRole = UserRole.SECONDARY_USER;
+
             if (jobTitle?.is_manager) {
-                const emp = await this.empModel.findOne({ job_id: employee.job_id.toString() });
-                if (emp) {
-                    throw new ConflictException('Cannot create two primary user for that job title.');
+                const alreadyManager = await this.empModel.findOne({
+                    job_id: employee.job_id.toString(),
+                });
+
+                if (alreadyManager) {
+                    throw new ConflictException(
+                        'Cannot create two primary users for that job title.',
+                    );
                 }
+
                 role = UserRole.PRIMARY_USER;
             }
 
-            const hashedNewPassword = await bcrypt.hash(employee.password, 10);
-            employee.password = hashedNewPassword;
+            // 3. Hash the password before saving.
+            employee.password = await bcrypt.hash(employee.password, 10);
 
-            let manager;
-            manager = await this.findManagerByDepartment(employee.department_id.toString());
+            // 4. Find a manager in the same department.
+            let manager = await this.findManagerByDepartment(
+                employee.department_id.toString(),
+            );
+
+            // 5. If no manager in the same department, look up the parent department manager.
             if (!manager) {
-                const managerParent = await this.departmentService.findById(employee.department_id.toString());
-                manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
-                // employee.department_id = managerParent?.parent_department!._id!.toString() as any;
+                const managerParent = await this.departmentService.findById(
+                    employee.department_id.toString(),
+                );
+                    
+                if (managerParent) {
+                    manager = await this.findManagerByDepartment(
+                        managerParent.parent_department
+                            ? managerParent.parent_department._id.toString()
+                            : managerParent.id,
+                    );
+                    console.log(manager);
+                    
+                }
             }
-            const emp = new this.empModel({
+
+            // If your logic mandates that a manager must be found, consider:
+            // if (!manager) {
+            //   throw new ConflictException('No manager found in this or parent department.');
+            // }
+
+            // 6. Build the new employee payload. Only set `parentId` if we have a manager.
+            const newEmpData: Partial<Emp> = {
                 ...employee,
                 role,
-                parentId: manager._id.toString()
-            });
-            return await emp.save();
+                parentId: manager!._id.toString()
+            };
+
+            const newEmp = new this.empModel(newEmpData);
+            return await newEmp.save();
         } catch (error) {
             console.error('Error creating employee:', error);
-            throw new InternalServerErrorException('Failed to create employee', error.message);
+            throw new InternalServerErrorException(
+                'Failed to create employee',
+                error.message,
+            );
         }
     }
 
