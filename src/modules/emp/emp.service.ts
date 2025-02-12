@@ -152,7 +152,6 @@ export class EmpService {
 
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
-            // 1. Check if employee already exists by email or phone.
             const existingEmp = await this.empModel.findOne({
                 $or: [{ email: employee.email }, { phone: employee.phone }],
             });
@@ -162,7 +161,6 @@ export class EmpService {
                 );
             }
 
-            // 2. Determine the role (PRIMARY_USER or SECONDARY_USER).
             const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
             let role: UserRole = UserRole.SECONDARY_USER;
 
@@ -180,15 +178,12 @@ export class EmpService {
                 role = UserRole.PRIMARY_USER;
             }
 
-            // 3. Hash the password before saving.
             employee.password = await bcrypt.hash(employee.password, 10);
 
-            // 4. Find a manager in the same department.
             let manager = await this.findManagerByDepartment(
                 employee.department_id.toString(),
             );
 
-            // 5. If no manager in the same department, look up the parent department manager.
             if (!manager) {
                 const managerParent = await this.departmentService.findById(
                     employee.department_id.toString(),
@@ -201,20 +196,13 @@ export class EmpService {
                             : managerParent.id,
                     );
                     console.log(manager);
-                    
                 }
             }
 
-            // If your logic mandates that a manager must be found, consider:
-            // if (!manager) {
-            //   throw new ConflictException('No manager found in this or parent department.');
-            // }
-
-            // 6. Build the new employee payload. Only set `parentId` if we have a manager.
             const newEmpData: Partial<Emp> = {
                 ...employee,
                 role,
-                parentId: manager!._id.toString()
+                parentId: manager ? manager._id.toString() : undefined
             };
 
             const newEmp = new this.empModel(newEmpData);
@@ -536,7 +524,6 @@ export class EmpService {
         }
         return { tree: allEmployees, info: info };
     }
-
 
 
 

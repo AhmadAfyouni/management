@@ -15,6 +15,8 @@ import { ProjectModule } from "./modules/project/project.module";
 import { SectionModule } from "./modules/section/section.module";
 import { UploadModule } from "./modules/upload/upload.module";
 import { SeedModule } from "./modules/seed/seed.module";
+import { TemplateModule } from "./modules/template/template.module";
+import { TransactionModule } from "./modules/transaction/transaction.module";
 
 @Module(
   {
@@ -40,6 +42,8 @@ import { SeedModule } from "./modules/seed/seed.module";
       DatabaseModule,
       DepartmentModule,
       UploadModule,
+      TemplateModule,
+      TransactionModule
     ],
   }
 )

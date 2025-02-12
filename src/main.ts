@@ -1,4 +1,6 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { json } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -16,6 +18,11 @@ async function bootstrap() {
     credentials: true,
     allowedHeaders: 'Content-Type, Authorization',
   });
+  app.useGlobalPipes(
+    new ValidationPipe({ transform: true, whitelist: true })
+  );
+  app.use(json({ limit: '1mb' }));
+
   const port = process.env.PORT || 80
   await app.listen(port, () => {
     console.log(`app running on server : http://localhost:${port}`);
