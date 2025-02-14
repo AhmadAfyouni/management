@@ -1,12 +1,12 @@
 import { IsString, IsNotEmpty, IsMongoId, IsEnum } from 'class-validator';
-import { DepartmentScheduleStatus } from '../types/transaction.enum';
+import { TransactionAction } from '../types/transaction.enum';
 
 export class ApproveDepartmentDto {
-    @IsMongoId()
-    department_id: string;
 
-    @IsEnum(DepartmentScheduleStatus)
-    status: DepartmentScheduleStatus;
+    @IsMongoId()
+    transaction_id: string;
+    @IsEnum(TransactionAction)
+    action: TransactionAction;
 
     @IsString()
     @IsNotEmpty()

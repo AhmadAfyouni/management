@@ -21,7 +21,7 @@ export class Template extends Document {
     departments_approval_track: string[];
 
     @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: Department.name }], required: true })
-    departments_excuation_ids: string[];
+    departments_execution_ids: string[];
 
     @Prop({
         type: [{

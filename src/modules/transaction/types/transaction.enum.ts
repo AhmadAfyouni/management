@@ -11,3 +11,9 @@ export enum DepartmentScheduleStatus {
     CHECKING = "CHECKING",
     DONE = "DONE",
 }
+
+export enum TransactionAction {
+    SEND_BACK = "send_back",
+    APPROVE = "approve",
+    REJECT = "reject"
+}

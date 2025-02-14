@@ -17,12 +17,15 @@ export class AuthService {
     ) { }
     async validateUser(email: string, pass: string): Promise<EmpDocument | null> {
         try {
+            
+            
             const user = await this.empService.findByEmail(email);
             if (user && (await bcrypt.compare(pass, user.password))) {
                 return user;
             }
             return null;
         } catch (error) {
+            
             throw new UnauthorizedException('Validation failed');
         }
     }

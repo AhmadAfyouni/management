@@ -9,6 +9,7 @@ import {
     Query,
     HttpStatus,
     HttpCode,
+    UseGuards,
 } from '@nestjs/common';
 import { TransactionService } from './transaction.service';
 import { CreateTransactionDto } from './dtos/create-transaction.dto';
@@ -16,7 +17,14 @@ import { UpdateTransactionDto } from './dtos/update-transaction.dto';
 import { TransactionLogDto } from './dtos/transaction-log.dto';
 import { DepartmentScheduleStatus, TransactionStatus } from './types/transaction.enum';
 import { ApproveDepartmentDto } from './dtos/approve-department.dto';
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { GetDepartment } from 'src/common/decorators/user-guard';
+import { Roles } from 'src/common/decorators/role.decorator';
+import { UserRole } from 'src/config/role.enum';
 
+
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('transactions')
 export class TransactionController {
     constructor(private readonly transactionService: TransactionService) { }
@@ -29,21 +37,25 @@ export class TransactionController {
 
     @Get()
     findAll(
-        @Query('departmentId') departmentId?: string,
         @Query('status') status?: TransactionStatus
     ) {
-        if (departmentId) {
-            return this.transactionService.findByDepartment(departmentId);
-        }
+
         if (status) {
             return this.transactionService.findByStatus(status);
         }
         return this.transactionService.findAll();
     }
+    // اظهار المعاملات ل صدير القسم  أي ان نفحص المفصوفة و يجب ان يكون ongoin
 
-    @Get(':id')
+    @Get('find-one/:id')
     findOne(@Param('id') id: string) {
         return this.transactionService.findOne(id);
+    }
+
+    @Get("my-transactions")
+    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
+    async getMyTransactions(@GetDepartment() departmentId: string) {
+        return await this.transactionService.getDepartmentTransactions(departmentId);
     }
 
     @Patch(':id')
@@ -76,13 +88,13 @@ export class TransactionController {
         return this.transactionService.remove(id);
     }
 
-    @Post(':id/departments/:departmentId/approve')
+    @Post('departments-track')
     async approveDepartment(
-        @Param('id') id: string,
-        @Body() approveDto: ApproveDepartmentDto
+        @Body() approveDto: ApproveDepartmentDto,
+        @GetDepartment() departmentId: string
     ) {
-        return this.transactionService.approveDepartment(id, approveDto);
-    } 
+        return this.transactionService.trackDepartment(approveDto.transaction_id, approveDto, departmentId);
+    }
 
     @Get('department/:departmentId/tasks')
     async getDepartmentTasks(

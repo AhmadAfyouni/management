@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { Department } from 'src/modules/department/schema/department.schema';
-import { DepartmentScheduleStatus, TransactionStatus } from '../types/transaction.enum';
+import { DepartmentScheduleStatus, TransactionAction, TransactionStatus } from '../types/transaction.enum';
 import { Template } from 'src/modules/template/schema/tamplate.schema';
 import { DepartmentSchedule } from 'src/modules/template/interfaces/transaction-field.interface';
 
@@ -22,6 +22,16 @@ class DepartmentScheduleSchema {
     @Prop({ enum: DepartmentScheduleStatus, default: DepartmentScheduleStatus.PENDING })
     status: DepartmentScheduleStatus
 }
+
+@Schema()
+class TransactionFieldSchema {
+    @Prop({ required: true })
+    field_name: string;
+
+    @Prop({ required: true, type: MongooseSchema.Types.Mixed })
+    value: any;
+}
+
 @Schema({ timestamps: true })
 class TransactionLogSchema {
     @Prop({
@@ -36,6 +46,9 @@ class TransactionLogSchema {
 
     @Prop({ required: true })
     note: string;
+
+    @Prop({ enum: TransactionAction })
+    action?: TransactionAction
 }
 
 @Schema({ timestamps: true })
@@ -44,9 +57,10 @@ export class Transaction extends Document {
     _id: Types.ObjectId;
 
     @Prop({
-        type: MongooseSchema.Types.ObjectId,
+        type: Types.ObjectId,
         required: true,
-        ref: Template.name
+        ref: Template.name,
+        alias: 'template'
     })
     template_id: string;
 
@@ -66,6 +80,21 @@ export class Transaction extends Document {
 
     @Prop({ type: [TransactionLogSchema], default: [] })
     logs: TransactionLogSchema[];
+
+    @Prop({
+        type: [TransactionFieldSchema],
+        required: true,
+        validate: {
+            validator: function (fields) {
+                return Array.isArray(fields) && fields.length > 0;
+            },
+            message: 'Fields array cannot be empty'
+        }
+    })
+    fields: {
+        field_name: string;
+        value: string | number | Buffer;
+    }[];
 
 }
 
