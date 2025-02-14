@@ -150,8 +150,9 @@ export class EmpService {
 
 
 
-    async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
+  async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
+
             const existingEmp = await this.empModel.findOne({
                 $or: [{ email: employee.email }, { phone: employee.phone }],
             });
@@ -161,6 +162,7 @@ export class EmpService {
                 );
             }
 
+            // 2. Determine the role (PRIMARY_USER or SECONDARY_USER).
             const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
             let role: UserRole = UserRole.SECONDARY_USER;
 
@@ -178,35 +180,22 @@ export class EmpService {
                 role = UserRole.PRIMARY_USER;
             }
 
-            employee.password = await bcrypt.hash(employee.password, 10);
+            const hashedNewPassword = await bcrypt.hash(employee.password, 10);
+            employee.password = hashedNewPassword;
 
-            let manager = await this.findManagerByDepartment(
-                employee.department_id.toString(),
-            );
-
+            let manager;
+            manager = await this.findManagerByDepartment(employee.department_id.toString());
             if (!manager) {
-                const managerParent = await this.departmentService.findById(
-                    employee.department_id.toString(),
-                );
-                    
-                if (managerParent) {
-                    manager = await this.findManagerByDepartment(
-                        managerParent.parent_department
-                            ? managerParent.parent_department._id.toString()
-                            : managerParent.id,
-                    );
-                    console.log(manager);
-                }
+                const managerParent = await this.departmentService.findById(employee.department_id.toString());
+                manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
+                // employee.department_id = managerParent?.parent_department!._id!.toString() as any;
             }
-
-            const newEmpData: Partial<Emp> = {
+            const emp = new this.empModel({
                 ...employee,
                 role,
-                parentId: manager ? manager._id.toString() : undefined
-            };
-
-            const newEmp = new this.empModel(newEmpData);
-            return await newEmp.save();
+                parentId: manager._id.toString()
+            });
+            return await emp.save();
         } catch (error) {
             console.error('Error creating employee:', error);
             throw new InternalServerErrorException(
