@@ -4,10 +4,12 @@ import { Department } from 'src/modules/department/schema/department.schema';
 import { DepartmentScheduleStatus, TransactionAction, TransactionStatus } from '../types/transaction.enum';
 import { Template } from 'src/modules/template/schema/tamplate.schema';
 import { DepartmentSchedule } from 'src/modules/template/interfaces/transaction-field.interface';
+import { Emp } from 'src/modules/emp/schemas/emp.schema';
 
 
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true,   toObject: { virtuals: true },
+    toJSON: { virtuals: true }})
 class DepartmentScheduleSchema {
 
     _id: Types.ObjectId;
@@ -15,7 +17,8 @@ class DepartmentScheduleSchema {
     @Prop({
         type: MongooseSchema.Types.ObjectId,
         required: true,
-        ref: Department.name
+        ref: Department.name,
+        alias: 'department' 
     })
     department_id: string;
 
@@ -51,7 +54,8 @@ class TransactionLogSchema {
     action?: TransactionAction
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true ,toObject: { virtuals: true },
+    toJSON: { virtuals: true }})
 export class Transaction extends Document {
 
     _id: Types.ObjectId;
@@ -95,7 +99,48 @@ export class Transaction extends Document {
         field_name: string;
         value: string | number | Buffer;
     }[];
+    @Prop({ ref: Emp.name, required: true })
+    transaction_owner: Types.ObjectId
 
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
+TransactionSchema.post('find', function(docs) {
+    if (Array.isArray(docs)) {
+        docs.forEach(doc => {
+            if (doc.template_id) {
+                doc.template = doc.template_id;
+                delete doc.template_id;
+            }
+            
+            if (doc.departments_approval_track) {
+                doc.departments_approval_track.forEach(track => {
+                    if (track.department_id) {
+                        track.department = track.department_id;
+                        delete track.department_id;
+                    }
+                });
+            }
+        });
+    }
+});
+
+// For single document queries
+TransactionSchema.post('findOne', function(doc) {
+    if (doc) {
+        if (doc.template_id) {
+            doc.template = doc.template_id;
+            delete doc.template_id;
+        }
+        
+        if (doc.departments_approval_track) {
+            doc.departments_approval_track.forEach(track => {
+                if (track.department_id) {
+                    track.department = track.department_id;
+                    delete track.department_id;
+                }
+            });
+        }
+    }
+});
+

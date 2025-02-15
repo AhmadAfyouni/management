@@ -19,7 +19,7 @@ import { DepartmentScheduleStatus, TransactionStatus } from './types/transaction
 import { ApproveDepartmentDto } from './dtos/approve-department.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { GetDepartment } from 'src/common/decorators/user-guard';
+import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
 import { Roles } from 'src/common/decorators/role.decorator';
 import { UserRole } from 'src/config/role.enum';
 
@@ -31,8 +31,8 @@ export class TransactionController {
 
     @Post()
     @HttpCode(HttpStatus.CREATED)
-    create(@Body() createTransactionDto: CreateTransactionDto) {
-        return this.transactionService.create(createTransactionDto);
+    create(@Body() createTransactionDto: CreateTransactionDto,@GetAccount() empId:string) {
+        return this.transactionService.create(createTransactionDto,empId);
     }
 
     @Get()
@@ -52,12 +52,18 @@ export class TransactionController {
         return this.transactionService.findOne(id);
     }
 
-    @Get("my-transactions")
+    @Get("department-transactions")
     @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
-    async getMyTransactions(@GetDepartment() departmentId: string) {
+    async getDepartmentTransactions(@GetDepartment() departmentId: string) {
         return await this.transactionService.getDepartmentTransactions(departmentId);
     }
 
+    
+    @Get("my-transactions")
+    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
+    async getMyTransactions(@GetAccount() empId: string) {
+        return await this.transactionService.getMyTransactions(empId);
+    }
     @Patch(':id')
     update(
         @Param('id') id: string,

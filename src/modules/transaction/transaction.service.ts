@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
+import { Department } from '../department/schema/department.schema';
 import { Template } from '../template/schema/tamplate.schema';
 import { ApproveDepartmentDto } from './dtos/approve-department.dto';
 import { CreateTransactionDto } from './dtos/create-transaction.dto';
@@ -22,12 +23,20 @@ export class TransactionService {
 
 
     populateTemplate() {
-        return {
-            path: 'template_id',
-            model: Template.name,
-        };
+        return [
+            {
+                path: 'template_id',
+                model: Template.name,
+            },
+            {
+                path: "departments_approval_track.department_id",
+                model: Department.name,
+                select: "name",
+            }
+        ];
     }
-    async create(createTransactionDto: CreateTransactionDto): Promise<Transaction> {
+
+    async create(createTransactionDto: CreateTransactionDto, empId: string): Promise<Transaction> {
         try {
             const template = await this.templateModel.findById(createTransactionDto.template_id);
             if (!template) {
@@ -39,7 +48,8 @@ export class TransactionService {
             }));
             const transactionData = {
                 ...createTransactionDto,
-                departments_approval_track: departmentsApprovalTrack
+                departments_approval_track: departmentsApprovalTrack,
+                transaction_owner: empId
             };
             const createdTransaction = new this.transactionModel(transactionData);
             return await createdTransaction.save();
@@ -163,9 +173,7 @@ export class TransactionService {
                 break;
             case TransactionAction.REJECT:
                 currentDepartment.status = DepartmentScheduleStatus.ONGOING;
-                if (previousDepartment) {
-                    transaction.status = TransactionStatus.PARTIALLY_APPROVED;
-                }
+                transaction.status = TransactionStatus.NOT_APPROVED;
                 break;
             case TransactionAction.SEND_BACK:
                 currentDepartment.status = DepartmentScheduleStatus.PENDING;
@@ -217,17 +225,18 @@ export class TransactionService {
     }
 
 
+    async getMyTransactions(empId: string) {
+        return await this.transactionModel.find({ transaction_owner: empId }).populate(this.populateTemplate()).lean().exec();
+    }
+
 
     private async updateTransactionStatus(transaction: Transaction): Promise<void> {
         const allDepartments = transaction.departments_approval_track;
         const approvedCount = allDepartments.filter(
             dep => dep.status === DepartmentScheduleStatus.DONE
         ).length;
-
         if (approvedCount === allDepartments.length) {
             transaction.status = TransactionStatus.FULLY_APPROVED;
-        } else {
-            transaction.status = TransactionStatus.PARTIALLY_APPROVED;
         }
     }
 
