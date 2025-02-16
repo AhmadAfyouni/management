@@ -64,6 +64,16 @@ export class TransactionController {
     async getMyTransactions(@GetAccount() empId: string) {
         return await this.transactionService.getMyTransactions(empId);
     }
+    @Get("execution")
+    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
+    async getMyExecuation(@GetDepartment() departmentId: string) {
+        return await this.transactionService.getMyExecuation(departmentId);
+    }
+    @Get("admin-approval")
+    @Roles(UserRole.ADMIN)
+    async getAdminApproval() {
+        return await this.transactionService.getAdminApproval();
+    }
     @Patch(':id')
     update(
         @Param('id') id: string,

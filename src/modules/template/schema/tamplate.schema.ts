@@ -17,10 +17,10 @@ export class Template extends Document {
     @Prop({ required: true })
     description: string;
 
-    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: Department.name }], required: true })
+    @Prop({ type: [MongooseSchema.Types.ObjectId], ref: Department.name, required: true })
     departments_approval_track: string[];
 
-    @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: Department.name }], required: true })
+    @Prop({ type: [MongooseSchema.Types.ObjectId], ref: Department.name, required: true })
     departments_execution_ids: string[];
 
     @Prop({

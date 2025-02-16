@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { Department } from '../department/schema/department.schema';
 import { CreateTemplateDto } from './dtos/create-template.dto';
 import { UpdateTemplateDto } from './dtos/update-template.dto';
 import { Template } from './schema/tamplate.schema';
@@ -12,6 +13,20 @@ export class TemplateService {
         private readonly templateModel: Model<Template>,
     ) { }
 
+    populateTemplate() {
+        return [
+            {
+                path: "departments_approval_track",
+                model: Department.name,
+                select: "name",
+            },
+            {
+                path: "departments_execution_ids",
+                model: Department.name,
+                select: "name",
+            }
+        ];
+    }
     async create(createTemplateDto: CreateTemplateDto): Promise<Template> {
         try {
             const createdTemplate = new this.templateModel(createTemplateDto);
@@ -27,14 +42,14 @@ export class TemplateService {
     async findAll(): Promise<Template[]> {
         return this.templateModel
             .find()
-            // .populate('departments_schedule.department_id')
+            .populate(this.populateTemplate())
             .exec();
     }
 
     async findOne(id: string): Promise<Template> {
         const template = await this.templateModel
             .findById(id)
-            // .populate('departments_schedule.department_id')
+            .populate(this.populateTemplate())
             .exec();
 
         if (!template) {
@@ -46,14 +61,14 @@ export class TemplateService {
     async findByType(type: string): Promise<Template[]> {
         return this.templateModel
             .find({ type })
-            // .populate('departments_schedule.department_id')
+            .populate(this.populateTemplate())
             .exec();
     }
 
     async findByDepartmentId(departmentId: string): Promise<Template[]> {
         return this.templateModel
             .find({ 'departments_schedule.department_id': departmentId })
-            // .populate('departments_schedule.department_id')
+            .populate(this.populateTemplate())
             .exec();
     }
 
@@ -61,7 +76,7 @@ export class TemplateService {
         try {
             const updatedTemplate = await this.templateModel
                 .findByIdAndUpdate(id, updateTemplateDto, { new: true })
-                // .populate('departments_schedule.department_id')
+                .populate(this.populateTemplate())
                 .exec();
 
             if (!updatedTemplate) {

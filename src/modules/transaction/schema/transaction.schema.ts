@@ -8,8 +8,10 @@ import { Emp } from 'src/modules/emp/schemas/emp.schema';
 
 
 
-@Schema({ timestamps: true,   toObject: { virtuals: true },
-    toJSON: { virtuals: true }})
+@Schema({
+    timestamps: true, toObject: { virtuals: true },
+    toJSON: { virtuals: true }
+})
 class DepartmentScheduleSchema {
 
     _id: Types.ObjectId;
@@ -18,7 +20,7 @@ class DepartmentScheduleSchema {
         type: MongooseSchema.Types.ObjectId,
         required: true,
         ref: Department.name,
-        alias: 'department' 
+        alias: 'department'
     })
     department_id: string;
 
@@ -54,8 +56,10 @@ class TransactionLogSchema {
     action?: TransactionAction
 }
 
-@Schema({ timestamps: true ,toObject: { virtuals: true },
-    toJSON: { virtuals: true }})
+@Schema({
+    timestamps: true, toObject: { virtuals: true },
+    toJSON: { virtuals: true }
+})
 export class Transaction extends Document {
 
     _id: Types.ObjectId;
@@ -105,42 +109,31 @@ export class Transaction extends Document {
 }
 
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
-TransactionSchema.post('find', function(docs) {
-    if (Array.isArray(docs)) {
-        docs.forEach(doc => {
-            if (doc.template_id) {
-                doc.template = doc.template_id;
-                delete doc.template_id;
-            }
-            
-            if (doc.departments_approval_track) {
-                doc.departments_approval_track.forEach(track => {
-                    if (track.department_id) {
-                        track.department = track.department_id;
-                        delete track.department_id;
-                    }
-                });
-            }
-        });
-    }
-});
-
-// For single document queries
-TransactionSchema.post('findOne', function(doc) {
-    if (doc) {
-        if (doc.template_id) {
-            doc.template = doc.template_id;
-            delete doc.template_id;
-        }
+TransactionSchema.set('toJSON', {
+    virtuals: true,
+    transform: (doc, ret) => {
         
-        if (doc.departments_approval_track) {
-            doc.departments_approval_track.forEach(track => {
-                if (track.department_id) {
-                    track.department = track.department_id;
-                    delete track.department_id;
-                }
-            });
-        }
+      ret.template = ret.template_id;
+      delete ret.template_id;
+  
+      if (Array.isArray(ret.departments_approval_track)) {
+        ret.departments_approval_track = ret.departments_approval_track.map(item => {
+          item.department = item.department_id;
+          delete item.department_id;
+          return item;
+        });
+      }
+  
+      if (Array.isArray(ret.logs)) {
+        ret.logs = ret.logs.map(item => {
+          item.department = item.department_id;
+          delete item.department_id;
+          return item;
+        });
+      }
+      
+      return ret;
     }
-});
+  });
+  
 

@@ -13,6 +13,7 @@ import { DepartmentScheduleStatus, TransactionAction, TransactionStatus } from '
 
 @Injectable()
 export class TransactionService {
+
     constructor(
         @InjectModel(Transaction.name)
         private readonly transactionModel: Model<Transaction>,
@@ -27,12 +28,35 @@ export class TransactionService {
             {
                 path: 'template_id',
                 model: Template.name,
+                populate: [
+                    {
+                        path: "departments_execution_ids",
+                        model: Department.name,
+                        select: "name",
+                    },
+                    {
+                        path: "departments_approval_track",
+                        model: Department.name,
+                        select: "name",
+                    }
+                ]
             },
             {
                 path: "departments_approval_track.department_id",
                 model: Department.name,
                 select: "name",
-            }
+            },
+            {
+                path: "logs.department_id",
+                model: Department.name,
+                select: "name",
+            },
+            {
+                path: "template_id.departments_approval_track",
+                model: Department.name,
+                select: "name",
+            },
+
         ];
     }
 
@@ -224,9 +248,44 @@ export class TransactionService {
         };
     }
 
+    async getMyExecuation(departmentId: string) {
+        const objectId = parseObject(departmentId);
+        const myTemplateExecuationIds = await this.templateModel.find({
+            departments_execution_ids: {
+                $in: [objectId]
+            },
+        }).exec();
+        const notNeed = myTemplateExecuationIds.filter(m => !m.needAdminApproval);
+        const needAdmin = myTemplateExecuationIds.filter(m => m.needAdminApproval);
+        const notNeedAdmin = await this.transactionModel.find({
+            template_id: {
+                $in: notNeed.map(t => t._id.toString())
+            },
+            status: TransactionStatus.FULLY_APPROVED
+        }).populate(this.populateTemplate()).exec();
+        const need = await this.transactionModel.find({
+            template_id: {
+                $in: needAdmin.map(t => t._id.toString())
+            },
+            status: TransactionStatus.ADMIN_APPROVED
+        }).populate(this.populateTemplate()).exec();
+        return [...notNeedAdmin, ...need];
+    }
+
+    async getAdminApproval() {
+        const needAdminApprovalTemplateIds = await this.templateModel.find({
+            needAdminApproval: true
+        }).exec();
+        return await this.transactionModel.find({
+            template_id: {
+                $in: needAdminApprovalTemplateIds.map(t => t._id.toString())
+            },
+            status: TransactionStatus.FULLY_APPROVED
+        }).populate(this.populateTemplate()).exec();
+    }
 
     async getMyTransactions(empId: string) {
-        return await this.transactionModel.find({ transaction_owner: empId }).populate(this.populateTemplate()).lean().exec();
+        return await this.transactionModel.find({ transaction_owner: empId }).populate(this.populateTemplate()).exec();
     }
 
 
@@ -307,7 +366,7 @@ export class TransactionService {
         return transaction.logs.map(log => ({
             timestamp: log.finished_at,
             department: log.department_id.toString(),
-            action: 'Department Action',
+            action: '',
             note: log.note
         }));
     }
