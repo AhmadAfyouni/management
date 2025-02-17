@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose';
+import { Document, Query, Schema as MongooseSchema, Types } from 'mongoose';
 import { Department } from 'src/modules/department/schema/department.schema';
 import { DepartmentExecutionStatus, DepartmentScheduleStatus, TransactionAction, TransactionStatus } from '../types/transaction.enum';
 import { Template } from 'src/modules/template/schema/tamplate.schema';
@@ -159,6 +159,18 @@ TransactionSchema.set('toJSON', {
 
         return ret;
     }
+});
+(<any>TransactionSchema.query).withArchived = function () {
+    this.setOptions({ withArchived: true });
+    return this;
+};
+
+
+TransactionSchema.pre(/^find/, function (this: Query<any, Transaction>, next: Function) {
+    if (!this.getOptions().withArchived) {
+        this.where({ isArchive: false });
+    }
+    next();
 });
 
 

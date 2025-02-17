@@ -432,7 +432,7 @@ export class TransactionService {
     }
 
     async getMyTransactions(empId: string) {
-        return await this.transactionModel.find({ transaction_owner: empId }).populate(this.populateTemplate()).exec();
+        return await this.transactionModel.find({ transaction_owner: empId }).withArchived().populate(this.populateTemplate()).exec();
     }
 
     async getMyTransactionsArchive(empId: string) {
