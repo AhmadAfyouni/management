@@ -1,5 +1,6 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import { JwtPayload } from "src/config/jwt-payload.interface";
+import { UserRole } from "src/config/role.enum";
 
 export const GetAccessDepartment = createParamDecorator(
     async (
@@ -52,6 +53,19 @@ export const GetDepartment = createParamDecorator(
         const account = (request.user as JwtPayload).department;
         
         return account;
+    },
+);
+
+export const IsAdmin = createParamDecorator(
+    async (
+        data: unknown,
+        context: ExecutionContext,
+    ): Promise<boolean> => {
+        const request = context.switchToHttp().getRequest();
+
+        const isAdmin = (request.user as JwtPayload).role===UserRole.ADMIN;
+        
+        return isAdmin;
     },
 );
 

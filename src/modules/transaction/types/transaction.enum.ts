@@ -17,3 +17,7 @@ export enum TransactionAction {
     APPROVE = "approve",
     REJECT = "reject"
 }
+export enum DepartmentExecutionStatus {
+    SEEN = "SEEN",
+    NOT_SEEN = "NOT_SEEN",
+}

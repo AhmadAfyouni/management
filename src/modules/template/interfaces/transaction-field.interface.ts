@@ -1,4 +1,4 @@
-import { DepartmentScheduleStatus } from 'src/modules/transaction/types/transaction.enum';
+import { DepartmentExecutionStatus, DepartmentScheduleStatus } from 'src/modules/transaction/types/transaction.enum';
 import { DurationUnit, FieldType } from '../types/field.enum';
 
 export interface TransactionField {
@@ -15,4 +15,9 @@ export interface Duration {
 export interface DepartmentSchedule {
     department_id: string;
     status: DepartmentScheduleStatus;
+}
+
+export interface DepartmentExecution {
+    department_id: string;
+    status: DepartmentExecutionStatus;
 }

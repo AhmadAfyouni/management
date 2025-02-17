@@ -7,7 +7,6 @@ export class ApproveDepartmentDto {
     transaction_id: string;
     @IsEnum(TransactionAction)
     action: TransactionAction;
-
     @IsString()
     @IsNotEmpty()
     note: string;

@@ -15,13 +15,15 @@ import { TransactionService } from './transaction.service';
 import { CreateTransactionDto } from './dtos/create-transaction.dto';
 import { UpdateTransactionDto } from './dtos/update-transaction.dto';
 import { TransactionLogDto } from './dtos/transaction-log.dto';
-import { DepartmentScheduleStatus, TransactionStatus } from './types/transaction.enum';
+import { DepartmentExecutionStatus, DepartmentScheduleStatus, TransactionStatus } from './types/transaction.enum';
 import { ApproveDepartmentDto } from './dtos/approve-department.dto';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
+import { GetAccount, GetDepartment, IsAdmin } from 'src/common/decorators/user-guard';
 import { Roles } from 'src/common/decorators/role.decorator';
 import { UserRole } from 'src/config/role.enum';
+import { UpdateDepartmentExecutionStatusDto } from './dtos/update-department-execuation.dto';
+import { isBtcAddress } from 'class-validator';
 
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,9 +33,20 @@ export class TransactionController {
 
     @Post()
     @HttpCode(HttpStatus.CREATED)
-    create(@Body() createTransactionDto: CreateTransactionDto,@GetAccount() empId:string) {
-        return this.transactionService.create(createTransactionDto,empId);
+    create(@Body() createTransactionDto: CreateTransactionDto, @GetAccount() empId: string) {
+        return this.transactionService.create(createTransactionDto, empId);
     }
+
+    @Post("restart/:id")
+    async restartTransaction(@Body() updateTransactionDto: UpdateTransactionDto, @Param("id") transaction_id: string) {
+        return await this.transactionService.restart(transaction_id, updateTransactionDto);
+    }
+    @Get("finish/:id")
+    async finishTransaction(@Param("id") transaction_id: string) {
+        return await this.transactionService.finishTransaction(transaction_id);
+    }
+
+  
 
     @Get()
     findAll(
@@ -45,7 +58,6 @@ export class TransactionController {
         }
         return this.transactionService.findAll();
     }
-    // اظهار المعاملات ل صدير القسم  أي ان نفحص المفصوفة و يجب ان يكون ongoin
 
     @Get('find-one/:id')
     findOne(@Param('id') id: string) {
@@ -58,23 +70,43 @@ export class TransactionController {
         return await this.transactionService.getDepartmentTransactions(departmentId);
     }
 
-    
+
     @Get("my-transactions")
     @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
     async getMyTransactions(@GetAccount() empId: string) {
         return await this.transactionService.getMyTransactions(empId);
+    }
+
+    @Get("archive")
+    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
+    async getArchiveTransaction(@GetAccount() empId: string) {
+        return await this.transactionService.getMyTransactionsArchive(empId);
     }
     @Get("execution")
     @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
     async getMyExecuation(@GetDepartment() departmentId: string) {
         return await this.transactionService.getMyExecuation(departmentId);
     }
+    @Patch('execution-status/:transactionId')
+    updateExecutionStatus(
+        @Param('transactionId') transactionId: string,
+        @GetDepartment() departmentId: string,
+        @Body('') updateExecutionDto: UpdateDepartmentExecutionStatusDto,
+    ) {
+        return this.transactionService.updateDepartmentExecutionStatus(
+            transactionId,
+            departmentId,
+            updateExecutionDto.newStatus,
+        );
+    }
+
+
     @Get("admin-approval")
     @Roles(UserRole.ADMIN)
     async getAdminApproval() {
         return await this.transactionService.getAdminApproval();
     }
-    @Patch(':id')
+    @Patch('update/:id')
     update(
         @Param('id') id: string,
         @Body() updateTransactionDto: UpdateTransactionDto,
@@ -107,10 +139,19 @@ export class TransactionController {
     @Post('departments-track')
     async approveDepartment(
         @Body() approveDto: ApproveDepartmentDto,
-        @GetDepartment() departmentId: string
+        @GetDepartment() departmentId: string,
     ) {
         return this.transactionService.trackDepartment(approveDto.transaction_id, approveDto, departmentId);
     }
+
+    @Patch('admin-approve')
+    @Roles(UserRole.ADMIN)
+    async adminApprove(
+        @Body() approveDto: ApproveDepartmentDto,
+    ) {
+        return await this.transactionService.adminApprove(approveDto.transaction_id, approveDto);
+    }
+
 
     @Get('department/:departmentId/tasks')
     async getDepartmentTasks(
