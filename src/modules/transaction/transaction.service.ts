@@ -255,10 +255,11 @@ export class TransactionService {
         if (transaction.status !== TransactionStatus.FULLY_APPROVED) {
             throw new BadRequestException('Transaction status is not fully approved');
         }
-
+        const lastIndex = transaction.departments_approval_track.length - 1;
         switch (approveDto.action) {
             case TransactionAction.APPROVE:
                 transaction.status = TransactionStatus.ADMIN_APPROVED;
+                transaction.departments_approval_track[lastIndex].status = DepartmentScheduleStatus.DONE;
                 break;
             case TransactionAction.REJECT:
                 transaction.status = TransactionStatus.NOT_APPROVED;
@@ -267,7 +268,6 @@ export class TransactionService {
                 if (!Array.isArray(transaction.departments_approval_track) || transaction.departments_approval_track.length === 0) {
                     throw new BadRequestException('No department approval track available to send back');
                 }
-                const lastIndex = transaction.departments_approval_track.length - 1;
                 transaction.departments_approval_track[lastIndex].status = DepartmentScheduleStatus.ONGOING;
                 break;
             default:
