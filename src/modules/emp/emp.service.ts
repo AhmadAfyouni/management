@@ -426,7 +426,7 @@ export class EmpService {
                 name: employee.name,
                 parentId: employee.parentId || null,
                 is_manager: employee.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
-                title: employee.job_id.name,
+                title: employee.job_id.title,
                 department: employee.department_id.name
             });
             info.push(new GetEmpDto(employee));
