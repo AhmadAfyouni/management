@@ -30,6 +30,7 @@ export class CreateTaskDto {
 
     @IsNotEmpty()
     @IsEnum(TASK_STATUS)
+    @IsOptional()
     status: string;
 
     @IsMongoId()
