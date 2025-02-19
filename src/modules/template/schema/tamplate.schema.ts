@@ -25,6 +25,9 @@ export class Template extends Document {
     @Prop({ type: [DepartmentAssignmentSchema], required: true })
     departments_execution_ids: DepartmentAssignment[];
 
+    @Prop({ type: [DepartmentAssignmentSchema], required: true })
+    departments_archive: DepartmentAssignment[];
+    
     @Prop({
         type: [{
             name: { type: String, required: true },

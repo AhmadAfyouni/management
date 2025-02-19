@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Department } from '../department/schema/department.schema';
 import { Emp } from '../emp/schemas/emp.schema';
+import { JobTitles } from '../job-titles/schema/job-ttiles.schema';
 import { CreateTemplateDto } from './dtos/create-template.dto';
 import { UpdateTemplateDto } from './dtos/update-template.dto';
 import { Template } from './schema/tamplate.schema';
@@ -22,7 +23,12 @@ export class TemplateService {
                     {
                         path: 'employee',
                         model: Emp.name,
-                        select: 'name'
+                        select: 'name',
+                        populate: {
+                            path: "job_id",
+                            model: JobTitles.name,
+                            select: "title"
+                        }
                     },
                     {
                         path: 'department',
@@ -37,7 +43,32 @@ export class TemplateService {
                     {
                         path: 'employee',
                         model: Emp.name,
-                        select: 'name'
+                        select: 'name',
+                        populate: {
+                            path: "job_id",
+                            model: JobTitles.name,
+                            select: "title"
+                        }
+                    },
+                    {
+                        path: 'department',
+                        model: Department.name,
+                        select: 'name',
+                    },
+                ],
+            },
+            {
+                path: 'departments_archive',
+                populate: [
+                    {
+                        path: 'employee',
+                        model: Emp.name,
+                        select: 'name',
+                        populate: {
+                            path: "job_id",
+                            model: JobTitles.name,
+                            select: "title"
+                        }
                     },
                     {
                         path: 'department',

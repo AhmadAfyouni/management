@@ -4,7 +4,7 @@ import { Department } from 'src/modules/department/schema/department.schema';
 import { DepartmentExecutionStatus, DepartmentScheduleStatus, TransactionAction, TransactionStatus } from '../types/transaction.enum';
 import { Template } from 'src/modules/template/schema/tamplate.schema';
 import { Emp } from 'src/modules/emp/schemas/emp.schema';
-import { DepartmentExecution, DepartmentSchedule } from '../interfaces/transaction.interface';
+import { DepartmentExecution, DepartmentsArchive, DepartmentSchedule } from '../interfaces/transaction.interface';
 
 
 
@@ -61,6 +61,29 @@ class DepartmentExecutionSchema {
 
 }
 
+@Schema({
+    timestamps: true, toObject: { virtuals: true },
+    toJSON: { virtuals: true }
+})
+class DepartmentArchiveSchema {
+
+    _id: Types.ObjectId;
+
+    @Prop({
+        type: MongooseSchema.Types.ObjectId,
+        required: true,
+        ref: Department.name,
+    })
+    department_id: string;
+
+    @Prop({
+        type: MongooseSchema.Types.ObjectId,
+        required: false,
+        ref: 'Employee'
+    })
+    employee?: string;
+
+}
 
 @Schema()
 class TransactionFieldSchema {
@@ -115,6 +138,10 @@ export class Transaction extends Document {
 
     @Prop({ type: [DepartmentExecutionSchema], required: false })
     departments_execution: DepartmentExecution[];
+
+
+    @Prop({ type: [DepartmentArchiveSchema], required: false })
+    departments_archive: DepartmentsArchive[];
 
     @Prop({
         type: String,

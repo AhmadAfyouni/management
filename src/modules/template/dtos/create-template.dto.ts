@@ -21,13 +21,18 @@ export class CreateTemplateDto {
     @ValidateNested({ each: true })
     @Type(() => DepartmentAssignmentDto)
     departments_approval_track: DepartmentAssignmentDto[];
-  
+
 
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => DepartmentAssignmentDto)
     departments_execution_ids: DepartmentAssignmentDto[];
-  
+
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => DepartmentAssignmentDto)
+    departments_archive: DepartmentAssignmentDto[];
+
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => TransactionFieldDto)

@@ -75,6 +75,12 @@ export class TransactionController {
         return await this.transactionService.getMyTransactions(empId);
     }
 
+    @Get("archived-transactions")
+    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN, UserRole.SECONDARY_USER)
+    async getArchivedTransactions(@GetDepartment() departmentId: string, @GetAccount() empId: string) {
+        return await this.transactionService.getMyArchiveTransaction(departmentId, empId);
+    }
+
     @Get("archive")
     @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
     async getArchiveTransaction(@GetAccount() empId: string) {

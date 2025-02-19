@@ -9,12 +9,13 @@ import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
 import { Department } from '../department/schema/department.schema';
 import { Emp } from '../emp/schemas/emp.schema';
+import { JobTitles } from '../job-titles/schema/job-ttiles.schema';
 import { Template } from '../template/schema/tamplate.schema';
 import { ApproveDepartmentDto } from './dtos/approve-department.dto';
 import { CreateTransactionDto } from './dtos/create-transaction.dto';
 import { TransactionLogDto } from './dtos/transaction-log.dto';
 import { UpdateTransactionDto } from './dtos/update-transaction.dto';
-import { DepartmentExecution, DepartmentSchedule } from './interfaces/transaction.interface';
+import { DepartmentExecution, DepartmentsArchive, DepartmentSchedule } from './interfaces/transaction.interface';
 import { Transaction } from './schema/transaction.schema';
 import {
     DepartmentExecutionStatus,
@@ -35,80 +36,110 @@ export class TransactionService {
 
     private getPopulateOptions() {
         return [
-          {
-            path: 'template_id',
-            model: Template.name,
-            populate: [
-              {
-                path: 'departments_execution_ids',
+            {
+                path: 'template_id',
+                model: Template.name,
                 populate: [
-                  {
-                    path: 'employee',
-                    model: Emp.name,
-                    select: 'name',
-                  },
-                  {
-                    path: 'department_id',
-                    model: Department.name,
-                    select: 'name',
-                  },
+                    {
+                        path: 'departments_execution_ids',
+                        populate: [
+                            {
+                                path: 'employee',
+                                model: Emp.name,
+                                select: 'name',
+                                populate: {
+                                    path: "job_id",
+                                    model: JobTitles.name,
+                                    select: "title"
+                                }
+                            },
+                            {
+                                path: 'department_id',
+                                model: Department.name,
+                                select: 'name',
+                            },
+                        ],
+                    },
+                    {
+                        path: 'departments_approval_track',
+                        populate: [
+                            {
+                                path: 'employee',
+                                model: Emp.name,
+                                select: 'name',
+                                populate: {
+                                    path: "job_id",
+                                    model: JobTitles.name,
+                                    select: "title"
+                                }
+                            },
+                            {
+                                path: 'department_id',
+                                model: Department.name,
+                                select: 'name',
+                            },
+                        ],
+                    },
+                    {
+                        path: 'departments_archive',
+                        populate: [
+                            {
+                                path: 'employee',
+                                model: Emp.name,
+                                select: 'name',
+                                populate: {
+                                    path: "job_id",
+                                    model: JobTitles.name,
+                                    select: "title"
+                                }
+                            },
+                            {
+                                path: 'department_id',
+                                model: Department.name,
+                                select: 'name',
+                            },
+                        ],
+                    },
                 ],
-              },
-              {
+            },
+            {
+                path: 'departments_execution',
+                populate: [
+                    {
+                        path: 'employee',
+                        model: Emp.name,
+                        select: 'name',
+                    },
+                    {
+                        path: 'department_id',
+                        model: Department.name,
+                        select: 'name',
+                    },
+                ],
+            },
+            {
                 path: 'departments_approval_track',
                 populate: [
-                  {
-                    path: 'employee',
-                    model: Emp.name,
-                    select: 'name',
-                  },
-                  {
-                    path: 'department_id',
-                    model: Department.name,
-                    select: 'name',
-                  },
+                    {
+                        path: 'employee',
+                        model: Emp.name,
+                        select: 'name',
+                    },
+                    {
+                        path: 'department_id',
+                        model: Department.name,
+                        select: 'name',
+                    },
                 ],
-              },
-            ],
-          },
-          {
-            path: 'departments_execution',
-            populate: [
-              {
-                path: 'employee',
-                model: Emp.name,
-                select: 'name',
-              },
-              {
-                path: 'department_id',
+            },
+            {
+                path: 'logs.department_id',
                 model: Department.name,
                 select: 'name',
-              },
-            ],
-          },
-          {
-            path: 'departments_approval_track',
-            populate: [
-              {
-                path: 'employee',
-                model: Emp.name,
-                select: 'name',
-              },
-              {
-                path: 'department_id',
-                model: Department.name,
-                select: 'name',
-              },
-            ],
-          },
-          {
-            path: 'logs.department_id',
-            model: Department.name,
-            select: 'name',
-          },
+            },
         ];
-      }
-      
+    }
+
 
 
     async create(
@@ -141,10 +172,19 @@ export class TransactionService {
             }),
         );
 
+        const departmentsArchive: DepartmentsArchive[] = template.departments_archive.map(
+            (deptArch) => ({
+                department_id: deptArch.department,
+                employee: deptArch.employee,
+            }),
+        );
+
+
         const transactionData = {
             ...createTransactionDto,
             departments_approval_track: departmentsApprovalTrack,
             departments_execution: departmentsExecution,
+            departments_archive: departmentsArchive,
             transaction_owner: empId,
         };
 
@@ -195,12 +235,20 @@ export class TransactionService {
                 employee: deptExec.employee,
             }),
         );
+        const departmentsArchive: DepartmentsArchive[] = template.departments_archive.map(
+            (deptArch) => ({
+                department_id: deptArch.department,
+                employee: deptArch.employee,
+            }),
+        );
+
 
         const newTransactionData = {
             template_id: oldTransaction.template_id,
             start_date: updateTransactionDto.start_date,
             departments_approval_track: departmentsApprovalTrack,
             departments_execution: departmentsExecution,
+            departments_archive: departmentsArchive,
             transaction_owner: oldTransaction.transaction_owner,
             fields: updateTransactionDto.fields,
         };
@@ -224,6 +272,24 @@ export class TransactionService {
             throw new NotFoundException(`Transaction with ID ${transaction_id} not found`);
         }
         return updated;
+    }
+
+    async getMyArchiveTransaction(departmentId: string, empId?: string) {
+        const objectId = new Types.ObjectId(departmentId);
+        const employeeId = new Types.ObjectId(empId);
+        const approvalCondition = () => ({
+            department_id: objectId,
+            $or: [
+                { employee: employeeId },
+                { employee: { $exists: false } },
+                { employee: null },
+            ],
+        });
+
+        return this.transactionModel.find({
+            isArchive: true,
+            departments_archive: { $elemMatch: approvalCondition() },
+        }).withArchived().populate(this.getPopulateOptions()).exec();
     }
 
     async updateDepartmentExecutionStatus(
@@ -318,6 +384,7 @@ export class TransactionService {
                 transaction.departments_approval_track[lastIndex].status = DepartmentScheduleStatus.DONE;
                 break;
             case TransactionAction.REJECT:
+                transaction.isArchive = true;
                 transaction.status = TransactionStatus.NOT_APPROVED;
                 break;
             case TransactionAction.SEND_BACK:
@@ -394,6 +461,7 @@ export class TransactionService {
             case TransactionAction.REJECT:
                 currentDep.status = DepartmentScheduleStatus.ONGOING;
                 transaction.status = TransactionStatus.NOT_APPROVED;
+                transaction.isArchive = true;
                 break;
             case TransactionAction.SEND_BACK:
                 currentDep.status = DepartmentScheduleStatus.PENDING;
@@ -426,80 +494,80 @@ export class TransactionService {
     async getDepartmentTransactions(
         departmentId: string,
         empId: string,
-      ): Promise<{ ongoing: Transaction[]; checking: Transaction[] }> {
+    ): Promise<{ ongoing: Transaction[]; checking: Transaction[] }> {
         const objectId = parseObject(departmentId);
         const employeeId = parseObject(empId);
-      
-        const approvalCondition = (status: DepartmentScheduleStatus) => ({
-          department_id: objectId,
-          status,
-          $or: [
-            { employee: employeeId },
-            { employee: { $exists: false } },
-            { employee: null },
-          ],
-        });
-      
-        const ongoingTransactions = await this.transactionModel
-          .find({
-            departments_approval_track: { $elemMatch: approvalCondition(DepartmentScheduleStatus.ONGOING) },
-          })
-          .populate(this.getPopulateOptions())
-          .exec();
-      
-        const checkingTransactions = await this.transactionModel
-          .find({
-            departments_approval_track: { $elemMatch: approvalCondition(DepartmentScheduleStatus.CHECKING) },
-          })
-          .populate(this.getPopulateOptions())
-          .exec();
-      
-        return { ongoing: ongoingTransactions, checking: checkingTransactions };
-      }
-      
 
-      async getMyExecution(departmentId: string, empId: string): Promise<Transaction[]> {
+        const approvalCondition = (status: DepartmentScheduleStatus) => ({
+            department_id: objectId,
+            status,
+            $or: [
+                { employee: employeeId },
+                { employee: { $exists: false } },
+                { employee: null },
+            ],
+        });
+
+        const ongoingTransactions = await this.transactionModel
+            .find({
+                departments_approval_track: { $elemMatch: approvalCondition(DepartmentScheduleStatus.ONGOING) },
+            })
+            .populate(this.getPopulateOptions())
+            .exec();
+
+        const checkingTransactions = await this.transactionModel
+            .find({
+                departments_approval_track: { $elemMatch: approvalCondition(DepartmentScheduleStatus.CHECKING) },
+            })
+            .populate(this.getPopulateOptions())
+            .exec();
+
+        return { ongoing: ongoingTransactions, checking: checkingTransactions };
+    }
+
+
+    async getMyExecution(departmentId: string, empId: string): Promise<Transaction[]> {
         const objectId = parseObject(departmentId);
         const employeeId = parseObject(empId);
-      
+
         // Retrieve templates that include the given department in their execution list.
         const templates = await this.templateModel.find({
-          departments_execution_ids: { $in: [objectId] },
+            departments_execution_ids: { $in: [objectId] },
         }).exec();
-      
+
         const notNeed = templates.filter((t) => !t.needAdminApproval);
         const needAdmin = templates.filter((t) => t.needAdminApproval);
-      
+
         const executionCondition = {
-          $elemMatch: {
-            department_id: objectId,
-            $or: [
-              { employee: employeeId },
-              { employee: { $exists: false } },
-              { employee: null },
-            ],
-          },
+            $elemMatch: {
+                department_id: objectId,
+                $or: [
+                    { employee: employeeId },
+                    { employee: { $exists: false } },
+                    { employee: null },
+                ],
+            },
         };
-      
+
         const notNeedAdminTransactions = await this.transactionModel.find({
-          template_id: { $in: notNeed.map((t) => t._id.toString()) },
-          status: TransactionStatus.FULLY_APPROVED,
-          departments_execution: executionCondition,
+            template_id: { $in: notNeed.map((t) => t._id.toString()) },
+            status: TransactionStatus.FULLY_APPROVED,
+            departments_execution: executionCondition,
         })
-        .populate(this.getPopulateOptions())
-        .exec();
-      
+            .populate(this.getPopulateOptions())
+            .exec();
+
         const needAdminTransactions = await this.transactionModel.find({
-          template_id: { $in: needAdmin.map((t) => t._id.toString()) },
-          status: TransactionStatus.ADMIN_APPROVED,
-          departments_execution: executionCondition,
+            template_id: { $in: needAdmin.map((t) => t._id.toString()) },
+            status: TransactionStatus.ADMIN_APPROVED,
+            departments_execution: executionCondition,
         })
-        .populate(this.getPopulateOptions())
-        .exec();
-      
+            .populate(this.getPopulateOptions())
+            .exec();
+
         return [...notNeedAdminTransactions, ...needAdminTransactions];
-      }
-      
+    }
+
 
     async getAdminApproval(): Promise<Transaction[]> {
         const templatesNeedingAdmin = await this.templateModel.find({ needAdminApproval: true }).exec();
@@ -515,7 +583,7 @@ export class TransactionService {
     async getMyTransactions(empId: string): Promise<Transaction[]> {
         return this.transactionModel
             .find({ transaction_owner: empId })
-            .withArchived() // query helper to include archived transactions if needed.
+            .withArchived()
             .populate(this.getPopulateOptions())
             .exec();
     }

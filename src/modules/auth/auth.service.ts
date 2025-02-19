@@ -43,7 +43,6 @@ export class AuthService {
                 accessibleEmps: (user.job_id as any).accessibleEmps || [],
                 accessibleJobTitles: (user.job_id as any).accessibleJobTitles || [],
             };
-            console.log(payload);
             
             return {
                 status: true,

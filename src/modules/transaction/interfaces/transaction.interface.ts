@@ -17,3 +17,8 @@ export interface DepartmentExecution {
     employee?:Types.ObjectId;
     status: DepartmentExecutionStatus;
 }
+
+export interface DepartmentsArchive {
+    department_id: Types.ObjectId;
+    employee?:Types.ObjectId;
+}
