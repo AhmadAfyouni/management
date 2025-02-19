@@ -2,6 +2,7 @@ import { IsString, IsArray, IsNotEmpty, ValidateNested, IsBoolean, IsOptional, I
 import { Type } from 'class-transformer';
 import { DurationDto } from './department-schedule.dto';
 import { TransactionFieldDto } from './transaction-field.dto';
+import { DepartmentAssignmentDto } from './department-assignment.dto';
 
 export class CreateTemplateDto {
     @IsString()
@@ -17,14 +18,16 @@ export class CreateTemplateDto {
     description: string;
 
     @IsArray()
-    // @IsMongoId()
-    departments_approval_track: string[];
-
+    @ValidateNested({ each: true })
+    @Type(() => DepartmentAssignmentDto)
+    departments_approval_track: DepartmentAssignmentDto[];
+  
 
     @IsArray()
-    // @IsMongoId()
-    departments_execution_ids: string[];
-
+    @ValidateNested({ each: true })
+    @Type(() => DepartmentAssignmentDto)
+    departments_execution_ids: DepartmentAssignmentDto[];
+  
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => TransactionFieldDto)

@@ -1,8 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose';
-import { Department } from 'src/modules/department/schema/department.schema';
+import { Document, Types } from 'mongoose';
 import { TransactionField } from '../interfaces/transaction-field.interface';
 import { DurationUnit, FieldType } from '../types/field.enum';
+import { DepartmentAssignment, DepartmentAssignmentSchema } from './department-assigne.schem';
+
+
 
 @Schema({ timestamps: true })
 export class Template extends Document {
@@ -17,11 +19,11 @@ export class Template extends Document {
     @Prop({ required: true })
     description: string;
 
-    @Prop({ type: [MongooseSchema.Types.ObjectId], ref: Department.name, required: true })
-    departments_approval_track: string[];
+    @Prop({ type: [DepartmentAssignmentSchema], required: true })
+    departments_approval_track: DepartmentAssignment[];
 
-    @Prop({ type: [MongooseSchema.Types.ObjectId], ref: Department.name, required: true })
-    departments_execution_ids: string[];
+    @Prop({ type: [DepartmentAssignmentSchema], required: true })
+    departments_execution_ids: DepartmentAssignment[];
 
     @Prop({
         type: [{

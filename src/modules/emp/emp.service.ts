@@ -51,8 +51,6 @@ export class EmpService {
     }
 
     async findManagerByDepartment(departmentId: string): Promise<EmpDocument | null> {
-        console.log(departmentId);
-        
         let manager;
         const jobTitleDoc = await this.jobTitleService.findByDepartmentId(departmentId);
         

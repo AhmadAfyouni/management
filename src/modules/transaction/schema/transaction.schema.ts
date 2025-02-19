@@ -3,8 +3,8 @@ import { Document, Query, Schema as MongooseSchema, Types } from 'mongoose';
 import { Department } from 'src/modules/department/schema/department.schema';
 import { DepartmentExecutionStatus, DepartmentScheduleStatus, TransactionAction, TransactionStatus } from '../types/transaction.enum';
 import { Template } from 'src/modules/template/schema/tamplate.schema';
-import { DepartmentExecution, DepartmentSchedule } from 'src/modules/template/interfaces/transaction-field.interface';
 import { Emp } from 'src/modules/emp/schemas/emp.schema';
+import { DepartmentExecution, DepartmentSchedule } from '../interfaces/transaction.interface';
 
 
 
@@ -24,7 +24,14 @@ class DepartmentScheduleSchema {
     department_id: string;
 
     @Prop({ enum: DepartmentScheduleStatus, default: DepartmentScheduleStatus.PENDING })
-    status: DepartmentScheduleStatus
+    status: DepartmentScheduleStatus;
+
+    @Prop({
+        type: MongooseSchema.Types.ObjectId,
+        required: false,
+        ref: 'Employee'
+    })
+    employee?: string;
 }
 
 @Schema({
@@ -43,7 +50,15 @@ class DepartmentExecutionSchema {
     department_id: string;
 
     @Prop({ enum: DepartmentExecutionStatus, default: DepartmentExecutionStatus.NOT_SEEN })
-    status: DepartmentExecutionStatus
+    status: DepartmentExecutionStatus;
+
+    @Prop({
+        type: MongooseSchema.Types.ObjectId,
+        required: false,
+        ref: 'Employee'
+    })
+    employee?: string;
+
 }
 
 
@@ -143,6 +158,13 @@ TransactionSchema.set('toJSON', {
 
         if (Array.isArray(ret.departments_approval_track)) {
             ret.departments_approval_track = ret.departments_approval_track.map(item => {
+                item.department = item.department_id;
+                delete item.department_id;
+                return item;
+            });
+        }
+        if (Array.isArray(ret.departments_execution)) {
+            ret.departments_execution = ret.departments_execution.map(item => {
                 item.department = item.department_id;
                 delete item.department_id;
                 return item;

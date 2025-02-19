@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Department } from '../department/schema/department.schema';
+import { Emp } from '../emp/schemas/emp.schema';
 import { CreateTemplateDto } from './dtos/create-template.dto';
 import { UpdateTemplateDto } from './dtos/update-template.dto';
 import { Template } from './schema/tamplate.schema';
@@ -16,15 +17,35 @@ export class TemplateService {
     populateTemplate() {
         return [
             {
-                path: "departments_approval_track",
-                model: Department.name,
-                select: "name",
+                path: 'departments_execution_ids',
+                populate: [
+                    {
+                        path: 'employee',
+                        model: Emp.name,
+                        select: 'name'
+                    },
+                    {
+                        path: 'department',
+                        model: Department.name,
+                        select: 'name',
+                    },
+                ],
             },
             {
-                path: "departments_execution_ids",
-                model: Department.name,
-                select: "name",
-            }
+                path: 'departments_approval_track',
+                populate: [
+                    {
+                        path: 'employee',
+                        model: Emp.name,
+                        select: 'name'
+                    },
+                    {
+                        path: 'department',
+                        model: Department.name,
+                        select: 'name',
+                    },
+                ],
+            },
         ];
     }
     async create(createTemplateDto: CreateTemplateDto): Promise<Template> {

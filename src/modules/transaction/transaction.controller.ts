@@ -46,8 +46,6 @@ export class TransactionController {
         return await this.transactionService.finishTransaction(transaction_id);
     }
 
-  
-
     @Get()
     findAll(
         @Query('status') status?: TransactionStatus
@@ -65,9 +63,9 @@ export class TransactionController {
     }
 
     @Get("department-transactions")
-    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
-    async getDepartmentTransactions(@GetDepartment() departmentId: string) {
-        return await this.transactionService.getDepartmentTransactions(departmentId);
+    @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN, UserRole.SECONDARY_USER)
+    async getDepartmentTransactions(@GetDepartment() departmentId: string, @GetAccount() empId: string) {
+        return await this.transactionService.getDepartmentTransactions(departmentId, empId);
     }
 
 
@@ -84,14 +82,14 @@ export class TransactionController {
     }
     @Get("execution")
     @Roles(UserRole.PRIMARY_USER, UserRole.ADMIN)
-    async getMyExecuation(@GetDepartment() departmentId: string) {
-        return await this.transactionService.getMyExecuation(departmentId);
+    async getMyExecuation(@GetDepartment() departmentId: string, @GetAccount() empId: string) {
+        return await this.transactionService.getMyExecution(departmentId, empId);
     }
     @Patch('execution-status/:transactionId')
     updateExecutionStatus(
         @Param('transactionId') transactionId: string,
         @GetDepartment() departmentId: string,
-        @Body('') updateExecutionDto: UpdateDepartmentExecutionStatusDto,
+        @Body() updateExecutionDto: UpdateDepartmentExecutionStatusDto,
     ) {
         return this.transactionService.updateDepartmentExecutionStatus(
             transactionId,
@@ -99,7 +97,6 @@ export class TransactionController {
             updateExecutionDto.newStatus,
         );
     }
-
 
     @Get("admin-approval")
     @Roles(UserRole.ADMIN)
@@ -164,14 +161,5 @@ export class TransactionController {
         return this.transactionService.getCurrentDepartmentTasks(departmentId);
     }
 
-    @Get(':id/progress')
-    async getProgress(@Param('id') id: string) {
-        return this.transactionService.getDepartmentProgress(id);
-    }
-
-    @Get(':id/history')
-    async getHistory(@Param('id') id: string) {
-        return this.transactionService.getTransactionHistory(id);
-    }
 
 }

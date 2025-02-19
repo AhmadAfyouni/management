@@ -12,12 +12,3 @@ export interface Duration {
 }
 
 
-export interface DepartmentSchedule {
-    department_id: string;
-    status: DepartmentScheduleStatus;
-}
-
-export interface DepartmentExecution {
-    department_id: string;
-    status: DepartmentExecutionStatus;
-}
