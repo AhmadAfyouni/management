@@ -106,8 +106,8 @@ export class TransactionController {
 
     @Get("admin-approval")
     @Roles(UserRole.ADMIN)
-    async getAdminApproval() {
-        return await this.transactionService.getAdminApproval();
+    async getAdminApproval(@GetAccount() empId: string) {
+        return await this.transactionService.getAdminApproval(empId);
     }
     @Patch('update/:id')
     update(

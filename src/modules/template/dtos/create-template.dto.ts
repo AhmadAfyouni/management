@@ -46,4 +46,8 @@ export class CreateTemplateDto {
     @Type(() => DurationDto)
     duration: DurationDto;
 
+
+    @IsOptional()
+    @IsMongoId()
+    admin_approve: string;
 }

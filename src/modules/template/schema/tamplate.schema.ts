@@ -1,8 +1,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Document } from 'mongoose';
 import { TransactionField } from '../interfaces/transaction-field.interface';
 import { DurationUnit, FieldType } from '../types/field.enum';
 import { DepartmentAssignment, DepartmentAssignmentSchema } from './department-assigne.schem';
+import { Schema as MongooseSchema, Types } from 'mongoose';
+import { Emp } from 'src/modules/emp/schemas/emp.schema';
 
 
 
@@ -27,7 +29,7 @@ export class Template extends Document {
 
     @Prop({ type: [DepartmentAssignmentSchema], required: true })
     departments_archive: DepartmentAssignment[];
-    
+
     @Prop({
         type: [{
             name: { type: String, required: true },
@@ -58,6 +60,9 @@ export class Template extends Document {
         unit: DurationUnit;
         value: number;
     };
+
+    @Prop({ type: MongooseSchema.Types.ObjectId, ref: Emp.name, required: false })
+    admin_approve?: Types.ObjectId;
 }
 
 export const TemplateSchema = SchemaFactory.createForClass(Template);

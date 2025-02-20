@@ -584,8 +584,15 @@ export class TransactionService {
     }
 
 
-    async getAdminApproval(): Promise<Transaction[]> {
-        const templatesNeedingAdmin = await this.templateModel.find({ needAdminApproval: true }).exec();
+    async getAdminApproval(empId: string): Promise<Transaction[]> {
+        const templatesNeedingAdmin = await this.templateModel.find({
+            needAdminApproval: true,
+            $or: [
+                { admin_approve: { $exists: false } },
+                { admin_approve: empId }
+            ]
+        }).exec();
+    
         return this.transactionModel
             .find({
                 template_id: { $in: templatesNeedingAdmin.map((t) => t._id.toString()) },
@@ -594,6 +601,7 @@ export class TransactionService {
             .populate(this.getPopulateOptions())
             .exec();
     }
+    
 
     async getMyTransactions(empId: string): Promise<Transaction[]> {
         return this.transactionModel
