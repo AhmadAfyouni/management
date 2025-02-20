@@ -198,6 +198,15 @@ TransactionSchema.set('toJSON', {
             });
         }
 
+        if (Array.isArray(ret.departments_archive)) {
+            ret.departments_archive = ret.departments_archive.map(item => {
+                item.department = item.department_id;
+                delete item.department_id;
+                return item;
+            });
+        }
+
+
         if (Array.isArray(ret.logs)) {
             ret.logs = ret.logs.map(item => {
                 item.department = item.department_id;

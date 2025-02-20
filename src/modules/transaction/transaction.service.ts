@@ -54,7 +54,7 @@ export class TransactionService {
                                 }
                             },
                             {
-                                path: 'department_id',
+                                path: 'department',
                                 model: Department.name,
                                 select: 'name',
                             },
@@ -74,7 +74,7 @@ export class TransactionService {
                                 }
                             },
                             {
-                                path: 'department_id',
+                                path: 'department',
                                 model: Department.name,
                                 select: 'name',
                             },
@@ -94,7 +94,7 @@ export class TransactionService {
                                 }
                             },
                             {
-                                path: 'department_id',
+                                path: 'department',
                                 model: Department.name,
                                 select: 'name',
                             },
@@ -119,6 +119,21 @@ export class TransactionService {
             },
             {
                 path: 'departments_approval_track',
+                populate: [
+                    {
+                        path: 'employee',
+                        model: Emp.name,
+                        select: 'name',
+                    },
+                    {
+                        path: 'department_id',
+                        model: Department.name,
+                        select: 'name',
+                    },
+                ],
+            },
+            {
+                path: 'departments_archive',
                 populate: [
                     {
                         path: 'employee',
