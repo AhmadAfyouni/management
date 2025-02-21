@@ -49,7 +49,7 @@ class DepartmentExecutionSchema {
     })
     department_id: string;
 
-    @Prop({ enum: DepartmentExecutionStatus, default: DepartmentExecutionStatus.NOT_SEEN })
+    @Prop({ enum: DepartmentExecutionStatus, default: DepartmentExecutionStatus.NOT_DONE })
     status: DepartmentExecutionStatus;
 
     @Prop({
@@ -58,6 +58,10 @@ class DepartmentExecutionSchema {
         ref: 'Employee'
     })
     employee?: string;
+
+
+    @Prop({ required: false })
+    note?: string;
 
 }
 
@@ -109,8 +113,8 @@ class TransactionLogSchema {
     @Prop({ required: true })
     note: string;
 
-    @Prop({ enum: TransactionAction })
-    action?: TransactionAction
+    @Prop()
+    action?: string
 }
 
 @Schema({

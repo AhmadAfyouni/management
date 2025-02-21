@@ -1,4 +1,4 @@
-import { IsEnum } from 'class-validator';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { DepartmentExecutionStatus } from '../types/transaction.enum';
 
 export class UpdateDepartmentExecutionStatusDto {
@@ -6,4 +6,8 @@ export class UpdateDepartmentExecutionStatusDto {
         message: 'newStatus must be a valid DepartmentExecutionStatus',
     })
     newStatus: DepartmentExecutionStatus;
+
+    @IsOptional()
+    @IsString()
+    note?: string;
 }

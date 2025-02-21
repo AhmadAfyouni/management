@@ -18,6 +18,6 @@ export enum TransactionAction {
     REJECT = "reject"
 }
 export enum DepartmentExecutionStatus {
-    SEEN = "SEEN",
-    NOT_SEEN = "NOT_SEEN",
+    DONE = "DONE",
+    NOT_DONE = "NOT_DONE",
 }

@@ -182,7 +182,7 @@ export class TransactionService {
         const departmentsExecution: DepartmentExecution[] = template.departments_execution_ids.map(
             (deptExec) => ({
                 department_id: deptExec.department,
-                status: DepartmentExecutionStatus.NOT_SEEN,
+                status: DepartmentExecutionStatus.NOT_DONE,
                 employee: deptExec.employee,
             }),
         );
@@ -246,7 +246,7 @@ export class TransactionService {
         const departmentsExecution: DepartmentExecution[] = template.departments_execution_ids.map(
             (deptExec) => ({
                 department_id: deptExec.department,
-                status: DepartmentExecutionStatus.NOT_SEEN,
+                status: DepartmentExecutionStatus.NOT_DONE,
                 employee: deptExec.employee,
             }),
         );
@@ -310,14 +310,22 @@ export class TransactionService {
     async updateDepartmentExecutionStatus(
         transactionId: string,
         departmentId: string,
+        empId: string,
         newStatus: DepartmentExecutionStatus,
+        note?: string
     ): Promise<Transaction> {
         const transaction = await this.transactionModel.findById(transactionId).exec();
         if (!transaction) {
             throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
         }
         const deptExecution = transaction.departments_execution.find(
-            (dept) => dept.department_id.toString() === departmentId,
+            (dept) => {
+                if (dept.employee) {
+                    return dept.employee.toString() === empId
+                } else {
+                    return dept.department_id.toString() === departmentId
+                }
+            },
         );
         if (!deptExecution) {
             throw new NotFoundException(
@@ -325,6 +333,15 @@ export class TransactionService {
             );
         }
         deptExecution.status = newStatus;
+        deptExecution.note = note;
+        transaction.logs.push(
+            {
+                department_id: deptExecution.department_id.toString(),
+                finished_at: new Date().toISOString(),
+                note: note ?? "",
+                action: newStatus,
+            }
+        );
         await transaction.save();
         return this.findOne(transactionId);
     }
@@ -544,25 +561,28 @@ export class TransactionService {
     async getMyExecution(departmentId: string, empId: string): Promise<Transaction[]> {
         const objectId = parseObject(departmentId);
         const employeeId = parseObject(empId);
-
+        const executionCondition = {
+            $elemMatch: {
+                $or: [
+                    // حالة وجود employee وتساويه للـ employeeId
+                    { employee: employeeId },
+                    // حالة عدم وجود employee أو قيمته null: يتم التحقق من department_id فقط
+                    {
+                        $and: [
+                            { $or: [{ employee: { $exists: false } }, { employee: null }] },
+                            { department_id: objectId }
+                        ]
+                    }
+                ]
+            }
+        };
         // Retrieve templates that include the given department in their execution list.
         const templates = await this.templateModel.find({
-            departments_execution_ids: { $in: [objectId] },
+            departments_execution_ids: executionCondition
         }).exec();
 
         const notNeed = templates.filter((t) => !t.needAdminApproval);
         const needAdmin = templates.filter((t) => t.needAdminApproval);
-
-        const executionCondition = {
-            $elemMatch: {
-                department_id: objectId,
-                $or: [
-                    { employee: employeeId },
-                    { employee: { $exists: false } },
-                    { employee: null },
-                ],
-            },
-        };
 
         const notNeedAdminTransactions = await this.transactionModel.find({
             template_id: { $in: notNeed.map((t) => t._id.toString()) },
@@ -592,7 +612,7 @@ export class TransactionService {
                 { admin_approve: empId }
             ]
         }).exec();
-    
+
         return this.transactionModel
             .find({
                 template_id: { $in: templatesNeedingAdmin.map((t) => t._id.toString()) },
@@ -601,7 +621,7 @@ export class TransactionService {
             .populate(this.getPopulateOptions())
             .exec();
     }
-    
+
 
     async getMyTransactions(empId: string): Promise<Transaction[]> {
         return this.transactionModel

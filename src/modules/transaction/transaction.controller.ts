@@ -95,12 +95,15 @@ export class TransactionController {
     updateExecutionStatus(
         @Param('transactionId') transactionId: string,
         @GetDepartment() departmentId: string,
+        @GetAccount() empId:string,
         @Body() updateExecutionDto: UpdateDepartmentExecutionStatusDto,
     ) {
         return this.transactionService.updateDepartmentExecutionStatus(
             transactionId,
             departmentId,
+            empId,
             updateExecutionDto.newStatus,
+            updateExecutionDto.note
         );
     }
 
