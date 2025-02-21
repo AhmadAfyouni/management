@@ -342,6 +342,8 @@ export class TransactionService {
                 action: newStatus,
             }
         );
+        const isArchived = transaction.departments_execution.some((a) => a.status === DepartmentExecutionStatus.NOT_DONE)
+        transaction.isArchive = !isArchived;
         await transaction.save();
         return this.findOne(transactionId);
     }
