@@ -218,7 +218,7 @@ export class TransactionService {
         transaction_id: string,
         updateTransactionDto: UpdateTransactionDto,
     ): Promise<Transaction> {
-        const oldTransaction = await this.transactionModel.findById(transaction_id);
+        const oldTransaction = await this.transactionModel.findById(transaction_id).withArchived().exec();
         if (!oldTransaction) {
             throw new NotFoundException(`Transaction with ID ${transaction_id} not found`);
         }
