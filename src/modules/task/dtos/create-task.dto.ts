@@ -48,6 +48,7 @@ export class CreateTaskDto {
 
     @IsArray()
     @IsString({ each: true })
+    @IsOptional()
     files?: string[];
 
     @IsBoolean()

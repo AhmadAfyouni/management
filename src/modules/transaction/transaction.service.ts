@@ -281,7 +281,7 @@ export class TransactionService {
 
     async finishTransaction(transaction_id: string): Promise<Transaction> {
         const updated = await this.transactionModel
-            .findByIdAndUpdate(transaction_id, { isArchive: true }, { new: true })
+            .findByIdAndUpdate(transaction_id, { isArchive: true }, { new: true }).withArchived()
             .exec();
         if (!updated) {
             throw new NotFoundException(`Transaction with ID ${transaction_id} not found`);
