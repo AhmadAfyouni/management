@@ -43,4 +43,11 @@ export enum PermissionsEnum {
     TASK_ADD = 'task_add',
     TASK_UPDATE = 'task_update',
     TASK_DELETE = 'task_delete',
+
+    NOTIFICATION_SEARCH_AND_VIEW = 'notification_search_and_view',
+    NOTIFICATION_ADD = 'notification_add',
+    NOTIFICATION_UPDATE = 'notification_update',
+    NOTIFICATION_DELETE = 'notification_delete',
+    NOTIFICATION_MANAGE_SETTINGS = 'notification_manage_settings',
+
 }
