@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post } from "@nestjs/common";
-import { Param, UseGuards } from "@nestjs/common/decorators";
+import { Param, Req, UseGuards } from "@nestjs/common/decorators";
 import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
-import { GetAccessDepartment, GetAccessEmp, GetDepartment } from "src/common/decorators/user-guard";
+import { GetAccessDepartment, GetAccount, GetDepartment } from "src/common/decorators/user-guard";
 import { PermissionsEnum } from "src/config/permissions.enum";
 import { UserRole } from "src/config/role.enum";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -17,12 +17,20 @@ import { UpdateDepartmentDto } from "./dto/update-department.dto";
 export class DepartmentController {
     constructor(private readonly departmentService: DepartmentService) { }
 
+
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_ADD)
     @Post("create-department")
-    async createDepartment(@Body() createDepartment: CreateDepartmentDto) {
-        return await this.departmentService.createDept(createDepartment);
+    async createDepartment(
+        @Body() createDepartmentDto: CreateDepartmentDto,
+        @GetAccount() empId: string
+    ) {
+        return await this.departmentService.createDeptWithFiles(
+            createDepartmentDto,
+            empId,
+        );
     }
+
 
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.DEPARTMENT_SEARCH_AND_VIEW)

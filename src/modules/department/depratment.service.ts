@@ -3,17 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { DepartmentDocument } from './schema/department.schema';
 import { GetDepartmentDto } from './dto/get-department.dto';
-import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
-import { TreeDTO } from './dto/tree-dto';
 import { EmpService } from '../emp/emp.service';
+import { ConfigService } from '@nestjs/config';
+import { FileUploadService } from '../upload';
+import { NotificationService } from '../notification/notification.service';
+import { FileVersionService } from '../file-version/file-version.service';
+
 
 @Injectable()
 export class DepartmentService {
+
     constructor(
         @InjectModel("Department") private readonly departmentModel: Model<DepartmentDocument>,
         @Inject(forwardRef(() => EmpService))
-        private readonly empService: EmpService
+        private readonly empService: EmpService,
+        private configService: ConfigService,
+        private readonly notificationService: NotificationService,
+        private readonly fileVersionService: FileVersionService,
     ) { }
 
     async getAllDepts(): Promise<GetDepartmentDto[]> {
@@ -21,20 +28,76 @@ export class DepartmentService {
         return depts.map(dept => new GetDepartmentDto(dept));
     }
 
-    async createDept(deptDto: CreateDepartmentDto): Promise<any> {
+
+    async createDeptWithFiles(deptDto: any, empId: string): Promise<any> {
         try {
-            const { parent_department_id, ...rest } = deptDto;
+            const { parent_department_id, supportingFiles, requiredReports, developmentPrograms, ...rest } = deptDto;
+
             const dept = new this.departmentModel({
                 ...rest,
                 parent_department_id: parent_department_id ? new Types.ObjectId(parent_department_id) : undefined,
             });
+
             await dept.save();
-            return { msg: "Created department successfully", status: true };
+            const departmentId = dept._id.toString();
+
+            if (supportingFiles && supportingFiles.length > 0) {
+                for (const fileUrl of supportingFiles) {
+                    await this.fileVersionService.createDepartmentFileVersion(fileUrl, departmentId, 'supporting');
+                }
+                dept.supportingFiles = supportingFiles;
+            }
+
+            if (requiredReports && requiredReports.length > 0) {
+                const processedReports = await Promise.all(
+                    requiredReports.map(async (report: any) => {
+                        if (report.templateFile) {
+                            await this.fileVersionService.createDepartmentFileVersion(
+                                report.templateFile,
+                                departmentId,
+                                'template'
+                            );
+                        }
+                        return report;
+                    })
+                );
+                dept.requiredReports = processedReports;
+            }
+
+            if (developmentPrograms && developmentPrograms.length > 0) {
+                const processedPrograms = await Promise.all(
+                    developmentPrograms.map(async (program: any) => {
+                        if (program.programFile) {
+                            await this.fileVersionService.createDepartmentFileVersion(
+                                program.programFile,
+                                departmentId,
+                                'program'
+                            );
+                        }
+                        return program;
+                    })
+                );
+                dept.developmentPrograms = processedPrograms;
+            }
+
+            await dept.save();
+
+            const updatedDept = await this.departmentModel.findById(departmentId).exec();
+            await this.notificationService.notifyDepartmentCreated(updatedDept!, empId);
+
+            return {
+                message: "تم إنشاء القسم بنجاح مع الملفات",
+                status: true,
+                department: updatedDept
+            };
         } catch (error) {
-            console.error("Error creating department:", error);
-            return { msg: error.message, status: false };
+            console.error("خطأ في إنشاء القسم مع الملفات:", error);
+            return { message: error.message, status: false };
         }
     }
+
+
+
 
     async findByName(name: string): Promise<GetDepartmentDto | null> {
         const dept = await this.departmentModel.findOne({ name }).exec();
@@ -60,37 +123,90 @@ export class DepartmentService {
 
     async updateDept(id: string, deptDto: UpdateDepartmentDto): Promise<any> {
         try {
-            const { parent_department_id, ...rest } = deptDto;
+            const { parent_department_id, supportingFiles, requiredReports, developmentPrograms, ...rest } = deptDto;
+
+            const existingDept = await this.departmentModel.findById(id).exec();
+            if (!existingDept) {
+                throw new NotFoundException(`لم يتم العثور على قسم بالمعرف ${id}`);
+            }
+
+            if (supportingFiles && supportingFiles.length > 0) {
+                for (const fileUrl of supportingFiles) {
+                    const fileExists = existingDept.supportingFiles.includes(fileUrl);
+                    if (!fileExists) {
+                        await this.fileVersionService.createDepartmentFileVersion(fileUrl, id, 'supporting');
+                    }
+                }
+            }
+
+            if (requiredReports && requiredReports.length > 0) {
+                for (const report of requiredReports) {
+                    if (report.templateFile) {
+                        const existingReport = existingDept.requiredReports.find(r => r.name === report.name);
+
+                        if (!existingReport || existingReport.templateFile !== report.templateFile) {
+                            await this.fileVersionService.createDepartmentFileVersion(report.templateFile, id, 'template');
+                        }
+                    }
+                }
+            }
+
+            if (developmentPrograms && developmentPrograms.length > 0) {
+                for (const program of developmentPrograms) {
+                    if (program.programFile) {
+                        const existingProgram = existingDept.developmentPrograms.find(
+                            p => p.programName === program.programName
+                        );
+
+                        if (!existingProgram || existingProgram.programFile !== program.programFile) {
+                            await this.fileVersionService.createDepartmentFileVersion(program.programFile, id, 'program');
+                        }
+                    }
+                }
+            }
+
             const result = await this.departmentModel.findByIdAndUpdate(
                 id,
                 {
                     ...rest,
                     parent_department_id: parent_department_id ? new Types.ObjectId(parent_department_id) : undefined,
+                    supportingFiles: supportingFiles || existingDept.supportingFiles,
+                    requiredReports: requiredReports || existingDept.requiredReports,
+                    developmentPrograms: developmentPrograms || existingDept.developmentPrograms
                 },
                 {
                     new: true,
                     runValidators: true,
                 }
             ).exec();
+
             if (parent_department_id) {
                 const manager = await this.empService.findManagerByDepartment(parent_department_id.toString());
                 const manager2 = await this.empService.findManagerByDepartment(id);
+
                 if (manager && manager2) {
-                    manager2.parentId! = manager?._id.toString();
+                    manager2.parentId = manager._id.toString();
                     manager2.save();
                 }
             }
+
             if (!result) {
-                throw new NotFoundException(`Department with ID ${id} not found`);
+                throw new NotFoundException(`لم يتم العثور على قسم بالمعرف ${id}`);
             }
+
             return new GetDepartmentDto(result);
         } catch (error) {
             if (error.name === 'CastError' && error.kind === 'ObjectId') {
-                throw new NotFoundException(`Department with ID ${id} not found`);
+                throw new NotFoundException(`لم يتم العثور على قسم بالمعرف ${id}`);
             }
-            throw new InternalServerErrorException('Error updating department');
+            throw new InternalServerErrorException('خطأ في تحديث القسم: ' + error.message);
         }
     }
+
+    async getFileVersions(departmentId: string, fileType: string, fileName: string): Promise<any[]> {
+        return await this.fileVersionService.getDepartmentFileVersions(fileName, departmentId, fileType);
+    }
+
 
     private async getDepartmentWithSubDepartments(id: string): Promise<DepartmentDocument[]> {
         const department = await this.departmentModel.findById(id).populate("parent_department_id").exec();

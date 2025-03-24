@@ -1,7 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { Emp } from 'src/modules/emp/schemas/emp.schema';
-
 export type DepartmentDocument = Department & Document;
 
 @Schema({ timestamps: true })

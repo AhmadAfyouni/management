@@ -13,7 +13,6 @@ import { JobCategoryModule } from "./modules/job-category/job-category.module";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ProjectModule } from "./modules/project/project.module";
 import { SectionModule } from "./modules/section/section.module";
-import { UploadModule } from "./modules/upload/upload.module";
 import { SeedModule } from "./modules/seed/seed.module";
 import { TemplateModule } from "./modules/template/template.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
@@ -42,7 +41,6 @@ import { NotificationModule } from "./modules/notification/notification.module";
       AuthModule,
       DatabaseModule,
       DepartmentModule,
-      UploadModule,
       TemplateModule,
       TransactionModule,
       NotificationModule

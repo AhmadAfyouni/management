@@ -5,6 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Type } from 'class-transformer';
 import { Model, Types } from 'mongoose';
 import { EmpService } from '../emp/emp.service';
+import { NotificationService } from '../notification/notification.service';
 import { ProjectService } from '../project/project.service';
 import { SectionService } from '../section/section.service';
 import { CreateTaskDto } from './dtos/create-task.dto';
@@ -22,6 +23,7 @@ export class TasksService {
         private readonly sectionService: SectionService,
         @Inject(forwardRef(() => ProjectService))
         private readonly projectService: ProjectService,
+        private readonly notificationService: NotificationService,
     ) { }
     private async paginate(query: any, page: number, limit: number) {
         const skip = (page - 1) * limit;
@@ -55,7 +57,15 @@ export class TasksService {
         };
 
         const task = new this.taskModel(taskData);
-        return await task.save();
+        const savedTask = await task.save();
+
+        await this.notificationService.notifyTaskCreated(
+            savedTask,
+            manager!._id.toString(),
+            savedTask.assignee?.toString()
+        );
+
+        return savedTask;
     }
 
     async createTaskForProject(createTaskDto: CreateTaskDto) {
@@ -226,6 +236,7 @@ export class TasksService {
         empId: string
     ): Promise<{ status: boolean; message: string }> {
         try {
+            
             const task = await this.taskModel.findById(new Types.ObjectId(id));
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
@@ -233,6 +244,7 @@ export class TasksService {
             if (task.status === TASK_STATUS.DONE) {
                 throw new ForbiddenException('You are not authorized to update this task cause its done');
             }
+            const oldStatus = task.status;
             if (updateTaskDto.status === TASK_STATUS.DONE || updateTaskDto.priority) {
                 if (task.assignee?.toString() !== empId) {
                     if (updateTaskDto.priority) {
@@ -282,6 +294,10 @@ export class TasksService {
 
             if (!updatedTask) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
+            }
+
+            if (updateTaskDto.status && oldStatus !== updateTaskDto.status) {
+                await this.notificationService.notifyTaskStatusChanged(updatedTask, empId);
             }
 
             return { status: true, message: 'Task updated successfully' };
@@ -534,6 +550,7 @@ export class TasksService {
         }
 
         await task.save();
+        await this.notificationService.notifyTaskStatusChanged(task, userId);
 
         let message = `Task status updated to ${newStatus}`;
 

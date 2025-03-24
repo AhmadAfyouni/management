@@ -12,6 +12,7 @@ import { UserRole } from 'src/config/role.enum';
 import { ConflictException } from '@nestjs/common/exceptions';
 import { parseObject } from 'src/helper/parse-object';
 import { DepartmentService } from '../department/depratment.service';
+import { FileVersionService } from '../file-version/file-version.service';
 
 @Injectable()
 export class EmpService {
@@ -20,7 +21,8 @@ export class EmpService {
         @Inject(forwardRef(() => JobTitlesService))
         private readonly jobTitleService: JobTitlesService,
         @Inject(forwardRef(() => DepartmentService))
-        private readonly departmentService: DepartmentService
+        private readonly departmentService: DepartmentService,
+        private readonly fileVersionService: FileVersionService
     ) { }
 
     async getAllEmp(): Promise<GetEmpDto[]> {
@@ -53,7 +55,7 @@ export class EmpService {
     async findManagerByDepartment(departmentId: string): Promise<EmpDocument | null> {
         let manager;
         const jobTitleDoc = await this.jobTitleService.findByDepartmentId(departmentId);
-        
+
         if (jobTitleDoc) {
             manager = await this.empModel.findOne({ job_id: jobTitleDoc._id.toString() }).exec();
         }
@@ -98,59 +100,8 @@ export class EmpService {
         }
     }
 
-
-
-    // async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
-    //     try {
-    //         const existingEmp = await this.empModel.findOne({
-    //             $or: [{ email: employee.email }, { phone: employee.phone }]
-    //         });
-    //         if (existingEmp) {
-    //             throw new ConflictException('Employee with this email or phone already exists.');
-    //         }
-
-    //         const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
-    //         let role: UserRole = UserRole.SECONDARY_USER;
-    //         if (jobTitle?.is_manager) {
-    //             const emp = await this.empModel.findOne({ job_id: employee.job_id.toString() });
-    //             if (emp) {
-    //                 throw new ConflictException('Cannot create two primary user for that job title.');
-    //             }
-    //             role = UserRole.PRIMARY_USER;
-    //         }
-
-    //         const hashedNewPassword = await bcrypt.hash(employee.password, 10);
-    //         employee.password = hashedNewPassword;
-
-    //         let manager = await this.findManagerByDepartment(employee.department_id.toString());
-    //         let parentId:any = null;
-
-    //         if (manager) {
-    //             parentId = manager._id.toString();
-    //         } else {
-    //             const managerParent = await this.departmentService.findById(employee.department_id.toString());
-    //             if (managerParent?.parent_department) {
-    //                 manager = await this.findManagerByDepartment(managerParent.parent_department._id.toString());
-    //                 parentId = manager?._id.toString();
-    //             }
-    //         }
-
-    //         const emp = new this.empModel({
-    //             ...employee,
-    //             role,
-    //             parentId
-    //         });
-    //         return await emp.save();
-    //     } catch (error) {
-    //         throw new InternalServerErrorException('Failed to create employee', error.message);
-    //     }
-    // }
-
-
-
-  async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
+    async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
-
             const existingEmp = await this.empModel.findOne({
                 $or: [{ email: employee.email }, { phone: employee.phone }],
             });
@@ -160,7 +111,7 @@ export class EmpService {
                 );
             }
 
-            // 2. Determine the role (PRIMARY_USER or SECONDARY_USER).
+            // تحديد الدور (PRIMARY_USER أو SECONDARY_USER)
             const jobTitle = await this.jobTitleService.findOne(employee.job_id.toString());
             let role: UserRole = UserRole.SECONDARY_USER;
 
@@ -186,14 +137,46 @@ export class EmpService {
             if (!manager) {
                 const managerParent = await this.departmentService.findById(employee.department_id.toString());
                 manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
-                // employee.department_id = managerParent?.parent_department!._id!.toString() as any;
             }
+
+
             const emp = new this.empModel({
                 ...employee,
                 role,
-                parentId: manager._id.toString()
+                parentId: manager ? manager._id.toString() : null
             });
-            return await emp.save();
+
+            const savedEmp = await emp.save();
+
+            if (employee.certifications && employee.certifications.length > 0) {
+                for (const certification of employee.certifications) {
+                    if (certification.file) {
+                        await this.fileVersionService.createEmployeeFileVersion(
+                            certification.file,
+                            savedEmp._id.toString(),
+                            'certification',
+                            'certification',
+                            certification.certificate_name
+                        );
+                    }
+                }
+            }
+
+            if (employee.legal_documents && employee.legal_documents.length > 0) {
+                for (const document of employee.legal_documents) {
+                    if (document.file) {
+                        await this.fileVersionService.createEmployeeFileVersion(
+                            document.file,
+                            savedEmp._id.toString(),
+                            'legal_document',
+                            'legal_document',
+                            document.name
+                        );
+                    }
+                }
+            }
+
+            return savedEmp;
         } catch (error) {
             console.error('Error creating employee:', error);
             throw new InternalServerErrorException(
@@ -202,9 +185,6 @@ export class EmpService {
             );
         }
     }
-
-
-
 
     async updateEmp(id: string, updateEmpDto: UpdateEmpDto) {
         try {
@@ -218,16 +198,82 @@ export class EmpService {
                 updateEmpDto.password = hashedNewPassword;
             }
 
-            // if (updateEmpDto.department_id) {
-            //     let manager;
-            //     manager = await this.findManagerByDepartment(updateEmpDto.department_id.toString());
-            //     if (!manager) {
-            //         const managerParent = await this.departmentService.findById(updateEmpDto.department_id.toString());
-            //         manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
-            //     }
-            // }
+            // معالجة تحديث الشهادات والوثائق القانونية إذا وجدت
+            if (updateEmpDto.certifications && updateEmpDto.certifications.length > 0) {
+                const existingCertifications = empExist.certifications || [];
 
+                for (let i = 0; i < updateEmpDto.certifications.length; i++) {
+                    const newCert = updateEmpDto.certifications[i];
 
+                    // البحث عن الشهادة الموجودة بنفس الاسم
+                    const existingCertIndex = existingCertifications.findIndex(
+                        cert => cert.certificate_name === newCert.certificate_name
+                    );
+
+                    if (existingCertIndex === -1) {
+                        // شهادة جديدة
+                        if (newCert.file) {
+                            await this.fileVersionService.createEmployeeFileVersion(
+                                newCert.file,
+                                id,
+                                'certification',
+                                'certification',
+                                newCert.certificate_name
+                            );
+                        }
+                    } else {
+                        // تحديث شهادة موجودة
+                        const existingCert = existingCertifications[existingCertIndex];
+                        if (newCert.file && newCert.file !== existingCert.file) {
+                            await this.fileVersionService.createEmployeeFileVersion(
+                                newCert.file,
+                                id,
+                                'certification',
+                                'certification',
+                                newCert.certificate_name
+                            );
+                        }
+                    }
+                }
+            }
+
+            if (updateEmpDto.legal_documents && updateEmpDto.legal_documents.length > 0) {
+                const existingDocs = empExist.legal_documents || [];
+
+                for (let i = 0; i < updateEmpDto.legal_documents.length; i++) {
+                    const newDoc = updateEmpDto.legal_documents[i];
+
+                    // البحث عن الوثيقة الموجودة بنفس الاسم
+                    const existingDocIndex = existingDocs.findIndex(
+                        doc => doc.name === newDoc.name
+                    );
+
+                    if (existingDocIndex === -1) {
+                        // وثيقة جديدة
+                        if (newDoc.file) {
+                            await this.fileVersionService.createEmployeeFileVersion(
+                                newDoc.file,
+                                id,
+                                'legal_document',
+                                'legal_document',
+                                newDoc.name
+                            );
+                        }
+                    } else {
+                        // تحديث وثيقة موجودة
+                        const existingDoc = existingDocs[existingDocIndex];
+                        if (newDoc.file && newDoc.file !== existingDoc.file) {
+                            await this.fileVersionService.createEmployeeFileVersion(
+                                newDoc.file,
+                                id,
+                                'legal_document',
+                                'legal_document',
+                                newDoc.name
+                            );
+                        }
+                    }
+                }
+            }
 
             return await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true, new: true }).exec();
         } catch (error) {
@@ -235,7 +281,195 @@ export class EmpService {
         }
     }
 
+    /**
+     * إضافة شهادة جديدة للموظف
+     */
+    async addCertification(empId: string, certificationData: any): Promise<any> {
+        try {
+            const emp = await this.empModel.findById(empId).exec();
+            if (!emp) {
+                throw new NotFoundException('Employee not found');
+            }
 
+            // إذا كان هناك ملف، قم بإنشاء نسخة له
+            if (certificationData.file) {
+                await this.fileVersionService.createEmployeeFileVersion(
+                    certificationData.file,
+                    empId,
+                    'certification',
+                    'certification',
+                    certificationData.certificate_name
+                );
+            }
+
+            // إضافة الشهادة للموظف
+            emp.certifications.push(certificationData);
+            await emp.save();
+
+            return {
+                success: true,
+                message: 'تمت إضافة الشهادة بنجاح',
+                data: emp.certifications[emp.certifications.length - 1]
+            };
+        } catch (error) {
+            console.error('خطأ في إضافة الشهادة:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * تحديث شهادة للموظف
+     */
+    async updateCertification(empId: string, certIndex: number, certificationData: any): Promise<any> {
+        try {
+            const emp = await this.empModel.findById(empId).exec();
+            if (!emp) {
+                throw new NotFoundException('Employee not found');
+            }
+
+            if (certIndex < 0 || certIndex >= emp.certifications.length) {
+                throw new Error('رقم الشهادة غير صحيح');
+            }
+
+            const oldCertification = emp.certifications[certIndex];
+
+            // إذا كان ملف الشهادة قد تغير، قم بإنشاء نسخة جديدة
+            if (certificationData.file && certificationData.file !== oldCertification.file) {
+                await this.fileVersionService.createEmployeeFileVersion(
+                    certificationData.file,
+                    empId,
+                    'certification',
+                    'certification',
+                    certificationData.certificate_name || oldCertification.certificate_name
+                );
+            }
+
+            // تحديث الشهادة
+            emp.certifications[certIndex] = {
+                ...oldCertification,
+                ...certificationData
+            };
+
+            await emp.save();
+
+            return {
+                success: true,
+                message: 'تم تحديث الشهادة بنجاح',
+                data: emp.certifications[certIndex]
+            };
+        } catch (error) {
+            console.error('خطأ في تحديث الشهادة:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * إضافة وثيقة قانونية جديدة للموظف
+     */
+    async addLegalDocument(empId: string, documentData: any): Promise<any> {
+        try {
+            const emp = await this.empModel.findById(empId).exec();
+            if (!emp) {
+                throw new NotFoundException('Employee not found');
+            }
+
+            // إذا كان هناك ملف، قم بإنشاء نسخة له
+            if (documentData.file) {
+                await this.fileVersionService.createEmployeeFileVersion(
+                    documentData.file,
+                    empId,
+                    'legal_document',
+                    'legal_document',
+                    documentData.name
+                );
+            }
+
+            // إضافة الوثيقة للموظف
+            emp.legal_documents.push(documentData);
+            await emp.save();
+
+            return {
+                success: true,
+                message: 'تمت إضافة الوثيقة القانونية بنجاح',
+                data: emp.legal_documents[emp.legal_documents.length - 1]
+            };
+        } catch (error) {
+            console.error('خطأ في إضافة الوثيقة القانونية:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * تحديث وثيقة قانونية للموظف
+     */
+    async updateLegalDocument(empId: string, docIndex: number, documentData: any): Promise<any> {
+        try {
+            const emp = await this.empModel.findById(empId).exec();
+            if (!emp) {
+                throw new NotFoundException('Employee not found');
+            }
+
+            if (docIndex < 0 || docIndex >= emp.legal_documents.length) {
+                throw new Error('رقم الوثيقة غير صحيح');
+            }
+
+            const oldDocument = emp.legal_documents[docIndex];
+
+            // إذا كان ملف الوثيقة قد تغير، قم بإنشاء نسخة جديدة
+            if (documentData.file && documentData.file !== oldDocument.file) {
+                await this.fileVersionService.createEmployeeFileVersion(
+                    documentData.file,
+                    empId,
+                    'legal_document',
+                    'legal_document',
+                    documentData.name || oldDocument.name
+                );
+            }
+
+            // تحديث الوثيقة
+            emp.legal_documents[docIndex] = {
+                ...oldDocument,
+                ...documentData
+            };
+
+            await emp.save();
+
+            return {
+                success: true,
+                message: 'تم تحديث الوثيقة القانونية بنجاح',
+                data: emp.legal_documents[docIndex]
+            };
+        } catch (error) {
+            console.error('خطأ في تحديث الوثيقة القانونية:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * الحصول على جميع نسخ ملف شهادة
+     */
+    async getCertificationFileVersions(empId: string, certificationName: string, fileName: string): Promise<any[]> {
+        return this.fileVersionService.getEmployeeFileVersions(
+            fileName,
+            empId,
+            'certification',
+            'certification',
+            certificationName
+        );
+    }
+
+    /**
+     * الحصول على جميع نسخ ملف وثيقة قانونية
+     */
+    async getLegalDocumentFileVersions(empId: string, documentName: string, fileName: string): Promise<any[]> {
+        return this.fileVersionService.getEmployeeFileVersions(
+            fileName,
+            empId,
+            'legal_document',
+            'legal_document',
+            documentName
+        );
+    }
 
     async findByEmail(email: string): Promise<EmpDocument | null> {
         try {
@@ -276,10 +510,10 @@ export class EmpService {
                     model: "Department"
                 }
             }).populate({
-                path: 'roles', // Assuming the employee schema has a 'roles' field
+                path: 'roles',
                 populate: {
                     path: 'permissions',
-                    model: 'Permission' // Ensure you have a Permission model populated here
+                    model: 'Permission'
                 }
             }).populate({
                 path: "supervisor_id",
@@ -290,7 +524,7 @@ export class EmpService {
                 throw new NotFoundException('Employee not found');
             }
 
-            return emp; // Returning the entire emp object with roles and permissions
+            return emp;
         } catch (error) {
             throw new InternalServerErrorException('Failed to find employee by ID with roles and permissions', error.message);
         }
@@ -379,13 +613,10 @@ export class EmpService {
         }
     }
 
-
-
-
-
     async getMyEmp(deptId: string) {
         return await this.empModel.find({ department_id: deptId }).exec();
     }
+
     async buildEmployeeTree(id: string, start: boolean = true): Promise<{ tree: any[], info: any[] }> {
         let allEmployees: any[] = [];
         let info: any[] = [];
@@ -467,9 +698,6 @@ export class EmpService {
             return { tree: [], info: [] };
         }
 
-
-
-
         const directReports = await this.empModel
             .find({ parentId: employee._id.toString() })
             .populate([
@@ -511,9 +739,4 @@ export class EmpService {
         }
         return { tree: allEmployees, info: info };
     }
-
-
-
-
-
 }

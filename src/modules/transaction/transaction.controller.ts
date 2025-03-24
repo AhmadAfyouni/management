@@ -38,8 +38,10 @@ export class TransactionController {
     }
 
     @Post("restart/:id")
-    async restartTransaction(@Body() updateTransactionDto: UpdateTransactionDto, @Param("id") transaction_id: string) {
-        return await this.transactionService.restart(transaction_id, updateTransactionDto);
+    async restartTransaction(@Body() updateTransactionDto: UpdateTransactionDto, @Param("id") transaction_id: string,
+        @GetAccount() empId: string
+    ) {
+        return await this.transactionService.restart(transaction_id, updateTransactionDto, empId);
     }
     @Get("finish/:id")
     async finishTransaction(@Param("id") transaction_id: string) {
@@ -95,7 +97,7 @@ export class TransactionController {
     updateExecutionStatus(
         @Param('transactionId') transactionId: string,
         @GetDepartment() departmentId: string,
-        @GetAccount() empId:string,
+        @GetAccount() empId: string,
         @Body() updateExecutionDto: UpdateDepartmentExecutionStatusDto,
     ) {
         return this.transactionService.updateDepartmentExecutionStatus(
@@ -132,8 +134,9 @@ export class TransactionController {
     updateStatus(
         @Param('id') id: string,
         @Body('status') status: TransactionStatus,
+        @GetAccount() empId: string,
     ) {
-        return this.transactionService.updateStatus(id, status);
+        return this.transactionService.updateStatus(id, status, empId);
     }
 
     @Delete(':id')
@@ -146,8 +149,9 @@ export class TransactionController {
     async approveDepartment(
         @Body() approveDto: ApproveDepartmentDto,
         @GetDepartment() departmentId: string,
+        @GetAccount() empId: string,
     ) {
-        return this.transactionService.trackDepartment(approveDto.transaction_id, approveDto, departmentId);
+        return this.transactionService.trackDepartment(approveDto.transaction_id, approveDto, departmentId, empId);
     }
 
     @Patch('admin-approve')

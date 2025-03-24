@@ -5,6 +5,7 @@ import { DepartmentModule } from "../department/depratment.module";
 import { EmpModule } from "../emp/emp.module";
 import { JobTitlesModule } from "../job-titles/job-titles.module";
 import { JobTitles, JobTitlesSchema } from "../job-titles/schema/job-ttiles.schema";
+import { NotificationModule } from "../notification/notification.module";
 import { ProjectModule } from "../project/project.module";
 import { SectionModule } from "../section/section.module";
 import { Task, TaskSchema } from "./schema/task.schema";
@@ -18,8 +19,9 @@ import { TasksService } from "./task.service";
         JobTitlesModule,
         SectionModule,
         DepartmentModule,
-        forwardRef(()=> ProjectModule),
-        MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema },{ name: JobTitles.name, schema: JobTitlesSchema }])
+        NotificationModule,
+        forwardRef(() => ProjectModule),
+        MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }, { name: JobTitles.name, schema: JobTitlesSchema }])
     ],
     providers: [TasksService, TaskSchedulerService],
     controllers: [TasksController],

@@ -10,6 +10,7 @@ import { parseObject } from 'src/helper/parse-object';
 import { Department } from '../department/schema/department.schema';
 import { Emp } from '../emp/schemas/emp.schema';
 import { JobTitles } from '../job-titles/schema/job-ttiles.schema';
+import { NotificationService } from '../notification/notification.service';
 import { Template } from '../template/schema/tamplate.schema';
 import { ApproveDepartmentDto } from './dtos/approve-department.dto';
 import { CreateTransactionDto } from './dtos/create-transaction.dto';
@@ -31,6 +32,7 @@ export class TransactionService {
         private readonly transactionModel: Model<Transaction>,
         @InjectModel(Template.name)
         private readonly templateModel: Model<Template>,
+        private readonly notificationService: NotificationService,
     ) { }
 
 
@@ -205,7 +207,9 @@ export class TransactionService {
 
         try {
             const createdTransaction = new this.transactionModel(transactionData);
-            return await createdTransaction.save();
+            const savedTransaction = await createdTransaction.save();
+            await this.notificationService.notifyTransactionCreated(savedTransaction, empId);
+            return savedTransaction;
         } catch (error: any) {
             if (error.code === 11000) {
                 throw new ConflictException('Transaction name must be unique');
@@ -217,6 +221,7 @@ export class TransactionService {
     async restart(
         transaction_id: string,
         updateTransactionDto: UpdateTransactionDto,
+        empId: string
     ): Promise<Transaction> {
         const oldTransaction = await this.transactionModel.findById(transaction_id).withArchived().exec();
         if (!oldTransaction) {
@@ -270,7 +275,10 @@ export class TransactionService {
 
         try {
             const newTransaction = new this.transactionModel(newTransactionData);
-            return await newTransaction.save();
+            const savedTransaction = await newTransaction.save();
+            await this.notificationService.notifyTransactionCreated(savedTransaction, empId);
+
+            return savedTransaction;
         } catch (error: any) {
             if (error.code === 11000) {
                 throw new ConflictException('Transaction name must be unique');
@@ -345,6 +353,11 @@ export class TransactionService {
         const isArchived = transaction.departments_execution.some((a) => a.status === DepartmentExecutionStatus.NOT_DONE)
         transaction.isArchive = !isArchived;
         await transaction.save();
+        await this.notificationService.notifyTransactionUpdated(
+            transaction,
+            empId
+        );
+
         return this.findOne(transactionId);
     }
 
@@ -387,13 +400,21 @@ export class TransactionService {
         return transaction.save();
     }
 
-    async updateStatus(id: string, status: TransactionStatus): Promise<Transaction> {
+    async updateStatus(id: string, status: TransactionStatus, updaterId: string): Promise<Transaction> {
         const transaction = await this.transactionModel
             .findByIdAndUpdate(id, { status }, { new: true })
             .exec();
         if (!transaction) {
             throw new NotFoundException(`Transaction with ID ${id} not found`);
         }
+        const oldStatus = transaction.status;
+
+        await this.notificationService.notifyTransactionStatusChanged(
+            transaction,
+            updaterId,
+            oldStatus
+        );
+
         return transaction;
     }
 
@@ -448,6 +469,7 @@ export class TransactionService {
         id: string,
         approveDto: ApproveDepartmentDto,
         departmentId: string,
+        empId: string
     ): Promise<Transaction> {
         const transaction = await this.transactionModel.findById(id).exec();
         if (!transaction) {
@@ -457,6 +479,8 @@ export class TransactionService {
         if (!template) {
             throw new NotFoundException(`Template with ID ${transaction.template_id} not found`);
         }
+        const oldStatus = transaction.status;
+
         const currentIndex = transaction.departments_approval_track.findIndex(
             (dep) =>
                 dep.department_id.toString() === departmentId &&
@@ -513,7 +537,16 @@ export class TransactionService {
             action: approveDto.action,
         });
         await this.updateTransactionStatus(transaction);
-        return transaction.save();
+        const savedTransaction = await transaction.save();
+        if (oldStatus !== savedTransaction.status) {
+            await this.notificationService.notifyTransactionStatusChanged(
+                savedTransaction,
+                empId,
+                oldStatus
+            );
+        }
+
+        return savedTransaction;
     }
 
     private async updateTransactionStatus(transaction: Transaction): Promise<void> {

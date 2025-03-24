@@ -1,19 +1,19 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
-import { UploadService } from './upload.service';
+// import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+// import { UploadService } from './upload.service';
 
-import { UploadFileDto } from './dto/upload-file.dto';
+// import { UploadFileDto } from './dto/upload-file.dto';
 
-@Controller('upload')
-export class UploadController {
-  constructor(private readonly uploadService: UploadService) {}
+// @Controller('upload')
+// export class UploadController {
+//   constructor(private readonly uploadService: UploadService) {}
 
   
-  @Post()
-  async create(
-    @Body() createUpload: UploadFileDto,
-  ) {
-    return await this.uploadService.generateUploadAndDownloadURL(
-      createUpload,
-    );
-  }
-}
+//   @Post()
+//   async create(
+//     @Body() createUpload: UploadFileDto,
+//   ) {
+//     return await this.uploadService.generateUploadAndDownloadURL(
+//       createUpload,
+//     );
+//   }
+// }
