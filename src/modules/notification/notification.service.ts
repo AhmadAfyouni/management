@@ -36,6 +36,7 @@ export class NotificationService {
         //     this.schedulerRegistry.addCronJob(`notification_${savedNotification.id}`, job);
         //     job.start();
         // }
+        console.log(`Pushing notification: ${savedNotification.title}`);
 
         return savedNotification;
     }
@@ -85,7 +86,7 @@ export class NotificationService {
         await this.notificationModel.findByIdAndDelete(id).exec();
 
         try {
-            this.schedulerRegistry.deleteCronJob(`notification_${id}`);
+            this.schedulerRegistry.deleteCronJob(`notification_${id} `);
         } catch (e) {
             // Job might have already executed or been deleted
         }
@@ -115,7 +116,7 @@ export class NotificationService {
         await this.create(notification);
     }
 
-  
+
     async notifyTaskCreated(task: Task, creatorId: string, assigneeId?: string): Promise<void> {
         const creatorNotification: CreateNotificationDto = {
             title: 'Task Created',
@@ -131,7 +132,6 @@ export class NotificationService {
                 message: `You have been assigned a new task: "${task.name}".`,
                 empId: assigneeId,
             };
-
             await this.create(assigneeNotification);
         }
     }
@@ -195,7 +195,7 @@ export class NotificationService {
         }
     }
 
-  
+
     async notifyTransactionCreated(transaction: Transaction, creatorId: string): Promise<void> {
         const notification: CreateNotificationDto = {
             title: 'New Transaction Created',

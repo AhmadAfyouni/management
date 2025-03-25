@@ -81,11 +81,18 @@ export class TasksService {
         const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.department_id);
         createTaskDto.section_id = section_id;
         createTaskDto.emp = manager._id.toString();
+
         if (!project) {
             throw new NotFoundException('Project not found');
         }
         const task = new this.taskModel(createTaskDto);
-        return await task.save();
+        const savedTask = await task.save();
+        await this.notificationService.notifyTaskCreated(
+            savedTask,
+            createTaskDto.emp!,
+            savedTask.assignee?.toString()
+        );
+        return;
     }
 
     async getRecurringTasks(): Promise<TaskDocument[]> {
@@ -112,8 +119,13 @@ export class TasksService {
                 ...createTaskDto,
                 department_id: departmentId,
             });
-            await task.save();
-            return { status: true, message: 'Task created successfully', data: task };
+            const savedTask = await task.save();
+            await this.notificationService.notifyTaskCreated(
+                savedTask,
+                createTaskDto.emp!,
+                savedTask.assignee?.toString()
+            );
+            return { status: true, message: 'Task created successfully', data: savedTask };
         } catch (error) {
             throw new InternalServerErrorException('Failed to create Task', error.message);
         }
@@ -236,7 +248,7 @@ export class TasksService {
         empId: string
     ): Promise<{ status: boolean; message: string }> {
         try {
-            
+
             const task = await this.taskModel.findById(new Types.ObjectId(id));
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
