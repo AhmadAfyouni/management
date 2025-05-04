@@ -18,4 +18,9 @@ export class DashboardParamsDto {
     @IsOptional()
     @IsString()
     departmentId?: string;
+
+
+    @IsOptional()
+    @IsString()
+    date?: string;
 }

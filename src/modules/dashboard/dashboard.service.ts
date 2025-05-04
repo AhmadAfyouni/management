@@ -17,7 +17,9 @@ import {
     MyTask,
     TimeTracking,
     RecentActivity,
-    MessagePreview
+    MessagePreview,
+    DailyTimelineResponse,
+    TimelineEntry
 } from './interfaces/dashboard.interface';
 
 @Injectable()
@@ -31,8 +33,10 @@ export class DashboardService {
     ) { }
 
     async getDashboardData(userId: string, departmentId: string, params: DashboardParamsDto): Promise<DashboardData> {
+        const targetDate = params.date ? new Date(params.date) : undefined;
         const [
             taskSummary,
+            dailyTimeline,
             timeTracking,
             dailyTasks,
             projectStats,
@@ -41,6 +45,7 @@ export class DashboardService {
             messages
         ] = await Promise.all([
             this.getTaskSummary(userId, params),
+            this.getDailyTimeline(userId, targetDate),
             this.getTimeTracking(userId, params),
             this.getDailyTasks(userId),
             this.getProjectStats(userId, departmentId, params),
@@ -51,6 +56,7 @@ export class DashboardService {
 
         return {
             taskSummary,
+            dailyTimeline,
             timeTracking,
             dailyTasks,
             projectStats,
@@ -59,6 +65,151 @@ export class DashboardService {
             messages
         };
     }
+
+
+    async getDailyTimeline(userId: string, date?: Date): Promise<DailyTimelineResponse> {
+        // Use today if no date specified
+        const targetDate = date || new Date();
+        targetDate.setHours(0, 0, 0, 0);
+
+        const nextDay = new Date(targetDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+
+        // Get user settings for shift times
+        const userSettings = await this.getUserSettings(userId);
+        const { shiftStart, shiftEnd } = userSettings;
+
+        // Get all tasks with time logs for the specified date
+        const tasksWithTimeLogs = await this.taskModel.find({
+            assignee: new Types.ObjectId(userId),
+            "timeLogs.start": {
+                $gte: targetDate,
+                $lt: nextDay
+            }
+        })
+            .populate('project_id', 'name')
+            .exec();
+
+        // Process time logs into timeline entries
+        const timelineEntries: TimelineEntry[] = [];
+        let totalWorkingTime = 0;
+
+        tasksWithTimeLogs.forEach(task => {
+            if (task.timeLogs && task.timeLogs.length > 0) {
+                task.timeLogs.forEach(log => {
+                    if (log.start && log.end) {
+                        const startDate = new Date(log.start);
+                        const endDate = new Date(log.end);
+
+                        // Check if the time log is within the target date and shift
+                        if (startDate >= targetDate && startDate < nextDay && log.end) {
+                            const project = task.project_id as any;
+                            const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+
+                            // Calculate position and width for timeline display
+                            const { position, width } = this.calculateTimelinePosition(
+                                startDate,
+                                endDate,
+                                shiftStart,
+                                shiftEnd
+                            );
+
+                            timelineEntries.push({
+                                taskId: task._id.toString(),
+                                taskName: task.name,
+                                projectId: project?._id.toString() || '',
+                                projectName: project?.name || 'No Project',
+                                startTime: startDate.toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false
+                                }),
+                                endTime: endDate.toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false
+                                }),
+                                duration: Math.round(duration * 10) / 10,
+                                position,
+                                width
+                            });
+
+                            totalWorkingTime += duration;
+                        }
+                    }
+                });
+            }
+        });
+
+        // Sort entries by start time
+        timelineEntries.sort((a, b) => {
+            const timeA = new Date(`1970-01-01T${a.startTime}`).getTime();
+            const timeB = new Date(`1970-01-01T${b.startTime}`).getTime();
+            return timeA - timeB;
+        });
+
+        // Calculate total break time
+        const totalBreakTime = this.calculateBreakTimeFromEntries(timelineEntries);
+
+        return {
+            entries: timelineEntries,
+            totalWorkingTime: Math.round(totalWorkingTime * 10) / 10,
+            totalBreakTime: Math.round(totalBreakTime * 10) / 10,
+            shiftStart,
+            shiftEnd
+        };
+    }
+
+    private calculateTimelinePosition(
+        startTime: Date,
+        endTime: Date,
+        shiftStart: string,
+        shiftEnd: string
+    ): { position: number; width: number } {
+        // Parse shift times
+        const [startHour, startMinute] = shiftStart.split(':').map(Number);
+        const [endHour, endMinute] = shiftEnd.split(':').map(Number);
+
+        // Calculate shift duration in minutes
+        const shiftStartMinutes = startHour * 60 + startMinute;
+        const shiftEndMinutes = endHour * 60 + endMinute;
+        const shiftDurationMinutes = shiftEndMinutes - shiftStartMinutes;
+
+        // Calculate task start and end in minutes from shift start
+        const taskStartMinutes = startTime.getHours() * 60 + startTime.getMinutes();
+        const taskEndMinutes = endTime.getHours() * 60 + endTime.getMinutes();
+
+        // Calculate position and width as percentages
+        const position = ((taskStartMinutes - shiftStartMinutes) / shiftDurationMinutes) * 100;
+        const width = ((taskEndMinutes - taskStartMinutes) / shiftDurationMinutes) * 100;
+
+        return {
+            position: Math.max(0, Math.min(100, position)),
+            width: Math.max(0, Math.min(100, width))
+        };
+    }
+    private calculateBreakTimeFromEntries(entries: TimelineEntry[]): number {
+        if (entries.length <= 1) return 0;
+
+        let totalBreakTime = 0;
+
+        for (let i = 0; i < entries.length - 1; i++) {
+            const currentEndTime = entries[i].endTime;
+            const nextStartTime = entries[i + 1].startTime;
+
+            const currentEnd = new Date(`1970-01-01T${currentEndTime}`);
+            const nextStart = new Date(`1970-01-01T${nextStartTime}`);
+
+            const breakDuration = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60 * 60);
+
+            if (breakDuration > 0) {
+                totalBreakTime += breakDuration;
+            }
+        }
+
+        return totalBreakTime;
+    }
+
 
     private async getTaskSummary(userId: string, params: DashboardParamsDto): Promise<TaskSummary> {
         const matchQuery: Record<string, any> = {
@@ -74,7 +225,7 @@ export class DashboardService {
         }
 
         // Handle undefined timeRange by using a default
-        const timeRange = params.timeRange || TimeRange.WEEKLY;
+        const timeRange = params.timeRange || TimeRange.MONTHLY;
         const dateRange = this.getDateRangeFilter(timeRange);
         if (dateRange) {
             matchQuery.createdAt = dateRange;

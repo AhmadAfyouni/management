@@ -5,6 +5,26 @@ export interface TaskSummary {
     pending: number;
 }
 
+export interface TimelineEntry {
+    taskId: string;
+    taskName: string;
+    projectId: string;
+    projectName: string;
+    startTime: string;
+    endTime: string;
+    duration: number;  // in hours
+    position: number;  // percentage position for display
+    width: number;     // percentage width for display
+}
+
+export interface DailyTimelineResponse {
+    entries: TimelineEntry[];
+    totalWorkingTime: number;
+    totalBreakTime: number;
+    shiftStart: string;
+    shiftEnd: string;
+}
+
 export interface TimeTracking {
     totalHoursToday: number;
     hoursByDay: {
@@ -74,6 +94,7 @@ export interface MessagePreview {
 
 export interface DashboardData {
     taskSummary: TaskSummary;
+    dailyTimeline: DailyTimelineResponse;
     timeTracking: TimeTracking;
     dailyTasks: DailyTask[];
     projectStats: ProjectStats[];
