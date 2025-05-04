@@ -9,6 +9,8 @@ import { ConfigService } from '@nestjs/config';
 import { FileUploadService } from '../upload';
 import { NotificationService } from '../notification/notification.service';
 import { FileVersionService } from '../file-version/file-version.service';
+import { PaginationService } from 'src/common/services/pagination.service';
+import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
 
 
 @Injectable()
@@ -21,11 +23,21 @@ export class DepartmentService {
         private configService: ConfigService,
         private readonly notificationService: NotificationService,
         private readonly fileVersionService: FileVersionService,
+        private readonly paginationService: PaginationService,
     ) { }
 
-    async getAllDepts(): Promise<GetDepartmentDto[]> {
-        const depts = await this.departmentModel.find({}).populate("parent_department_id").exec();
-        return depts.map(dept => new GetDepartmentDto(dept));
+    async getAllDepts(options: PaginationOptions = {}): Promise<PaginatedResult<GetDepartmentDto>> {
+        const paginatedResult = await this.paginationService.paginate(
+            this.departmentModel,
+            options,
+            {},
+            'parent_department_id'
+        );
+
+        return {
+            data: paginatedResult.data.map(dept => new GetDepartmentDto(dept)),
+            meta: paginatedResult.meta
+        };
     }
 
 

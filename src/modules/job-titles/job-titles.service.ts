@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
+import { PaginationService } from 'src/common/services/pagination.service';
 import { DefaultPermissions } from 'src/config/default-permissions';
 import { UserRole } from 'src/config/role.enum';
 import { EmpService } from '../emp/emp.service';
@@ -14,6 +16,7 @@ export class JobTitlesService {
   constructor(
     @InjectModel(JobTitles.name) private readonly jobTitlesModel: Model<JobTitlesDocument>,
     @Inject(forwardRef(() => EmpService)) private readonly empService: EmpService,
+    private readonly paginationService: PaginationService,
   ) { }
 
   async create(createJobTitleDto: CreateJobTitleDto): Promise<{ message: string; jobTitle: JobTitles }> {
@@ -48,15 +51,34 @@ export class JobTitlesService {
     }
   }
 
-  async findAll(): Promise<any[]> {
+  async findAll(options: PaginationOptions = {}): Promise<PaginatedResult<GetJobTitlesDto>> {
     try {
-      const jobs = await this.jobTitlesModel
-        .find({})
-        .populate('department_id permissions category')
-        .lean()
-        .exec();
-      const jobsDto = jobs.map(job => new GetJobTitlesDto(job));
-      return jobsDto;
+      const filter: any = {};
+
+      if (options.search) {
+        filter['$or'] = [
+          { title: { $regex: options.search, $options: 'i' } },
+          { description: { $regex: options.search, $options: 'i' } }
+        ];
+      }
+
+      const populateOptions = [
+        { path: 'department_id' },
+        { path: 'permissions' },
+        { path: 'category' }
+      ];
+
+      const paginatedResult = await this.paginationService.paginateWithPopulate<any>(
+        this.jobTitlesModel,
+        options,
+        filter,
+        populateOptions
+      );
+
+      return {
+        data: paginatedResult.data.map(job => new GetJobTitlesDto(job)),
+        meta: paginatedResult.meta
+      };
     } catch (error) {
       throw new InternalServerErrorException('Failed to retrieve job titles', error.message);
     }

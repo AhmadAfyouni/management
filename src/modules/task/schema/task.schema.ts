@@ -32,10 +32,10 @@ export class Task {
     status: TASK_STATUS;
 
     @Prop({ type: Date })
-    createdAt?: Date;
+    createdAt: Date;
 
     @Prop({ type: Date })
-    updatedAt?: Date;
+    updatedAt: Date;
 
     @Prop({ type: Date, required: true })
     due_date: Date;
@@ -77,7 +77,7 @@ export class Task {
     @Prop({ type: String })
     over_all_time?: String;
 
-    @Prop({type:Number,default: 0,})
+    @Prop({ type: Number, default: 0, })
     rate: Number;
 }
 

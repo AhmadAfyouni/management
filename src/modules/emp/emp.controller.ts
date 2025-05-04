@@ -1,7 +1,9 @@
 import { Controller, Post } from "@nestjs/common";
 import { Body, Get, Param, UseGuards } from "@nestjs/common/decorators";
+import { Pagination } from "src/common/decorators/pagination.decorator";
 import { RequiredPermissions, Roles } from "src/common/decorators/role.decorator";
 import { GetAccessEmp, GetAccount, GetDepartment } from "src/common/decorators/user-guard";
+import { PaginationOptions } from "src/common/interfaces/pagination.interface";
 import { PermissionsEnum } from "src/config/permissions.enum";
 import { UserRole } from "src/config/role.enum";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -21,7 +23,8 @@ export class EmpController {
     @Roles(UserRole.PRIMARY_USER)
     @RequiredPermissions(PermissionsEnum.EMP_SEARCH_AND_VIEW)
     @Get("get-my-emps")
-    async getEmpByDepartment(@GetDepartment() departmentId) {
+    async getEmpByDepartment(@GetDepartment() departmentId, @Pagination() paginationOptions: PaginationOptions
+    ) {
         return await this.empService.getEmpByDepartment(departmentId);
     }
 
@@ -34,8 +37,8 @@ export class EmpController {
 
     @Roles(UserRole.ADMIN)
     @Get("get-all-emps")
-    async getAllEmps() {
-        return await this.empService.getAllEmp();
+    async getAllEmps(@Pagination() paginationOptions: PaginationOptions) {
+        return await this.empService.getAllEmp(paginationOptions);
     }
 
     @Get("tree")

@@ -12,10 +12,10 @@ import { DashboardParamsDto, TimeRange } from './dto/dashboard-params.dto';
 import {
     DashboardData,
     TaskSummary,
-    TimeTracking,
     DailyTask,
     ProjectStats,
     MyTask,
+    TimeTracking,
     RecentActivity,
     MessagePreview
 } from './interfaces/dashboard.interface';
@@ -30,7 +30,7 @@ export class DashboardService {
         @InjectModel(Comment.name) private commentModel: Model<CommentDocument>
     ) { }
 
-    async getDashboardData(userId: string, params: DashboardParamsDto): Promise<DashboardData> {
+    async getDashboardData(userId: string, departmentId: string, params: DashboardParamsDto): Promise<DashboardData> {
         const [
             taskSummary,
             timeTracking,
@@ -43,7 +43,7 @@ export class DashboardService {
             this.getTaskSummary(userId, params),
             this.getTimeTracking(userId, params),
             this.getDailyTasks(userId),
-            this.getProjectStats(userId, params),
+            this.getProjectStats(userId, departmentId, params),
             this.getMyTasks(userId),
             this.getRecentActivities(userId),
             this.getMessages(userId)
@@ -62,7 +62,7 @@ export class DashboardService {
 
     private async getTaskSummary(userId: string, params: DashboardParamsDto): Promise<TaskSummary> {
         const matchQuery: Record<string, any> = {
-            assignee: new Types.ObjectId(userId)
+            emp: userId
         };
 
         if (params.departmentId) {
@@ -79,6 +79,7 @@ export class DashboardService {
         if (dateRange) {
             matchQuery.createdAt = dateRange;
         }
+
 
         const taskStats = await this.taskModel.aggregate([
             { $match: matchQuery },
@@ -123,24 +124,43 @@ export class DashboardService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
+        // Get user settings for shift information and overtime rate
+        const userSettings = await this.getUserSettings(userId);
+        const { shiftStart, shiftEnd, dailyWorkHours, overtimeRate } = userSettings;
+
         // Get total hours tracked today
         const todayTasks = await this.taskModel.find({
-            assignee: new Types.ObjectId(userId),
+            emp: userId,
             "timeLogs.start": { $gte: today },
         }).exec();
 
         let totalHoursToday = 0;
+        let breakTime = 0;
+        const allTimeLogs: Array<{ start: Date; end: Date }> = [];
+
         todayTasks.forEach(task => {
             if (task.timeLogs && Array.isArray(task.timeLogs)) {
                 task.timeLogs.forEach(log => {
-                    if (log.start && new Date(log.start) >= today) {
-                        const end = log.end ? new Date(log.end) : new Date();
-                        const hours = (end.getTime() - new Date(log.start).getTime()) / (1000 * 60 * 60);
-                        totalHoursToday += hours;
+                    if (log.start && log.end && new Date(log.start) >= today) {
+                        const startTime = new Date(log.start);
+                        const endTime = new Date(log.end);
+
+                        if (this.isWithinShift(startTime, endTime, shiftStart, shiftEnd)) {
+                            const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                            totalHoursToday += hours;
+                            allTimeLogs.push({ start: startTime, end: endTime });
+                        }
                     }
                 });
             }
         });
+
+        // Calculate break time (time between task timers)
+        breakTime = this.calculateBreakTime(allTimeLogs, shiftStart, shiftEnd);
+
+        // Calculate overtime
+        const overtimeHours = totalHoursToday > dailyWorkHours ?
+            totalHoursToday - dailyWorkHours : 0;
 
         // Get hours by day for the past week
         const timeRange = params.timeRange || TimeRange.WEEKLY;
@@ -150,7 +170,7 @@ export class DashboardService {
             nextDay.setDate(nextDay.getDate() + 1);
 
             const dayTasks = await this.taskModel.find({
-                assignee: new Types.ObjectId(userId),
+                emp: userId,
                 "timeLogs.start": {
                     $gte: date,
                     $lt: nextDay
@@ -161,11 +181,12 @@ export class DashboardService {
             dayTasks.forEach(task => {
                 if (task.timeLogs && Array.isArray(task.timeLogs)) {
                     task.timeLogs.forEach(log => {
-                        if (log.start) {
+                        if (log.start && log.end) {
                             const logStart = new Date(log.start);
+                            const logEnd = new Date(log.end);
+
                             if (logStart >= date && logStart < nextDay) {
-                                const end = log.end ? new Date(log.end) : new Date();
-                                const hours = (end.getTime() - logStart.getTime()) / (1000 * 60 * 60);
+                                const hours = (logEnd.getTime() - logStart.getTime()) / (1000 * 60 * 60);
                                 actualHours += hours;
                             }
                         }
@@ -173,8 +194,8 @@ export class DashboardService {
                 }
             });
 
-            // This is a placeholder for planned hours
-            const plannedHours = 8; // Default 8 hours per day
+            // Get planned hours from user settings
+            const plannedHours = dailyWorkHours;
 
             return {
                 date: date.toISOString().split('T')[0],
@@ -185,20 +206,85 @@ export class DashboardService {
 
         return {
             totalHoursToday,
-            hoursByDay
+            hoursByDay,
+            breakTime,
+            overtimeHours,
+            overtimeRate
         };
     }
+
+    private isWithinShift(start: Date, end: Date, shiftStart: string, shiftEnd: string): boolean {
+        const startHours = parseInt(shiftStart.split(':')[0]);
+        const startMinutes = parseInt(shiftStart.split(':')[1]);
+        const endHours = parseInt(shiftEnd.split(':')[0]);
+        const endMinutes = parseInt(shiftEnd.split(':')[1]);
+
+        const sessionStartHours = start.getHours();
+        const sessionStartMinutes = start.getMinutes();
+        const sessionEndHours = end.getHours();
+        const sessionEndMinutes = end.getMinutes();
+
+        const shiftStartMinutes = startHours * 60 + startMinutes;
+        const shiftEndMinutes = endHours * 60 + endMinutes;
+        const sessionStartTotalMinutes = sessionStartHours * 60 + sessionStartMinutes;
+        const sessionEndTotalMinutes = sessionEndHours * 60 + sessionEndMinutes;
+
+        return sessionStartTotalMinutes >= shiftStartMinutes && sessionEndTotalMinutes <= shiftEndMinutes;
+    }
+
+    private calculateBreakTime(timeLogs: Array<{ start: Date; end: Date }>, shiftStart: string, shiftEnd: string): number {
+        if (timeLogs.length <= 1) return 0;
+
+        // Sort time logs by start time
+        const sortedLogs = timeLogs.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+        let totalBreakTime = 0;
+
+        for (let i = 0; i < sortedLogs.length - 1; i++) {
+            const currentEnd = sortedLogs[i].end;
+            const nextStart = sortedLogs[i + 1].start;
+
+            // Calculate gap between tasks
+            const gapMinutes = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60);
+
+            // Only count as break if within shift hours
+            if (this.isWithinShift(currentEnd, nextStart, shiftStart, shiftEnd)) {
+                totalBreakTime += gapMinutes;
+            }
+        }
+
+        return totalBreakTime / 60; // Convert to hours
+    }
+
+    private async getUserSettings(userId: string): Promise<{
+        shiftStart: string;
+        shiftEnd: string;
+        dailyWorkHours: number;
+        overtimeRate: number;
+    }> {
+        const user = await this.empModel.findById(userId).exec();
+
+        return {
+            shiftStart: '09:00',
+            shiftEnd: '17:00',
+            dailyWorkHours: 8,
+            overtimeRate: 1.25 // 25% overtime rate
+        };
+    }
+
 
     private async getDailyTasks(userId: string): Promise<DailyTask[]> {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        today.setDate(today.getDate() - 1);
 
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
 
         const tasks = await this.taskModel.find({
-            assignee: new Types.ObjectId(userId),
-            due_date: { $gte: today, $lt: tomorrow }
+            emp: userId,
+            due_date: { $gte: today },
+            status: { $ne: TASK_STATUS.DONE }
         }).exec();
 
         return tasks.map(task => ({
@@ -206,29 +292,48 @@ export class DashboardService {
             name: task.name,
             dueTime: new Date(task.due_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             priority: task.priority,
-            status: task.status
+            status: task.status,
+            timeLogs: task.timeLogs
         }));
     }
 
-    private async getProjectStats(userId: string, params: DashboardParamsDto): Promise<ProjectStats[]> {
+    private async getProjectStats(userId: string, departmentId: string, params: DashboardParamsDto): Promise<ProjectStats[]> {
         const matchQuery: Record<string, any> = {};
 
-        if (params.departmentId) {
-            matchQuery.departments = new Types.ObjectId(params.departmentId);
+
+        const projectQuery: Record<string, any> = {
+            departments: { $in: [departmentId] }
+        };
+
+
+        const dateRange = this.getDateRangeFilter(params.timeRange!);
+        if (dateRange) {
+            if (dateRange) {
+                projectQuery.$or = [
+                    { startDate: { $lte: dateRange.$lte } },
+                    { endDate: { $gte: dateRange.$gte } }
+                ];
+            }
         }
 
-        // Find projects the user is involved in
-        const projects = await this.projectModel.find(matchQuery).exec();
+
+        const projects = await this.projectModel.find(projectQuery).exec();
 
         return await Promise.all(projects.map(async project => {
             const projectId = project._id;
 
-            // Count total tasks in this project
+            // Get tasks assigned to this user for this project
+            const userProjectTasks = await this.taskModel.find({
+                project_id: projectId,
+                emp: userId
+            }).exec();
+
+            // Count total tasks in this project (for all users)
             const totalTasks = await this.taskModel.countDocuments({
                 project_id: projectId
             });
 
-            // Count completed tasks in this project
+            // Count completed tasks in this project (for all users)
             const completedTasks = await this.taskModel.countDocuments({
                 project_id: projectId,
                 status: TASK_STATUS.DONE
@@ -237,18 +342,46 @@ export class DashboardService {
             // Calculate progress percentage
             const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
 
+            // Calculate total hours spent by user on this project
+            let hoursSpent = 0;
+            userProjectTasks.forEach(task => {
+                if (task.timeLogs && task.timeLogs.length > 0) {
+                    hoursSpent += this.calculateTotalTimeSpent(task.timeLogs);
+                }
+            });
+
+            // Convert milliseconds to hours
+            hoursSpent = hoursSpent / (1000 * 60 * 60);
+
             return {
                 id: projectId!.toString(),
                 name: project.name,
                 progress: Math.round(progress),
-                tasksCount: totalTasks
+                tasksCount: totalTasks,
+                hoursSpent: Math.round(hoursSpent * 10) / 10, // Round to 1 decimal place
             };
         }));
     }
 
+
+    private calculateTotalTimeSpent(timeLogs: { start: Date; end?: Date }[]): number {
+        if (!timeLogs || timeLogs.length === 0) {
+            return 0;
+        }
+
+        return timeLogs.reduce((total, log) => {
+            if (log.start) {
+                const endTime = log.end ? new Date(log.end) : new Date();
+                const timeSpent = endTime.getTime() - new Date(log.start).getTime();
+                return total + timeSpent;
+            }
+            return total;
+        }, 0);
+    }
+
     private async getMyTasks(userId: string): Promise<MyTask[]> {
         const tasks = await this.taskModel.find({
-            assignee: new Types.ObjectId(userId)
+            emp: userId
         })
             .sort({ due_date: 1 })
             .limit(5)
@@ -258,18 +391,34 @@ export class DashboardService {
         return await Promise.all(tasks.map(async task => {
             const taskId = task._id;
 
-            // Get subtasks to calculate progress
-            const subtasks = await this.taskModel.find({
-                parent_task: taskId
-            }).exec();
+            const calculateTotalTimeSpent = (timeLogs: { start: Date; end?: Date }[]): number => {
+                return timeLogs.reduce((total, log) => {
+                    if (log.start) {
+                        const endTime = log.end ? new Date(log.end) : new Date();
+                        const timeSpent = endTime.getTime() - new Date(log.start).getTime();
+                        return total + timeSpent;
+                    }
+                    return total;
+                }, 0);
+            };
+            const calculateExpectedTime = (createdAt: Date, dueDate: Date): number => {
+                const created = new Date(createdAt);
+                const due = new Date(dueDate);
+                return due.getTime() - created.getTime();
+            };
+            const totalTimeSpent = calculateTotalTimeSpent(task.timeLogs);
+            const expectedTime = calculateExpectedTime(task.createdAt as any, task.due_date);
 
-            const totalSubtasks = subtasks.length || 1; // If no subtasks, count the task itself
-            const completedSubtasks = subtasks.filter(t => t.status === TASK_STATUS.DONE).length;
+            const comments = await this.commentModel.find({
+                task: taskId.toString()
+            }).lean().exec();
 
-            // If no subtasks, use task status for progress
-            const progress = task.status === TASK_STATUS.DONE ?
-                100 : (subtasks.length ? (completedSubtasks / totalSubtasks) * 100 :
-                    task.status === TASK_STATUS.ONGOING ? 50 : 0);
+
+            const progress = task.status === TASK_STATUS.DONE
+                ? 100
+                : expectedTime > 0
+                    ? Math.min((totalTimeSpent / expectedTime) * 100, 100)
+                    : 0;
 
             return {
                 id: taskId.toString(),
@@ -278,48 +427,53 @@ export class DashboardService {
                 status: task.status,
                 dueDate: new Date(task.due_date).toLocaleDateString(),
                 timeSpent: task.totalTimeSpent || 0,
-                progress: Math.round(progress)
+                progress: Math.round(progress),
+                commentsCount: comments.length,
+                filesCount: task.files.length
             };
         }));
     }
 
     private async getRecentActivities(userId: string): Promise<RecentActivity[]> {
-        // Get tasks associated with the user
-        const userTasks = await this.taskModel.find({
-            assignee: new Types.ObjectId(userId)
+
+        const myTasks = await this.taskModel.find({
+            emp: userId
         }).distinct('_id');
 
-        // Get recent comments on these tasks
-        const recentComments = await this.commentModel.find({
-            task: { $in: userTasks }
+        const myComments = await this.commentModel.find({
+            emp: userId,
+            task: { $in: myTasks }
         })
             .sort({ createdAt: -1 })
-            .limit(5)
-            .populate('emp', 'name')
+            .limit(10)
             .populate('task', 'name')
             .exec();
 
-        // Get recent task status changes (based on updatedAt field)
-        const recentTaskChanges = await this.taskModel.find({
-            _id: { $in: userTasks }
+        const myTaskChanges = await this.taskModel.find({
+            emp: userId,
+            updatedAt: { $exists: true }
         })
             .sort({ updatedAt: -1 })
-            .limit(5)
-            .populate('assignee', 'name')
+            .limit(10)
             .exec();
 
-        // Combine and sort activities
-        const commentActivities = recentComments.map(comment => {
-            const commentId = comment._id;
-            const commentEmp = comment.emp as unknown as { _id: Types.ObjectId; name: string };
+        const myTaskActions = await this.taskModel.aggregate([
+            { $match: { emp: userId } },
+            { $unwind: { path: "$timeLogs", preserveNullAndEmptyArrays: true } },
+            { $sort: { "timeLogs.start": -1 } },
+            { $limit: 5 }
+        ]).exec();
+
+        const commentActivities = myComments.map(comment => {
+            const commentId = comment._id as any;
             const commentTask = comment.task as unknown as { _id: Types.ObjectId; name: string };
 
             return {
-                id: commentId!.toString(),
+                id: commentId.toString(),
                 type: 'comment' as const,
                 user: {
-                    id: commentEmp._id.toString(),
-                    name: commentEmp.name,
+                    id: userId,
+                    name: 'You',
                 },
                 content: comment.content,
                 taskId: commentTask._id.toString(),
@@ -328,31 +482,61 @@ export class DashboardService {
             };
         });
 
-        const taskActivities = recentTaskChanges.map(task => {
-            const taskId = task._id;
-            const taskAssignee = task.assignee as unknown as { _id: Types.ObjectId; name: string } | undefined;
+        const statusChangeActivities = myTaskChanges
+            .filter(task => task.updatedAt > task.createdAt) // Only if the task was actually updated
+            .map(task => {
+                const taskId = task._id;
 
-            return {
-                id: taskId.toString() + '-status',
-                type: 'status_change' as const,
-                user: {
-                    id: taskAssignee?._id?.toString() || userId,
-                    name: taskAssignee?.name || 'Unknown User',
-                },
-                content: `Task status changed to ${task.status}`,
-                taskId: taskId.toString(),
-                taskName: task.name,
-                timestamp: task.updatedAt || new Date()
-            };
-        });
+                return {
+                    id: taskId.toString() + '-status',
+                    type: 'status_change' as const,
+                    user: {
+                        id: userId,
+                        name: 'You',
+                    },
+                    content: `Changed task status to ${task.status}`,
+                    taskId: taskId.toString(),
+                    taskName: task.name,
+                    timestamp: task.updatedAt || new Date()
+                };
+            });
 
-        const activities = [...commentActivities, ...taskActivities];
+        // Map timer actions to activities
+        const timerActivities = myTaskActions
+            .filter(item => item.timeLogs && item.timeLogs.start)
+            .map(item => {
+                const task = item;
+                const timeLog = item.timeLogs;
 
-        // Sort by date and limit to 5
+                return {
+                    id: `${task._id}-${timeLog.start.getTime()}`,
+                    type: 'timer_action' as const,
+                    user: {
+                        id: userId,
+                        name: 'Me',
+                    },
+                    content: timeLog.end
+                        ? `Stopped timer for task`
+                        : `Started working on task`,
+                    taskId: task._id.toString(),
+                    taskName: task.name,
+                    timestamp: timeLog.start
+                };
+            });
+
+        // Combine all personal activities
+        const activities = [
+            ...commentActivities,
+            ...statusChangeActivities,
+            ...timerActivities
+        ];
+
+        // Sort by date and limit to 5 most recent
         return activities
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
             .slice(0, 5);
     }
+
 
     private async getMessages(userId: string): Promise<MessagePreview[]> {
         // This would need to be connected to your messaging system

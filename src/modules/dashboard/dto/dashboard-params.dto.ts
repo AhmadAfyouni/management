@@ -19,5 +19,3 @@ export class DashboardParamsDto {
     @IsString()
     departmentId?: string;
 }
-
-// 3. dashboard/interfaces/dashboard.interface.ts

@@ -13,6 +13,8 @@ import { ConflictException } from '@nestjs/common/exceptions';
 import { parseObject } from 'src/helper/parse-object';
 import { DepartmentService } from '../department/depratment.service';
 import { FileVersionService } from '../file-version/file-version.service';
+import { PaginationService } from 'src/common/services/pagination.service';
+import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
 
 @Injectable()
 export class EmpService {
@@ -22,27 +24,52 @@ export class EmpService {
         private readonly jobTitleService: JobTitlesService,
         @Inject(forwardRef(() => DepartmentService))
         private readonly departmentService: DepartmentService,
-        private readonly fileVersionService: FileVersionService
+        private readonly fileVersionService: FileVersionService,
+        private readonly paginationService: PaginationService,
+
     ) { }
 
-    async getAllEmp(): Promise<GetEmpDto[]> {
+    async getAllEmp(options: PaginationOptions = {}): Promise<PaginatedResult<GetEmpDto>> {
         try {
-            const emps = await this.empModel.find({}).populate({
-                path: "job_id",
-                model: "JobTitles",
-                populate: {
-                    path: "category",
-                    model: "JobCategory"
+            const populateOptions = [
+                {
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory"
+                    }
+                },
+                {
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: "parent_department_id",
+                        model: "Department"
+                    }
                 }
-            }).populate({
-                path: "department_id",
-                model: "Department",
-                populate: {
-                    path: "parent_department_id",
-                    model: "Department"
-                }
-            }).lean().exec();
-            return emps.map(emp => new GetEmpDto(emp));
+            ];
+
+            const filter: any = {};
+            if (options.search) {
+                filter['$or'] = [
+                    { name: { $regex: options.search, $options: 'i' } },
+                    { email: { $regex: options.search, $options: 'i' } },
+                    { phone: { $regex: options.search, $options: 'i' } }
+                ];
+            }
+
+            const paginatedResult = await this.paginationService.paginateWithPopulate<any>(
+                this.empModel,
+                options,
+                filter,
+                populateOptions
+            );
+
+            return {
+                data: paginatedResult.data.map(emp => new GetEmpDto(emp)),
+                meta: paginatedResult.meta
+            };
         } catch (error) {
             throw new InternalServerErrorException('Failed to fetch employees', error.message);
         }

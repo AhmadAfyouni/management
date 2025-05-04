@@ -6,7 +6,7 @@ import { Task, TaskSchema } from '../task/schema/task.schema';
 import { Project, ProjectSchema } from '../project/schema/project.schema';
 import { Emp, EmpSchema } from '../emp/schemas/emp.schema';
 import { Department, DepartmentSchema } from '../department/schema/department.schema';
-import { CommentSchema } from '../comment/schema/comment.schema';
+import { Comment, CommentSchema } from '../comment/schema/comment.schema';
 
 @Module({
     imports: [

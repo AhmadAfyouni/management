@@ -9,6 +9,8 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { UserRole } from 'src/config/role.enum';
 import { PermissionsEnum } from 'src/config/permissions.enum';
 import { GetAccessJobTitle } from 'src/common/decorators/user-guard';
+import { Pagination } from 'src/common/decorators/pagination.decorator';
+import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('job-titles')
@@ -26,8 +28,10 @@ export class JobTitlesController {
   @Roles(UserRole.PRIMARY_USER)
   @RequiredPermissions(PermissionsEnum.JOB_TITLE_SEARCH_AND_VIEW)
   @Get("get-job-titles")
-  async findAll(): Promise<GetJobTitlesDto[]> {
-    return this.jobTitlesService.findAll();
+  async findAll(
+    @Pagination() paginationOptions: PaginationOptions
+  ): Promise<PaginatedResult<GetJobTitlesDto>> {
+    return this.jobTitlesService.findAll(paginationOptions);
   }
 
 

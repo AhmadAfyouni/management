@@ -1,5 +1,6 @@
 import { forwardRef, Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
+import { PaginationService } from "src/common/services/pagination.service";
 import { EmpModule } from "../emp/emp.module";
 import { FileVersionModule } from "../file-version/file-version.module";
 import { NotificationModule } from "../notification/notification.module";
@@ -16,7 +17,7 @@ import { Department, DepartmentSchema } from "./schema/department.schema";
         FileVersionModule
     ],
     controllers: [DepartmentController],
-    providers: [DepartmentService],
+    providers: [DepartmentService, PaginationService],
     exports: [DepartmentService],
 })
 export class DepartmentModule { }

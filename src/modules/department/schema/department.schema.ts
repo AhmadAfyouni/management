@@ -5,7 +5,7 @@ export type DepartmentDocument = Department & Document;
 @Schema({ timestamps: true })
 export class Department {
     _id: Types.ObjectId;
-    
+
     @Prop({ required: true })
     name: string;
 
@@ -17,7 +17,7 @@ export class Department {
 
     @Prop({ required: true })
     mainTasks: string;
-    
+
     @Prop({ type: Types.ObjectId, ref: "Department", default: undefined })
     parent_department_id?: Types.ObjectId;
 

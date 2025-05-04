@@ -1,6 +1,7 @@
 import { Global, Module } from "@nestjs/common";
 import { forwardRef } from "@nestjs/common/utils";
 import { MongooseModule } from "@nestjs/mongoose";
+import { PaginationService } from "src/common/services/pagination.service";
 import { DepartmentModule } from "../department/depratment.module";
 import { FileVersionModule } from "../file-version/file-version.module";
 import { JobTitlesModule } from "../job-titles/job-titles.module";
@@ -18,8 +19,8 @@ import { Emp, EmpSchema } from "./schemas/emp.schema";
         ],
 
         controllers: [EmpController],
-        providers: [EmpService],
+        providers: [EmpService, PaginationService],
         exports: [EmpService, MongooseModule]
     }
 )
-export class EmpModule  { }
+export class EmpModule { }

@@ -12,6 +12,9 @@ export interface TimeTracking {
         plannedHours: number;
         actualHours: number;
     }[];
+    breakTime: number;
+    overtimeHours: number;
+    overtimeRate: number;
 }
 
 export interface DailyTask {
@@ -20,6 +23,7 @@ export interface DailyTask {
     dueTime: string;
     priority: string;
     status: string;
+
 }
 
 export interface ProjectStats {
@@ -27,6 +31,7 @@ export interface ProjectStats {
     name: string;
     progress: number;
     tasksCount: number;
+    hoursSpent: number;
 }
 
 export interface MyTask {
@@ -41,7 +46,7 @@ export interface MyTask {
 
 export interface RecentActivity {
     id: string;
-    type: 'comment' | 'status_change' | 'task_created' | 'file_upload';
+    type: 'comment' | 'status_change' | 'timer_action' | 'task_created' | 'file_upload';
     user: {
         id: string;
         name: string;
@@ -52,6 +57,7 @@ export interface RecentActivity {
     taskName: string;
     timestamp: Date;
 }
+
 
 export interface MessagePreview {
     id: string;

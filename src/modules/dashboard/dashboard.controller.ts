@@ -18,9 +18,10 @@ export class DashboardController {
     @Get()
     async getDashboard(
         @GetAccount() userId: string,
-        @Query() params: DashboardParamsDto
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
     ) {
-        return this.dashboardService.getDashboardData(userId, params);
+        return this.dashboardService.getDashboardData(userId, departmentId, params);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
@@ -28,9 +29,11 @@ export class DashboardController {
     @Get('task-summary')
     async getTaskSummary(
         @GetAccount() userId: string,
-        @Query() params: DashboardParamsDto
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
+
     ) {
-        return this.dashboardService.getDashboardData(userId, params).then(data => data.taskSummary);
+        return this.dashboardService.getDashboardData(userId, departmentId, params).then(data => data.taskSummary);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
@@ -38,16 +41,19 @@ export class DashboardController {
     @Get('time-tracking')
     async getTimeTracking(
         @GetAccount() userId: string,
-        @Query() params: DashboardParamsDto
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
+
     ) {
-        return this.dashboardService.getDashboardData(userId, params).then(data => data.timeTracking);
+        return this.dashboardService.getDashboardData(userId, departmentId, params).then(data => data.timeTracking);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('daily-tasks')
-    async getDailyTasks(@GetAccount() userId: string) {
-        return this.dashboardService.getDashboardData(userId, {}).then(data => data.dailyTasks);
+    async getDailyTasks(@GetAccount() userId: string, @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getDashboardData(userId, departmentId, {}).then(data => data.dailyTasks);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
@@ -55,29 +61,34 @@ export class DashboardController {
     @Get('project-stats')
     async getProjectStats(
         @GetAccount() userId: string,
-        @Query() params: DashboardParamsDto
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
+
     ) {
-        return this.dashboardService.getDashboardData(userId, params).then(data => data.projectStats);
+        return this.dashboardService.getDashboardData(userId, departmentId, params).then(data => data.projectStats);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('my-tasks')
-    async getMyTasks(@GetAccount() userId: string) {
-        return this.dashboardService.getDashboardData(userId, {}).then(data => data.myTasks);
+    async getMyTasks(@GetAccount() userId: string, @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getDashboardData(userId, departmentId, {}).then(data => data.myTasks);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('recent-activity')
-    async getRecentActivity(@GetAccount() userId: string) {
-        return this.dashboardService.getDashboardData(userId, {}).then(data => data.recentActivities);
+    async getRecentActivity(@GetAccount() userId: string, @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getDashboardData(userId, departmentId, {}).then(data => data.recentActivities);
     }
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('messages')
-    async getMessages(@GetAccount() userId: string) {
-        return this.dashboardService.getDashboardData(userId, {}).then(data => data.messages);
+    async getMessages(@GetAccount() userId: string, @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getDashboardData(userId, departmentId, {}).then(data => data.messages);
     }
 }
