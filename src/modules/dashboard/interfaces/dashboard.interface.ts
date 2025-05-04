@@ -26,17 +26,17 @@ export interface DailyTimelineResponse {
 }
 
 export interface TimeTracking {
-    totalHoursToday: number;
+    totalTimeToday: string; // HH:MM:SS format
+    workedHours: number;    // Total task work hours
+    breakTime: number;      // Break hours
+    overtimeHours: number;  // Overtime hours
+    overtimeRate: number;   // Overtime rate percentage
     hoursByDay: {
         date: string;
         plannedHours: number;
         actualHours: number;
     }[];
-    breakTime: number;
-    overtimeHours: number;
-    overtimeRate: number;
 }
-
 export interface DailyTask {
     id: string;
     name: string;

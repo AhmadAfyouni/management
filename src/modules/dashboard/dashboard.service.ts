@@ -281,7 +281,7 @@ export class DashboardService {
 
         // Get total hours tracked today
         const todayTasks = await this.taskModel.find({
-            emp: userId,
+            assignee: new Types.ObjectId(userId),
             "timeLogs.start": { $gte: today },
         }).exec();
 
@@ -289,6 +289,7 @@ export class DashboardService {
         let breakTime = 0;
         const allTimeLogs: Array<{ start: Date; end: Date }> = [];
 
+        // Collect all time logs from today's tasks
         todayTasks.forEach(task => {
             if (task.timeLogs && Array.isArray(task.timeLogs)) {
                 task.timeLogs.forEach(log => {
@@ -313,6 +314,12 @@ export class DashboardService {
         const overtimeHours = totalHoursToday > dailyWorkHours ?
             totalHoursToday - dailyWorkHours : 0;
 
+        // Calculate total time including breaks
+        const totalTime = totalHoursToday + breakTime;
+
+        // Format total time as HH:MM:SS
+        const totalTimeFormatted = this.formatTimeToHHMMSS(totalTime);
+
         // Get hours by day for the past week
         const timeRange = params.timeRange || TimeRange.WEEKLY;
         const dates = this.getDateRange(timeRange);
@@ -321,7 +328,7 @@ export class DashboardService {
             nextDay.setDate(nextDay.getDate() + 1);
 
             const dayTasks = await this.taskModel.find({
-                emp: userId,
+                assignee: new Types.ObjectId(userId),
                 "timeLogs.start": {
                     $gte: date,
                     $lt: nextDay
@@ -337,8 +344,11 @@ export class DashboardService {
                             const logEnd = new Date(log.end);
 
                             if (logStart >= date && logStart < nextDay) {
-                                const hours = (logEnd.getTime() - logStart.getTime()) / (1000 * 60 * 60);
-                                actualHours += hours;
+                                // Check if within shift hours
+                                if (this.isWithinShift(logStart, logEnd, shiftStart, shiftEnd)) {
+                                    const hours = (logEnd.getTime() - logStart.getTime()) / (1000 * 60 * 60);
+                                    actualHours += hours;
+                                }
                             }
                         }
                     });
@@ -351,18 +361,29 @@ export class DashboardService {
             return {
                 date: date.toISOString().split('T')[0],
                 plannedHours,
-                actualHours
+                actualHours: Number(actualHours.toFixed(2))
             };
         }));
 
         return {
-            totalHoursToday,
-            hoursByDay,
-            breakTime,
-            overtimeHours,
-            overtimeRate
+            totalTimeToday: totalTimeFormatted,
+            workedHours: Number(totalHoursToday.toFixed(2)),
+            breakTime: Number(breakTime.toFixed(2)),
+            overtimeHours: Number(overtimeHours.toFixed(2)),
+            overtimeRate,
+            hoursByDay
         };
     }
+
+    // Helper method to format time to HH:MM:SS
+    private formatTimeToHHMMSS(totalHours: number): string {
+        const hours = Math.floor(totalHours);
+        const minutes = Math.floor((totalHours % 1) * 60);
+        const seconds = Math.floor(((totalHours % 1) * 60 % 1) * 60);
+
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+
 
     private isWithinShift(start: Date, end: Date, shiftStart: string, shiftEnd: string): boolean {
         const startHours = parseInt(shiftStart.split(':')[0]);
