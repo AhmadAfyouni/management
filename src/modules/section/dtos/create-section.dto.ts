@@ -7,9 +7,5 @@ export class CreateSectionDto {
 
     @IsOptional()
     @IsMongoId()
-    project?: string;
-
-    @IsOptional()
-    @IsMongoId()
-    department?: string;
+    emp: string;
 }

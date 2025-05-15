@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Delete, HttpStatus, HttpCode } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { FileVersionService } from './file-version.service';
 
@@ -7,8 +7,11 @@ import { FileVersionService } from './file-version.service';
 export class FileVersionController {
   constructor(
     private readonly fileVersionService: FileVersionService
-  ) {}
+  ) { }
 
+  /**
+   * Get all versions of a department file
+   */
   @Get('department/:departmentId')
   async getDepartmentFileVersions(
     @Param('departmentId') departmentId: string,
@@ -20,10 +23,10 @@ export class FileVersionController {
       departmentId,
       fileType
     );
-    
+
     return {
       status: true,
-      message: 'تم الحصول على نسخ الملف بنجاح',
+      message: 'File versions retrieved successfully',
       data: {
         versions: versions,
         latest: versions.length > 0 ? versions[0].fileUrl : null
@@ -31,6 +34,9 @@ export class FileVersionController {
     };
   }
 
+  /**
+   * Get all versions of an employee file
+   */
   @Get('employee/:empId')
   async getEmployeeFileVersions(
     @Param('empId') empId: string,
@@ -46,10 +52,10 @@ export class FileVersionController {
       documentType,
       documentName
     );
-    
+
     return {
       status: true,
-      message: 'تم الحصول على نسخ الملف بنجاح',
+      message: 'File versions retrieved successfully',
       data: {
         versions: versions,
         latest: versions.length > 0 ? versions[0].fileUrl : null
@@ -57,6 +63,9 @@ export class FileVersionController {
     };
   }
 
+  /**
+   * Get all versions of a task file
+   */
   @Get('task/:taskId')
   async getTaskFileVersions(
     @Param('taskId') taskId: string,
@@ -68,10 +77,10 @@ export class FileVersionController {
       taskId,
       fileType
     );
-    
+
     return {
       status: true,
-      message: 'تم الحصول على نسخ الملف بنجاح',
+      message: 'File versions retrieved successfully',
       data: {
         versions: versions,
         latest: versions.length > 0 ? versions[0].fileUrl : null
@@ -79,6 +88,9 @@ export class FileVersionController {
     };
   }
 
+  /**
+   * Get latest version of a department file
+   */
   @Get('department/:departmentId/latest')
   async getLatestDepartmentFileVersion(
     @Param('departmentId') departmentId: string,
@@ -90,18 +102,21 @@ export class FileVersionController {
       departmentId,
       fileType
     );
-    
+
     return {
       status: Boolean(latestVersion),
-      message: latestVersion 
-        ? 'تم الحصول على أحدث نسخة بنجاح' 
-        : 'لم يتم العثور على أي نسخة لهذا الملف',
+      message: latestVersion
+        ? 'Latest version retrieved successfully'
+        : 'No version found for this file',
       data: {
         latestVersion
       }
     };
   }
 
+  /**
+   * Get latest version of an employee file
+   */
   @Get('employee/:empId/latest')
   async getLatestEmployeeFileVersion(
     @Param('empId') empId: string,
@@ -117,18 +132,21 @@ export class FileVersionController {
       documentType,
       documentName
     );
-    
+
     return {
       status: Boolean(latestVersion),
-      message: latestVersion 
-        ? 'تم الحصول على أحدث نسخة بنجاح' 
-        : 'لم يتم العثور على أي نسخة لهذا الملف',
+      message: latestVersion
+        ? 'Latest version retrieved successfully'
+        : 'No version found for this file',
       data: {
         latestVersion
       }
     };
   }
 
+  /**
+   * Get latest version of a task file
+   */
   @Get('task/:taskId/latest')
   async getLatestTaskFileVersion(
     @Param('taskId') taskId: string,
@@ -140,15 +158,111 @@ export class FileVersionController {
       taskId,
       fileType
     );
-    
+
     return {
       status: Boolean(latestVersion),
-      message: latestVersion 
-        ? 'تم الحصول على أحدث نسخة بنجاح' 
-        : 'لم يتم العثور على أي نسخة لهذا الملف',
+      message: latestVersion
+        ? 'Latest version retrieved successfully'
+        : 'No version found for this file',
       data: {
         latestVersion
       }
+    };
+  }
+
+  /**
+   * Get specific version of a file
+   */
+  @Get(':entityType/:entityId/version/:versionNumber')
+  async getSpecificVersion(
+    @Param('entityType') entityType: 'department' | 'employee' | 'task',
+    @Param('entityId') entityId: string,
+    @Param('versionNumber') versionNumber: number,
+    @Query('fileType') fileType: string,
+    @Query('fileName') fileName: string,
+    @Query('documentType') documentType?: string,
+    @Query('documentName') documentName?: string
+  ) {
+    const fileUrl = await this.fileVersionService.getSpecificVersion(
+      fileName,
+      Number(versionNumber),
+      entityId,
+      entityType,
+      fileType,
+      documentType,
+      documentName
+    );
+
+    return {
+      status: Boolean(fileUrl),
+      message: fileUrl
+        ? `Version ${versionNumber} retrieved successfully`
+        : `Version ${versionNumber} not found for this file`,
+      data: {
+        fileUrl
+      }
+    };
+  }
+
+  /**
+   * Delete all versions of a file
+   */
+  @Delete(':entityType/:entityId')
+  @HttpCode(HttpStatus.OK)
+  async deleteAllVersions(
+    @Param('entityType') entityType: 'department' | 'employee' | 'task',
+    @Param('entityId') entityId: string,
+    @Query('fileType') fileType: string,
+    @Query('fileName') fileName: string,
+    @Query('documentType') documentType?: string,
+    @Query('documentName') documentName?: string
+  ) {
+    const success = await this.fileVersionService.deleteAllVersions(
+      fileName,
+      entityId,
+      entityType,
+      fileType,
+      documentType,
+      documentName
+    );
+
+    return {
+      status: success,
+      message: success
+        ? 'All file versions deleted successfully'
+        : 'No file versions found to delete',
+    };
+  }
+
+  /**
+   * Delete specific version of a file
+   */
+  @Delete(':entityType/:entityId/version/:versionNumber')
+  @HttpCode(HttpStatus.OK)
+  async deleteSpecificVersion(
+    @Param('entityType') entityType: 'department' | 'employee' | 'task',
+    @Param('entityId') entityId: string,
+    @Param('versionNumber') versionNumber: number,
+    @Query('fileType') fileType: string,
+    @Query('fileName') fileName: string,
+    @Query('documentType') documentType?: string,
+    @Query('documentName') documentName?: string
+  ) {
+    const success = await this.fileVersionService.deleteSpecificVersion(
+      fileName,
+      Number(versionNumber),
+      entityId,
+      entityType,
+      fileType,
+      documentType,
+      documentName
+    );
+
+    return {
+      status: success,
+      message: success
+        ? `Version ${versionNumber} deleted successfully`
+        : `Version ${versionNumber} not found or could not be deleted`,
     };
   }
 }

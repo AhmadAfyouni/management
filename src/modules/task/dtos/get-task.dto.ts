@@ -23,6 +23,8 @@ export class GetTaskDto {
     department: any;
     over_all_time: any;
     rate: any;
+    subtasks?: GetTaskDto[]; // Added subtasks field
+
     constructor(task: any) {
         this.id = task._id.toString();
         this.name = task.name;
@@ -41,8 +43,13 @@ export class GetTaskDto {
         this.startTime = task.startTime;
         this.timeLogs = task.timeLogs;
         this.parent_task = task.parent_task;
-        this.department = task.department_id || undefined
+        this.department = task.department_id || undefined;
         this.over_all_time = task.over_all_time || undefined;
         this.rate = task.rate || undefined;
+
+        // Handle subtasks if present
+        if (task.subtasks && Array.isArray(task.subtasks)) {
+            this.subtasks = task.subtasks.map((subtask: any) => new GetTaskDto(subtask));
+        }
     }
 }

@@ -1,4 +1,4 @@
-import { IsArray, IsNotEmpty, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCommentDto {
     @IsNotEmpty()
@@ -10,5 +10,11 @@ export class CreateCommentDto {
 
     @IsArray()
     @IsString({ each: true })
+    @IsOptional()
     files?: string[];
+}
+export class UpdateCommentDto {
+    @IsNotEmpty()
+    @IsString()
+    content: string;
 }

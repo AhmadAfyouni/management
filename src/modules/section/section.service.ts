@@ -16,51 +16,42 @@ export class SectionService {
         return section.save();
     }
 
-
-    async createInitialSections(departmentId?: string, projectId?: string): Promise<Section[]> {
-        const sectionsToCreate = ['Recently Assigned', 'This Week', 'Next Week', 'Later'];
-        const createdSections: Section[] = [];
-
+    async createInitialSections(empId: string): Promise<Section[]> {
+        const sectionsToCreate = ['Recently Assigned'];
+        let section;
         for (const name of sectionsToCreate) {
             const existingSection = await this.sectionModel.findOne({
                 name,
-                department: departmentId ?? null,
-                project: projectId ?? null
+                emp: empId
             });
 
             if (!existingSection) {
-                const section = await this.createSection({ name, department: departmentId, project: projectId });
-                createdSections.push(section);
+                section = await this.createSection({ name, emp: empId });
             } else {
-                createdSections.push(existingSection);
+                section = existingSection;
             }
         }
 
-        return createdSections;
+        return section;
     }
 
-    async getRecentlySectionId(departmentId?: string | null, projectId?: string): Promise<string> {
+    async getRecentlySectionId(empId: string): Promise<string> {
         const query = {
             name: 'Recently Assigned',
-            department: departmentId ?? null,
-            project: projectId ?? null
+            emp: empId
         };
 
-        const pendingSection = await this.sectionModel.findOne(query).exec();
+        const recentlySection = await this.sectionModel.findOne(query).exec();
 
-        if (!pendingSection) {
-            throw new NotFoundException(`Pending section not found for the specified project or department`);
+        if (!recentlySection) {
+            throw new NotFoundException(`Recently Assigned section not found for employee ${empId}`);
         }
 
-        return pendingSection._id.toString();
+        return recentlySection._id.toString();
     }
 
-    async getSectionsByProject(projectId: string): Promise<Section[]> {
-        return this.sectionModel.find({ project: projectId }).exec();
-    }
-
-    async getSectionsByDepartment(departmentId: string): Promise<Section[]> {
-        return this.sectionModel.find({ department: departmentId }).exec();
+    async getSectionsByEmployee(empId: string): Promise<Section[]> {
+        return await this.sectionModel.find({ emp: empId }).exec();
     }
 
     async getSectionById(id: string): Promise<Section> {

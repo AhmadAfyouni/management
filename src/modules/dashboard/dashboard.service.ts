@@ -81,7 +81,7 @@ export class DashboardService {
 
         // Get all tasks with time logs for the specified date
         const tasksWithTimeLogs = await this.taskModel.find({
-            assignee: new Types.ObjectId(userId),
+            emp: userId,
             "timeLogs.start": {
                 $gte: targetDate,
                 $lt: nextDay
@@ -89,6 +89,8 @@ export class DashboardService {
         })
             .populate('project_id', 'name')
             .exec();
+
+        console.log(tasksWithTimeLogs);
 
         // Process time logs into timeline entries
         const timelineEntries: TimelineEntry[] = [];
@@ -281,7 +283,7 @@ export class DashboardService {
 
         // Get total hours tracked today
         const todayTasks = await this.taskModel.find({
-            assignee: new Types.ObjectId(userId),
+            emp: userId,
             "timeLogs.start": { $gte: today },
         }).exec();
 
@@ -328,7 +330,7 @@ export class DashboardService {
             nextDay.setDate(nextDay.getDate() + 1);
 
             const dayTasks = await this.taskModel.find({
-                assignee: new Types.ObjectId(userId),
+                emp: userId,
                 "timeLogs.start": {
                     $gte: date,
                     $lt: nextDay

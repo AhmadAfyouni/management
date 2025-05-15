@@ -37,6 +37,7 @@ export interface TimeTracking {
         actualHours: number;
     }[];
 }
+
 export interface DailyTask {
     id: string;
     name: string;

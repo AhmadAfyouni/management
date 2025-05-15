@@ -2,13 +2,9 @@ import { Controller, Get, Post, Put, Delete, Param, Body, UseGuards } from '@nes
 import { SectionService } from './section.service';
 import { CreateSectionDto } from './dtos/create-section.dto';
 import { UpdateSectionDto } from './dtos/update-section.dto';
-import { GetDepartment } from 'src/common/decorators/user-guard';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
-
-
-
-
+import { GetAccount } from 'src/common/decorators/user-guard';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('sections')
@@ -16,29 +12,30 @@ export class SectionController {
     constructor(private readonly sectionService: SectionService) { }
 
     @Post()
-    async createSection(@Body() createSectionDto: CreateSectionDto) {
+    async createSection(@Body() createSectionDto: CreateSectionDto, @GetAccount() empId: string) {
+        createSectionDto.emp = empId;
         return this.sectionService.createSection(createSectionDto);
     }
 
-    @Get('project/:projectId')
-    async getSectionsByProject(@Param('projectId') projectId: string) {
-        return this.sectionService.getSectionsByProject(projectId);
+    @Get('employee/:empId')
+    async getSectionsByEmployee(@Param('empId') empId: string) {
+        return this.sectionService.getSectionsByEmployee(empId);
     }
 
-    @Get('department/:departmentId')
-    async getSectionsByDepartment(@Param('departmentId') departmentId: string) {
-        return this.sectionService.getSectionsByDepartment(departmentId);
+    @Get()
+    async getMySections(@GetAccount() empId: string) {
+        return this.sectionService.getSectionsByEmployee(empId);
     }
 
-    @Get('manager-section')
-    async getManageDepartment(@GetDepartment() departmentId: string) {
-        return this.sectionService.getSectionsByDepartment(departmentId);
-    }
+    // @Get('recently-assigned')
+    // async getRecentlyAssignedSection(@GetAccount() empId: string) {
+    //     return this.sectionService.getRecentlySectionId(empId);
+    // }
 
-    @Get(':id')
-    async getSectionById(@Param('id') id: string) {
-        return this.sectionService.getSectionById(id);
-    }
+    // @Get(':id')
+    // async getSectionById(@Param('id') id: string) {
+    //     return this.sectionService.getSectionById(id);
+    // }
 
     @Put(':id')
     async updateSection(
