@@ -12,7 +12,7 @@ import { UserRole } from 'src/config/role.enum';
 import { ConflictException } from '@nestjs/common/exceptions';
 import { parseObject } from 'src/helper/parse-object';
 import { DepartmentService } from '../department/depratment.service';
-import { FileVersionService } from '../file-version/file-version.service';
+import { FileService } from '../file-manager/file-manager.service';
 import { PaginationService } from 'src/common/services/pagination.service';
 import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
 
@@ -24,9 +24,8 @@ export class EmpService {
         private readonly jobTitleService: JobTitlesService,
         @Inject(forwardRef(() => DepartmentService))
         private readonly departmentService: DepartmentService,
-        private readonly fileVersionService: FileVersionService,
+        private readonly fileService: FileService, // Using fixed FileService
         private readonly paginationService: PaginationService,
-
     ) { }
 
     async getAllEmp(options: PaginationOptions = {}): Promise<PaginatedResult<GetEmpDto>> {
@@ -127,6 +126,18 @@ export class EmpService {
         }
     }
 
+    // Helper function to extract filename from URL
+    private extractFileNameFromUrl(url: string): string {
+        if (!url) return 'unnamed_file';
+        try {
+            const urlParts = url.split('/');
+            return urlParts[urlParts.length - 1];
+        } catch (error) {
+            console.error("Error extracting filename from URL:", error);
+            return 'unnamed_file';
+        }
+    }
+
     async createEmp(employee: CreateEmpDto): Promise<Emp | null> {
         try {
             const existingEmp = await this.empModel.findOne({
@@ -163,47 +174,124 @@ export class EmpService {
             manager = await this.findManagerByDepartment(employee.department_id.toString());
             if (!manager) {
                 const managerParent = await this.departmentService.findById(employee.department_id.toString());
-                manager = await this.findManagerByDepartment(managerParent?.parent_department!._id.toString()!);
+                if (managerParent?.parent_department?._id) {
+                    manager = await this.findManagerByDepartment(managerParent.parent_department._id.toString());
+                }
             }
 
-
+            // Create employee with empty certifications and documents first
             const emp = new this.empModel({
                 ...employee,
                 role,
-                parentId: manager ? manager._id.toString() : null
+                parentId: manager ? manager._id.toString() : null,
+                certifications: [],
+                legal_documents: []
             });
 
             const savedEmp = await emp.save();
+            const empId = savedEmp._id.toString();
 
+            // Process certifications and add with fileId references
             if (employee.certifications && employee.certifications.length > 0) {
                 for (const certification of employee.certifications) {
                     if (certification.file) {
-                        await this.fileVersionService.createEmployeeFileVersion(
-                            certification.file,
-                            savedEmp._id.toString(),
-                            'certification',
-                            'certification',
-                            certification.certificate_name
+                        // Create file and get fileId
+                        const fileName = this.extractFileNameFromUrl(certification.file);
+                        const fileResult = await this.fileService.uploadFile({
+                            fileUrl: certification.file,
+                            originalName: fileName,
+                            entityType: 'employee',
+                            entityId: empId,
+                            fileType: 'certification',
+                            description: `Certification: ${certification.certificate_name}`,
+                            createdBy: empId
+                        });
+
+                        // Add certification with fileId to employee
+                        await this.empModel.updateOne(
+                            { _id: empId },
+                            {
+                                $push: {
+                                    certifications: {
+                                        ...certification,
+                                        fileId: new Types.ObjectId(fileResult.fileId)
+                                    }
+                                }
+                            }
+                        );
+                    } else {
+                        // Add certification without fileId
+                        await this.empModel.updateOne(
+                            { _id: empId },
+                            { $push: { certifications: certification } }
                         );
                     }
                 }
             }
 
+            // Process legal documents and add with fileId references
             if (employee.legal_documents && employee.legal_documents.length > 0) {
                 for (const document of employee.legal_documents) {
                     if (document.file) {
-                        await this.fileVersionService.createEmployeeFileVersion(
-                            document.file,
-                            savedEmp._id.toString(),
-                            'legal_document',
-                            'legal_document',
-                            document.name
+                        // Create file and get fileId
+                        const fileName = this.extractFileNameFromUrl(document.file);
+                        const fileResult = await this.fileService.uploadFile({
+                            fileUrl: document.file,
+                            originalName: fileName,
+                            entityType: 'employee',
+                            entityId: empId,
+                            fileType: 'legal_document',
+                            description: `Legal Document: ${document.name}`,
+                            createdBy: empId
+                        });
+
+                        // Add document with fileId to employee
+                        await this.empModel.updateOne(
+                            { _id: empId },
+                            {
+                                $push: {
+                                    legal_documents: {
+                                        ...document,
+                                        fileId: new Types.ObjectId(fileResult.fileId)
+                                    }
+                                }
+                            }
+                        );
+                    } else {
+                        // Add document without fileId
+                        await this.empModel.updateOne(
+                            { _id: empId },
+                            { $push: { legal_documents: document } }
                         );
                     }
                 }
             }
 
-            return savedEmp;
+            // Return the updated employee with populated file data
+            return await this.empModel.findById(empId)
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles"
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department"
+                })
+                .populate({
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .populate({
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .exec();
         } catch (error) {
             console.error('Error creating employee:', error);
             throw new InternalServerErrorException(
@@ -225,89 +313,203 @@ export class EmpService {
                 updateEmpDto.password = hashedNewPassword;
             }
 
-            // معالجة تحديث الشهادات والوثائق القانونية إذا وجدت
+            // Handle certifications updates with fileId
             if (updateEmpDto.certifications && updateEmpDto.certifications.length > 0) {
                 const existingCertifications = empExist.certifications || [];
 
-                for (let i = 0; i < updateEmpDto.certifications.length; i++) {
-                    const newCert = updateEmpDto.certifications[i];
+                // Create a copy of existing certifications to work with
+                const updatedCertifications = [...existingCertifications];
 
-                    // البحث عن الشهادة الموجودة بنفس الاسم
-                    const existingCertIndex = existingCertifications.findIndex(
-                        cert => cert.certificate_name === newCert.certificate_name
+                for (const newCert of updateEmpDto.certifications) {
+                    // Find existing certification by name
+                    const existingIndex = updatedCertifications.findIndex(
+                        c => c.certificate_name === newCert.certificate_name
                     );
 
-                    if (existingCertIndex === -1) {
-                        // شهادة جديدة
+                    if (existingIndex === -1) {
+                        // New certification
+                        let certToAdd = { ...newCert };
+
+                        // Process file if present
                         if (newCert.file) {
-                            await this.fileVersionService.createEmployeeFileVersion(
-                                newCert.file,
-                                id,
-                                'certification',
-                                'certification',
-                                newCert.certificate_name
-                            );
+                            const fileName = this.extractFileNameFromUrl(newCert.file);
+                            const fileResult = await this.fileService.uploadFile({
+                                fileUrl: newCert.file,
+                                originalName: fileName,
+                                entityType: 'employee',
+                                entityId: id,
+                                fileType: 'certification',
+                                description: `Certification: ${newCert.certificate_name}`,
+                                createdBy: id
+                            });
+
+                            certToAdd.fileId = new Types.ObjectId(fileResult.fileId);
                         }
+
+                        // Add to array
+                        updatedCertifications.push(certToAdd);
                     } else {
-                        // تحديث شهادة موجودة
-                        const existingCert = existingCertifications[existingCertIndex];
+                        // Update existing certification
+                        const existingCert = updatedCertifications[existingIndex];
+
+                        // Update basic fields
+                        updatedCertifications[existingIndex] = {
+                            ...existingCert,
+                            ...newCert
+                        };
+
+                        // Process file if changed
                         if (newCert.file && newCert.file !== existingCert.file) {
-                            await this.fileVersionService.createEmployeeFileVersion(
-                                newCert.file,
-                                id,
-                                'certification',
-                                'certification',
-                                newCert.certificate_name
-                            );
+                            const fileName = this.extractFileNameFromUrl(newCert.file);
+
+                            if (existingCert.fileId) {
+                                // Update existing file with new version
+                                await this.fileService.uploadFile({
+                                    fileUrl: newCert.file,
+                                    originalName: fileName,
+                                    entityType: 'employee',
+                                    entityId: id,
+                                    fileType: 'certification',
+                                    description: `Certification: ${newCert.certificate_name}`,
+                                    createdBy: id
+                                });
+                            } else {
+                                // Create new file
+                                const fileResult = await this.fileService.uploadFile({
+                                    fileUrl: newCert.file,
+                                    originalName: fileName,
+                                    entityType: 'employee',
+                                    entityId: id,
+                                    fileType: 'certification',
+                                    description: `Certification: ${newCert.certificate_name}`,
+                                    createdBy: id
+                                });
+
+                                updatedCertifications[existingIndex].fileId = new Types.ObjectId(fileResult.fileId);
+                            }
                         }
                     }
                 }
+
+                // Replace certifications in the update DTO
+                updateEmpDto.certifications = updatedCertifications;
             }
 
+            // Handle legal documents updates with fileId
             if (updateEmpDto.legal_documents && updateEmpDto.legal_documents.length > 0) {
                 const existingDocs = empExist.legal_documents || [];
 
-                for (let i = 0; i < updateEmpDto.legal_documents.length; i++) {
-                    const newDoc = updateEmpDto.legal_documents[i];
+                // Create a copy of existing documents to work with
+                const updatedDocs = [...existingDocs];
 
-                    // البحث عن الوثيقة الموجودة بنفس الاسم
-                    const existingDocIndex = existingDocs.findIndex(
-                        doc => doc.name === newDoc.name
+                for (const newDoc of updateEmpDto.legal_documents) {
+                    // Find existing document by name
+                    const existingIndex = updatedDocs.findIndex(
+                        d => d.name === newDoc.name
                     );
 
-                    if (existingDocIndex === -1) {
-                        // وثيقة جديدة
+                    if (existingIndex === -1) {
+                        // New document
+                        let docToAdd = { ...newDoc };
+
+                        // Process file if present
                         if (newDoc.file) {
-                            await this.fileVersionService.createEmployeeFileVersion(
-                                newDoc.file,
-                                id,
-                                'legal_document',
-                                'legal_document',
-                                newDoc.name
-                            );
+                            const fileName = this.extractFileNameFromUrl(newDoc.file);
+                            const fileResult = await this.fileService.uploadFile({
+                                fileUrl: newDoc.file,
+                                originalName: fileName,
+                                entityType: 'employee',
+                                entityId: id,
+                                fileType: 'legal_document',
+                                description: `Legal Document: ${newDoc.name}`,
+                                createdBy: id
+                            });
+
+                            docToAdd.fileId = new Types.ObjectId(fileResult.fileId);
                         }
+
+                        // Add to array
+                        updatedDocs.push(docToAdd);
                     } else {
-                        // تحديث وثيقة موجودة
-                        const existingDoc = existingDocs[existingDocIndex];
+                        // Update existing document
+                        const existingDoc = updatedDocs[existingIndex];
+
+                        // Update basic fields
+                        updatedDocs[existingIndex] = {
+                            ...existingDoc,
+                            ...newDoc
+                        };
+
+                        // Process file if changed
                         if (newDoc.file && newDoc.file !== existingDoc.file) {
-                            await this.fileVersionService.createEmployeeFileVersion(
-                                newDoc.file,
-                                id,
-                                'legal_document',
-                                'legal_document',
-                                newDoc.name
-                            );
+                            const fileName = this.extractFileNameFromUrl(newDoc.file);
+
+                            if (existingDoc.fileId) {
+                                // Update existing file with new version
+                                await this.fileService.uploadFile({
+                                    fileUrl: newDoc.file,
+                                    originalName: fileName,
+                                    entityType: 'employee',
+                                    entityId: id,
+                                    fileType: 'legal_document',
+                                    description: `Legal Document: ${newDoc.name}`,
+                                    createdBy: id
+                                });
+                            } else {
+                                // Create new file
+                                const fileResult = await this.fileService.uploadFile({
+                                    fileUrl: newDoc.file,
+                                    originalName: fileName,
+                                    entityType: 'employee',
+                                    entityId: id,
+                                    fileType: 'legal_document',
+                                    description: `Legal Document: ${newDoc.name}`,
+                                    createdBy: id
+                                });
+
+                                updatedDocs[existingIndex].fileId = new Types.ObjectId(fileResult.fileId);
+                            }
                         }
                     }
                 }
+
+                // Replace legal_documents in the update DTO
+                updateEmpDto.legal_documents = updatedDocs;
             }
 
-            return await this.empModel.findByIdAndUpdate(id, updateEmpDto, { runValidators: true, new: true }).exec();
+            // Update employee with populated references
+            return await this.empModel.findByIdAndUpdate(
+                id,
+                updateEmpDto,
+                { runValidators: true, new: true }
+            )
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles"
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department"
+                })
+                .populate({
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .populate({
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .exec();
         } catch (error) {
             throw new InternalServerErrorException('Failed to update employee', error.message);
         }
     }
-
     /**
      * إضافة شهادة جديدة للموظف
      */
@@ -320,13 +522,16 @@ export class EmpService {
 
             // إذا كان هناك ملف، قم بإنشاء نسخة له
             if (certificationData.file) {
-                await this.fileVersionService.createEmployeeFileVersion(
-                    certificationData.file,
-                    empId,
-                    'certification',
-                    'certification',
-                    certificationData.certificate_name
-                );
+                const fileName = this.extractFileNameFromUrl(certificationData.file);
+                await this.fileService.uploadFile({
+                    fileUrl: certificationData.file,
+                    originalName: fileName,
+                    entityType: 'employee',
+                    entityId: empId,
+                    fileType: 'certification',
+                    description: `Certification: ${certificationData.certificate_name}`,
+                    createdBy: empId
+                });
             }
 
             // إضافة الشهادة للموظف
@@ -362,13 +567,16 @@ export class EmpService {
 
             // إذا كان ملف الشهادة قد تغير، قم بإنشاء نسخة جديدة
             if (certificationData.file && certificationData.file !== oldCertification.file) {
-                await this.fileVersionService.createEmployeeFileVersion(
-                    certificationData.file,
-                    empId,
-                    'certification',
-                    'certification',
-                    certificationData.certificate_name || oldCertification.certificate_name
-                );
+                const fileName = this.extractFileNameFromUrl(certificationData.file);
+                await this.fileService.uploadFile({
+                    fileUrl: certificationData.file,
+                    originalName: fileName,
+                    entityType: 'employee',
+                    entityId: empId,
+                    fileType: 'certification',
+                    description: `Certification: ${certificationData.certificate_name || oldCertification.certificate_name}`,
+                    createdBy: empId
+                });
             }
 
             // تحديث الشهادة
@@ -402,13 +610,16 @@ export class EmpService {
 
             // إذا كان هناك ملف، قم بإنشاء نسخة له
             if (documentData.file) {
-                await this.fileVersionService.createEmployeeFileVersion(
-                    documentData.file,
-                    empId,
-                    'legal_document',
-                    'legal_document',
-                    documentData.name
-                );
+                const fileName = this.extractFileNameFromUrl(documentData.file);
+                await this.fileService.uploadFile({
+                    fileUrl: documentData.file,
+                    originalName: fileName,
+                    entityType: 'employee',
+                    entityId: empId,
+                    fileType: 'legal_document',
+                    description: `Legal Document: ${documentData.name}`,
+                    createdBy: empId
+                });
             }
 
             // إضافة الوثيقة للموظف
@@ -444,13 +655,16 @@ export class EmpService {
 
             // إذا كان ملف الوثيقة قد تغير، قم بإنشاء نسخة جديدة
             if (documentData.file && documentData.file !== oldDocument.file) {
-                await this.fileVersionService.createEmployeeFileVersion(
-                    documentData.file,
-                    empId,
-                    'legal_document',
-                    'legal_document',
-                    documentData.name || oldDocument.name
-                );
+                const fileName = this.extractFileNameFromUrl(documentData.file);
+                await this.fileService.uploadFile({
+                    fileUrl: documentData.file,
+                    originalName: fileName,
+                    entityType: 'employee',
+                    entityId: empId,
+                    fileType: 'legal_document',
+                    description: `Legal Document: ${documentData.name || oldDocument.name}`,
+                    createdBy: empId
+                });
             }
 
             // تحديث الوثيقة
@@ -475,46 +689,88 @@ export class EmpService {
     /**
      * الحصول على جميع نسخ ملف شهادة
      */
-    async getCertificationFileVersions(empId: string, certificationName: string, fileName: string): Promise<any[]> {
-        return this.fileVersionService.getEmployeeFileVersions(
-            fileName,
-            empId,
-            'certification',
-            'certification',
-            certificationName
-        );
+    async getCertificationFileVersions(empId: string, certificationName: string): Promise<any[]> {
+        try {
+            // Get all certification files by entity
+            const files = await this.fileService.getFilesByEntity(
+                'employee',
+                empId,
+                'certification'
+            );
+
+            // Filter files by the certification name in the description
+            return files.filter(file =>
+                file.description &&
+                file.description.includes(`Certification: ${certificationName}`)
+            );
+        } catch (error) {
+            console.error('Error getting certification file versions:', error);
+            return [];
+        }
     }
 
     /**
      * الحصول على جميع نسخ ملف وثيقة قانونية
      */
-    async getLegalDocumentFileVersions(empId: string, documentName: string, fileName: string): Promise<any[]> {
-        return this.fileVersionService.getEmployeeFileVersions(
-            fileName,
-            empId,
-            'legal_document',
-            'legal_document',
-            documentName
-        );
+    async getLegalDocumentFileVersions(empId: string, documentName: string): Promise<any[]> {
+        try {
+            // Get all legal document files by entity
+            const files = await this.fileService.getFilesByEntity(
+                'employee',
+                empId,
+                'legal_document'
+            );
+
+            // Filter files by the document name in the description
+            return files.filter(file =>
+                file.description &&
+                file.description.includes(`Legal Document: ${documentName}`)
+            );
+        } catch (error) {
+            console.error('Error getting legal document file versions:', error);
+            return [];
+        }
     }
+
+
+
 
     async findByEmail(email: string): Promise<EmpDocument | null> {
         try {
-            const emp = await this.empModel.findOne({ email: email }).populate({
-                path: "job_id",
-                model: "JobTitles",
-                populate: {
-                    path: "category",
-                    model: "JobCategory"
-                }
-            }).populate({
-                path: "department_id",
-                model: "Department",
-                populate: {
-                    path: "parent_department_id",
-                    model: "Department"
-                }
-            }).lean().exec();
+            const emp = await this.empModel.findOne({ email: email })
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory"
+                    }
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: "parent_department_id",
+                        model: "Department"
+                    }
+                })
+                // Add fileId populations
+                .populate({
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .populate({
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .lean()
+                .exec();
             if (emp) {
                 return emp;
             }
@@ -526,26 +782,46 @@ export class EmpService {
 
     async findByIdWithRolesAndPermissions(id: string): Promise<Emp | null> {
         try {
-            const emp = await this.empModel.findById(id).populate({
-                path: "job_id",
-                model: "JobTitles"
-            }).populate({
-                path: "department_id",
-                model: "Department",
-                populate: {
-                    path: "parent_department_id",
-                    model: "Department"
-                }
-            }).populate({
-                path: 'roles',
-                populate: {
-                    path: 'permissions',
-                    model: 'Permission'
-                }
-            }).populate({
-                path: "supervisor_id",
-                model: "Emp"
-            }).exec();
+            const emp = await this.empModel.findById(id)
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles"
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: "parent_department_id",
+                        model: "Department"
+                    }
+                })
+                .populate({
+                    path: 'roles',
+                    populate: {
+                        path: 'permissions',
+                        model: 'Permission'
+                    }
+                })
+                .populate({
+                    path: "supervisor_id",
+                    model: "Emp"
+                })
+                // Add fileId populations
+                .populate({
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .populate({
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .exec();
 
             if (!emp) {
                 throw new NotFoundException('Employee not found');
@@ -557,29 +833,48 @@ export class EmpService {
         }
     }
 
+
     async findById(id: string): Promise<EmpDocument | null> {
         try {
-            const emp = await this.empModel.findById(id).populate({
-                path: "job_id",
-                model: "JobTitles",
-                populate: {
-                    path: "category",
-                    model: "JobCategory"
-                }
-            }).populate({
-                path: "department_id",
-                model: "Department",
-                populate: {
-                    path: "parent_department_id",
-                    model: "Department"
-                }
-            }).lean().exec();
+            const emp = await this.empModel.findById(id)
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory"
+                    }
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: "parent_department_id",
+                        model: "Department"
+                    }
+                })
+                // Add fileId populations
+                .populate({
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .populate({
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .lean()
+                .exec();
             return emp;
         } catch (error) {
             throw new InternalServerErrorException('Failed to find employee by ID', error.message);
         }
     }
-
 
     async findDepartmentIdByEmpId(id: string) {
         try {
@@ -589,6 +884,8 @@ export class EmpService {
             throw new InternalServerErrorException('Failed to find employee by ID', error.message);
         }
     }
+
+
 
     async needsPasswordChange(empId: string): Promise<boolean> {
         try {
@@ -619,31 +916,53 @@ export class EmpService {
 
     async getEmpByDepartment(depId: string): Promise<GetEmpDto[]> {
         try {
-            const emps = await this.empModel.find({ department_id: depId }).populate({
-                path: "job_id",
-                model: "JobTitles",
-                populate: {
-                    path: "category",
-                    model: "JobCategory"
-                }
-            }).populate({
-                path: "department_id",
-                model: "Department",
-                populate: {
-                    path: "parent_department_id",
-                    model: "Department"
-                }
-            }).lean().exec();
+            const emps = await this.empModel.find({ department_id: depId })
+                .populate({
+                    path: "job_id",
+                    model: "JobTitles",
+                    populate: {
+                        path: "category",
+                        model: "JobCategory"
+                    }
+                })
+                .populate({
+                    path: "department_id",
+                    model: "Department",
+                    populate: {
+                        path: "parent_department_id",
+                        model: "Department"
+                    }
+                })
+                // Add fileId populations
+                .populate({
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .populate({
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                })
+                .lean()
+                .exec();
             return emps.map(emp => new GetEmpDto(emp));
         } catch (error) {
             throw new InternalServerErrorException('Failed to fetch employees by department', error.message);
         }
     }
 
-    async getMyEmp(deptId: string) {
-        return await this.empModel.find({ department_id: deptId }).exec();
-    }
 
+    async getMyEmp(deptId: string) {
+        return await this.empModel.find({ department_id: deptId })
+            .populate("certifications.fileId")
+            .populate("legal_documents.fileId")
+            .exec();
+    }
     async buildEmployeeTree(id: string, start: boolean = true): Promise<{ tree: any[], info: any[] }> {
         let allEmployees: any[] = [];
         let info: any[] = [];
@@ -667,6 +986,21 @@ export class EmpService {
                     populate: {
                         path: 'parent_department_id',
                         model: "Department"
+                    }
+                },
+                // Add fileId populations
+                {
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                },
+                {
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
                     }
                 }
             ])
@@ -706,6 +1040,21 @@ export class EmpService {
                         path: 'parent_department_id',
                         model: "Department"
                     }
+                },
+                // Add fileId populations
+                {
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                },
+                {
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
                 }
             ]).lean().exec() as any;
             emps.map((emp) => {
@@ -742,6 +1091,21 @@ export class EmpService {
                     populate: {
                         path: 'parent_department_id',
                         model: "Department"
+                    }
+                },
+                // Add fileId populations
+                {
+                    path: "certifications.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
+                    }
+                },
+                {
+                    path: "legal_documents.fileId",
+                    model: "File",
+                    populate: {
+                        path: "currentVersion"
                     }
                 }
             ])

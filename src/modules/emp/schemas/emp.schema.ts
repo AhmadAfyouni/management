@@ -12,7 +12,12 @@ import { LegalDocument } from './legalDocument.schema';
 
 export type EmpDocument = Emp & Document;
 
-@Schema({ timestamps: true })
+@Schema({
+    timestamps: true,
+    // Enable virtuals for population 
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+})
 export class Emp {
     _id: Types.ObjectId;
 
@@ -84,6 +89,7 @@ export class Emp {
 
     @Prop({ type: String, enum: UserRole, required: true, default: UserRole.SECONDARY_USER })
     role: UserRole;
+
     @Prop()
     parentId?: string;
 }

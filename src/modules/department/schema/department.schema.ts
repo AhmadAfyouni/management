@@ -32,21 +32,21 @@ export class Department {
     })
     numericOwners: Array<{ category: string; count: number }>;
 
-    @Prop({ type: [String], default: [] })
-    supportingFiles: string[];
+    @Prop({ type: [{ type: Types.ObjectId, ref: 'File' }], default: [] })
+    supportingFiles: Types.ObjectId[];
 
     @Prop({
         type: [
             {
                 name: { type: String, required: true },
-                templateFile: { type: String, required: true }
+                templateFileId: { type: Types.ObjectId, ref: 'File', required: true }
             }
         ],
         default: []
     })
     requiredReports: Array<{
         name: string;
-        templateFile: string;
+        templateFileId: Types.ObjectId;
     }>;
 
     @Prop({
@@ -55,7 +55,7 @@ export class Department {
                 programName: { type: String, required: true },
                 objective: { type: String, required: true },
                 notes: { type: String, default: null },
-                programFile: { type: String, default: null }
+                programFileId: { type: Types.ObjectId, ref: 'File', default: undefined }
             }
         ],
         default: []
@@ -64,7 +64,7 @@ export class Department {
         programName: string;
         objective: string;
         notes?: string;
-        programFile?: string;
+        programFileId?: Types.ObjectId;
     }>;
 }
 

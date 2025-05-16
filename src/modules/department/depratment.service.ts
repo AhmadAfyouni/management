@@ -4,14 +4,13 @@ import { Model, Types } from 'mongoose';
 import { DepartmentDocument } from './schema/department.schema';
 import { GetDepartmentDto } from './dto/get-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { CreateDepartmentDto } from './dto/create-department.dto';
 import { EmpService } from '../emp/emp.service';
 import { ConfigService } from '@nestjs/config';
-import { FileUploadService } from '../upload';
 import { NotificationService } from '../notification/notification.service';
-import { FileVersionService } from '../file-version/file-version.service';
 import { PaginationService } from 'src/common/services/pagination.service';
 import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
-
+import { FileService } from '../file-manager/file-manager.service';
 
 @Injectable()
 export class DepartmentService {
@@ -22,7 +21,7 @@ export class DepartmentService {
         private readonly empService: EmpService,
         private configService: ConfigService,
         private readonly notificationService: NotificationService,
-        private readonly fileVersionService: FileVersionService,
+        private readonly fileService: FileService,
         private readonly paginationService: PaginationService,
     ) { }
 
@@ -41,66 +40,132 @@ export class DepartmentService {
     }
 
 
-    async createDeptWithFiles(deptDto: any, empId: string): Promise<any> {
+
+    async createDepartment(deptDto: CreateDepartmentDto, empId: string): Promise<any> {
         try {
             const { parent_department_id, supportingFiles, requiredReports, developmentPrograms, ...rest } = deptDto;
 
+            // Create the department first
             const dept = new this.departmentModel({
                 ...rest,
                 parent_department_id: parent_department_id ? new Types.ObjectId(parent_department_id) : undefined,
+                supportingFiles: [],
+                requiredReports: [],
+                developmentPrograms: []
             });
 
             await dept.save();
             const departmentId = dept._id.toString();
 
+            // Process supporting files
             if (supportingFiles && supportingFiles.length > 0) {
+                let fileIds: Types.ObjectId[] = [];
                 for (const fileUrl of supportingFiles) {
-                    await this.fileVersionService.createDepartmentFileVersion(fileUrl, departmentId, 'supporting');
+                    // Process new file URL
+                    const fileName = this.extractFileNameFromUrl(fileUrl);
+                    const fileResult = await this.fileService.uploadFile({
+                        fileUrl,
+                        originalName: fileName,
+                        entityType: 'department',
+                        entityId: departmentId,
+                        fileType: 'supporting',  // Explicitly set file type
+                        createdBy: empId
+                    });
+                    const o = new Types.ObjectId(fileResult.fileId);
+                    fileIds.push(o);
                 }
-                dept.supportingFiles = supportingFiles;
+                dept.supportingFiles = fileIds;
             }
 
+            // Process required reports
             if (requiredReports && requiredReports.length > 0) {
                 const processedReports = await Promise.all(
                     requiredReports.map(async (report: any) => {
                         if (report.templateFile) {
-                            await this.fileVersionService.createDepartmentFileVersion(
-                                report.templateFile,
-                                departmentId,
-                                'template'
-                            );
+                            // Skip if it's already a MongoDB ID (already processed file)
+                            if (this.isMongoId(report.templateFile)) {
+                                return {
+                                    name: report.name,
+                                    templateFileId: new Types.ObjectId(report.templateFile)
+                                };
+                            }
+
+                            // Process new file URL
+                            const fileName = this.extractFileNameFromUrl(report.templateFile);
+                            const fileResult = await this.fileService.uploadFile({
+                                fileUrl: report.templateFile,
+                                originalName: fileName,
+                                entityType: 'department',
+                                entityId: departmentId,
+                                fileType: 'template',  // Explicitly set file type
+                                description: `Template for ${report.name}`,
+                                createdBy: empId
+                            });
+                            return {
+                                name: report.name,
+                                templateFileId: new Types.ObjectId(fileResult.fileId)
+                            };
                         }
-                        return report;
+                        return null;
                     })
                 );
-                dept.requiredReports = processedReports;
+                // Filter out null values before assigning
+                const validReports = processedReports.filter((report): report is { name: string; templateFileId: Types.ObjectId } =>
+                    report !== null
+                );
+                dept.requiredReports = validReports;
             }
 
+            // Process development programs
             if (developmentPrograms && developmentPrograms.length > 0) {
                 const processedPrograms = await Promise.all(
                     developmentPrograms.map(async (program: any) => {
+                        const result: {
+                            programName: string;
+                            objective: string;
+                            notes: string | null;
+                            programFileId?: Types.ObjectId;
+                        } = {
+                            programName: program.programName,
+                            objective: program.objective,
+                            notes: program.notes || null
+                        };
+
                         if (program.programFile) {
-                            await this.fileVersionService.createDepartmentFileVersion(
-                                program.programFile,
-                                departmentId,
-                                'program'
-                            );
+                            // Skip if it's already a MongoDB ID (already processed file)
+                            if (this.isMongoId(program.programFile)) {
+                                result.programFileId = new Types.ObjectId(program.programFile);
+                            } else {
+                                // Process new file URL
+                                const fileName = this.extractFileNameFromUrl(program.programFile);
+                                const fileResult = await this.fileService.uploadFile({
+                                    fileUrl: program.programFile,
+                                    originalName: fileName,
+                                    entityType: 'department',
+                                    entityId: departmentId,
+                                    fileType: 'program',  // Explicitly set file type
+                                    description: `Program for ${program.programName}`,
+                                    createdBy: empId
+                                });
+                                result.programFileId = new Types.ObjectId(fileResult.fileId);
+                            }
                         }
-                        return program;
+
+                        return result;
                     })
                 );
-                dept.developmentPrograms = processedPrograms;
+                dept.developmentPrograms = processedPrograms as any;
             }
 
             await dept.save();
 
-            const updatedDept = await this.departmentModel.findById(departmentId).exec();
+            const updatedDept = await this.populateDepartment(departmentId);
             await this.notificationService.notifyDepartmentCreated(updatedDept!, empId);
 
             return {
                 message: "تم إنشاء القسم بنجاح مع الملفات",
                 status: true,
-                department: updatedDept
+                department: new GetDepartmentDto(updatedDept)
             };
         } catch (error) {
             console.error("خطأ في إنشاء القسم مع الملفات:", error);
@@ -108,16 +173,76 @@ export class DepartmentService {
         }
     }
 
+    // Helper method to populate all file-related data in a department
+    private async populateDepartment(departmentId: string): Promise<DepartmentDocument | null> {
+        return this.departmentModel.findById(departmentId)
+            .populate({
+                path: 'supportingFiles',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'requiredReports.templateFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'developmentPrograms.programFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .exec();
+    }
 
+    // Alias to maintain backward compatibility
+    async createDeptWithFiles(deptDto: CreateDepartmentDto, empId: string): Promise<any> {
+        return this.createDepartment(deptDto, empId);
+    }
 
+    private extractFileNameFromUrl(url: string): string {
+        if (!url) return 'unnamed_file';
+
+        try {
+            const urlParts = url.split('/');
+            return urlParts[urlParts.length - 1];
+        } catch (error) {
+            console.error("Error extracting filename from URL:", error);
+            return 'unnamed_file';
+        }
+    }
+    private isMongoId(str: string): boolean {
+        return /^[0-9a-fA-F]{24}$/.test(str);
+    }
 
     async findByName(name: string): Promise<GetDepartmentDto | null> {
-        const dept = await this.departmentModel.findOne({ name }).exec();
+        const dept = await this.departmentModel.findOne({ name })
+            .populate({
+                path: 'supportingFiles',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'requiredReports.templateFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'developmentPrograms.programFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .exec();
         return dept ? new GetDepartmentDto(dept) : null;
     }
 
     async findById(id: string): Promise<GetDepartmentDto | null> {
-        const dept = await this.departmentModel.findById(id).populate("parent_department_id").exec();
+        const dept = await this.populateDepartment(id);
         return dept ? new GetDepartmentDto(dept) : null;
     }
 
@@ -125,7 +250,26 @@ export class DepartmentService {
         try {
             const departments = await this.departmentModel.find({
                 parent_department_id: { $ne: null }
-            }).exec();
+            })
+                .populate({
+                    path: 'supportingFiles',
+                    populate: {
+                        path: 'currentVersion'
+                    }
+                })
+                .populate({
+                    path: 'requiredReports.templateFileId',
+                    populate: {
+                        path: 'currentVersion'
+                    }
+                })
+                .populate({
+                    path: 'developmentPrograms.programFileId',
+                    populate: {
+                        path: 'currentVersion'
+                    }
+                })
+                .exec();
             return departments.map(dept => new GetDepartmentDto(dept));
         } catch (error) {
             console.error('Error finding departments with non-null parent_department_id:', error);
@@ -133,7 +277,7 @@ export class DepartmentService {
         }
     }
 
-    async updateDept(id: string, deptDto: UpdateDepartmentDto): Promise<any> {
+    async updateDept(id: string, deptDto: UpdateDepartmentDto, empId?: string): Promise<any> {
         try {
             const { parent_department_id, supportingFiles, requiredReports, developmentPrograms, ...rest } = deptDto;
 
@@ -142,71 +286,159 @@ export class DepartmentService {
                 throw new NotFoundException(`لم يتم العثور على قسم بالمعرف ${id}`);
             }
 
+            // Process supporting files
             if (supportingFiles && supportingFiles.length > 0) {
+                const fileIds = [...(existingDept.supportingFiles || []).map(id =>
+                    typeof id === 'object' && id !== null ? id.toString() : id
+                )];
+
                 for (const fileUrl of supportingFiles) {
-                    const fileExists = existingDept.supportingFiles.includes(fileUrl);
-                    if (!fileExists) {
-                        await this.fileVersionService.createDepartmentFileVersion(fileUrl, id, 'supporting');
+                    // Skip if it's already in our list
+                    if (fileIds.includes(fileUrl)) {
+                        continue;
+                    }
+
+                    // Check if it's a MongoDB ID or a new file URL
+                    if (this.isMongoId(fileUrl)) {
+                        fileIds.push(fileUrl);
+                    } else {
+                        // This is a new file URL
+                        const fileName = this.extractFileNameFromUrl(fileUrl);
+                        const fileResult = await this.fileService.uploadFile({
+                            fileUrl,
+                            originalName: fileName,
+                            entityType: 'department',
+                            entityId: id,
+                            fileType: 'supporting',
+                            createdBy: empId
+                        });
+                        fileIds.push(fileResult.fileId);
                     }
                 }
+
+                existingDept.supportingFiles = fileIds.map(fileId => new Types.ObjectId(fileId));
             }
 
+            // Process required reports
             if (requiredReports && requiredReports.length > 0) {
-                for (const report of requiredReports) {
-                    if (report.templateFile) {
-                        const existingReport = existingDept.requiredReports.find(r => r.name === report.name);
+                const processedReports = await Promise.all(
+                    requiredReports.map(async (report: any) => {
+                        // Find existing report with the same name
+                        const existingReport = existingDept.requiredReports?.find(r => r.name === report.name);
 
-                        if (!existingReport || existingReport.templateFile !== report.templateFile) {
-                            await this.fileVersionService.createDepartmentFileVersion(report.templateFile, id, 'template');
+                        if (report.templateFile) {
+                            // Check if this is a file ID reference or a new file URL
+                            if (this.isMongoId(report.templateFile)) {
+                                return {
+                                    name: report.name,
+                                    templateFileId: new Types.ObjectId(report.templateFile)
+                                };
+                            } else {
+                                // This is a new file URL
+                                const fileName = this.extractFileNameFromUrl(report.templateFile);
+                                const fileResult = await this.fileService.uploadFile({
+                                    fileUrl: report.templateFile,
+                                    originalName: fileName,
+                                    entityType: 'department',
+                                    entityId: id,
+                                    fileType: 'template',
+                                    description: `Template for ${report.name}`,
+                                    createdBy: empId
+                                });
+                                return {
+                                    name: report.name,
+                                    templateFileId: new Types.ObjectId(fileResult.fileId)
+                                };
+                            }
+                        } else if (existingReport && existingReport.templateFileId) {
+                            // Keep existing template file if no new one provided
+                            return {
+                                name: report.name,
+                                templateFileId: existingReport.templateFileId
+                            };
                         }
-                    }
-                }
+
+                        return null;
+                    })
+                );
+
+                // Filter out null values before assigning
+                const validReports = processedReports.filter((report): report is { name: string; templateFileId: Types.ObjectId } =>
+                    report !== null
+                );
+                existingDept.requiredReports = validReports;
             }
 
+            // Process development programs
             if (developmentPrograms && developmentPrograms.length > 0) {
-                for (const program of developmentPrograms) {
-                    if (program.programFile) {
-                        const existingProgram = existingDept.developmentPrograms.find(
+                const processedPrograms = await Promise.all(
+                    developmentPrograms.map(async (program: any) => {
+                        const existingProgram = existingDept.developmentPrograms?.find(
                             p => p.programName === program.programName
                         );
 
-                        if (!existingProgram || existingProgram.programFile !== program.programFile) {
-                            await this.fileVersionService.createDepartmentFileVersion(program.programFile, id, 'program');
+                        const result: {
+                            programName: string;
+                            objective: string;
+                            notes: string | null;
+                            programFileId?: Types.ObjectId;
+                        } = {
+                            programName: program.programName,
+                            objective: program.objective,
+                            notes: program.notes || null
+                        };
+
+                        if (program.programFile) {
+                            // Check if this is a file ID reference or a new file URL
+                            if (this.isMongoId(program.programFile)) {
+                                result.programFileId = new Types.ObjectId(program.programFile);
+                            } else {
+                                // This is a new file URL
+                                const fileName = this.extractFileNameFromUrl(program.programFile);
+                                const fileResult = await this.fileService.uploadFile({
+                                    fileUrl: program.programFile,
+                                    originalName: fileName,
+                                    entityType: 'department',
+                                    entityId: id,
+                                    fileType: 'program',
+                                    description: `Program for ${program.programName}`,
+                                    createdBy: empId
+                                });
+                                result.programFileId = new Types.ObjectId(fileResult.fileId);
+                            }
+                        } else if (existingProgram && existingProgram.programFileId) {
+                            // Keep existing program file if no new one provided
+                            result.programFileId = existingProgram.programFileId;
                         }
-                    }
-                }
+
+                        return result;
+                    })
+                );
+
+                existingDept.developmentPrograms = processedPrograms as any;
             }
 
-            const result = await this.departmentModel.findByIdAndUpdate(
-                id,
-                {
-                    ...rest,
-                    parent_department_id: parent_department_id ? new Types.ObjectId(parent_department_id) : undefined,
-                    supportingFiles: supportingFiles || existingDept.supportingFiles,
-                    requiredReports: requiredReports || existingDept.requiredReports,
-                    developmentPrograms: developmentPrograms || existingDept.developmentPrograms
-                },
-                {
-                    new: true,
-                    runValidators: true,
-                }
-            ).exec();
+            // Update and save the department
+            Object.assign(existingDept, {
+                ...rest,
+                parent_department_id: parent_department_id ? new Types.ObjectId(parent_department_id) : existingDept.parent_department_id
+            });
 
+            await existingDept.save();
+
+            // Update parent-child relationship for managers if needed
             if (parent_department_id) {
                 const manager = await this.empService.findManagerByDepartment(parent_department_id.toString());
                 const manager2 = await this.empService.findManagerByDepartment(id);
 
                 if (manager && manager2) {
                     manager2.parentId = manager._id.toString();
-                    manager2.save();
+                    await manager2.save();
                 }
             }
 
-            if (!result) {
-                throw new NotFoundException(`لم يتم العثور على قسم بالمعرف ${id}`);
-            }
-
-            return new GetDepartmentDto(result);
+            const updatedDept = await this.populateDepartment(id);
+            return new GetDepartmentDto(updatedDept!);
         } catch (error) {
             if (error.name === 'CastError' && error.kind === 'ObjectId') {
                 throw new NotFoundException(`لم يتم العثور على قسم بالمعرف ${id}`);
@@ -215,20 +447,58 @@ export class DepartmentService {
         }
     }
 
-    async getFileVersions(departmentId: string, fileType: string, fileName: string): Promise<any[]> {
-        return await this.fileVersionService.getDepartmentFileVersions(fileName, departmentId, fileType);
+    async getFileVersions(fileId: string): Promise<any[]> {
+        return await this.fileService.getFileVersions(fileId);
     }
 
-
     private async getDepartmentWithSubDepartments(id: string): Promise<DepartmentDocument[]> {
-        const department = await this.departmentModel.findById(id).populate("parent_department_id").exec();
+        const department = await this.departmentModel.findById(id)
+            .populate({
+                path: 'supportingFiles',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'requiredReports.templateFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'developmentPrograms.programFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .exec();
+
         if (!department) {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
 
         const allSubDepartments: DepartmentDocument[] = [];
 
-        const subDepartments = await this.departmentModel.find({ parent_department_id: id }).exec();
+        const subDepartments = await this.departmentModel.find({ parent_department_id: id })
+            .populate({
+                path: 'supportingFiles',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'requiredReports.templateFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'developmentPrograms.programFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .exec();
 
         for (const subDept of subDepartments) {
             allSubDepartments.push(subDept, ...await this.getDepartmentWithSubDepartments(subDept._id.toString()));
@@ -236,7 +506,6 @@ export class DepartmentService {
 
         return [department, ...allSubDepartments];
     }
-
 
     async viewAccessDepartment(ids: string[]): Promise<any[]> {
         const results: any[] = [];
@@ -248,13 +517,36 @@ export class DepartmentService {
 
         return results;
     }
+
     private async buildDepartmentTree(
         id: string,
         accessibleDepartments?: string[]
     ): Promise<{ tree: any[], info: any[] }> {
         const objectId = new Types.ObjectId(id);
 
-        const department = await this.departmentModel.findById(objectId).exec();
+        const department = await this.departmentModel.findById(objectId)
+            .populate({
+                path: 'supportingFiles',
+                model: "File",
+                populate: {
+                    path: 'currentVersion',
+                    model: "FileVersion"
+                }
+            })
+            .populate({
+                path: 'requiredReports.templateFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'developmentPrograms.programFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .exec();
+
         if (!department) {
             throw new NotFoundException(`Department with ID ${id} not found`);
         }
@@ -272,7 +564,7 @@ export class DepartmentService {
                 return {
                     name: emp.name,
                     id: emp.id,
-                    title: emp.job.title
+                    title: emp.job?.title
                 }
             })
         };
@@ -282,6 +574,26 @@ export class DepartmentService {
 
         const subDepartments = await this.departmentModel
             .find({ parent_department_id: objectId })
+            .populate("parent_department_id")
+            .populate({
+                path: 'supportingFiles',
+                model: "File",
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'requiredReports.templateFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
+            .populate({
+                path: 'developmentPrograms.programFileId',
+                populate: {
+                    path: 'currentVersion'
+                }
+            })
             .exec();
 
         for (const subDept of subDepartments) {
@@ -290,7 +602,6 @@ export class DepartmentService {
             );
             departmentList.push(...subDepartmentList.tree);
             departmentInfoList.push(...subDepartmentList.info);
-
         }
 
         if (accessibleDepartments && accessibleDepartments.length > 0) {
@@ -306,12 +617,9 @@ export class DepartmentService {
         return { tree: departmentList, info: departmentInfoList };
     }
 
-
-
     async getDepartmentTree(departmentId: string, departments?: string[]): Promise<{ tree: any[], info: any[] }> {
         return await this.buildDepartmentTree(departmentId, departments);
     }
-
 
     async getMyLevelOne(departmentId: string) {
         let tree: any[];
@@ -331,5 +639,4 @@ export class DepartmentService {
         });
         return sub;
     }
-
 }

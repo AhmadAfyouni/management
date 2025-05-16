@@ -26,7 +26,7 @@ class RequiredReportDto {
 
     @IsString()
     @IsNotEmpty()
-    templateFile: string;
+    templateFile: string; // Can be either file URL or file ID
 }
 
 class DevelopmentProgramDto {
@@ -44,7 +44,7 @@ class DevelopmentProgramDto {
 
     @IsOptional()
     @IsString()
-    programFile?: string;
+    programFile?: string; // Can be either file URL or file ID
 }
 
 export class CreateDepartmentDto {
@@ -64,9 +64,9 @@ export class CreateDepartmentDto {
     @IsNotEmpty()
     mainTasks: string;
 
-    @IsMongoId()
     @IsOptional()
-    parent_department_id?: Types.ObjectId;
+    @IsString()
+    parent_department_id?: string;
 
     @IsArray()
     @ValidateNested({ each: true })
@@ -76,7 +76,8 @@ export class CreateDepartmentDto {
 
     @IsArray()
     @IsOptional()
-    supportingFiles?: string[];
+    @IsString({ each: true })
+    supportingFiles?: string[]; // Can be either file URLs or file IDs
 
     @IsArray()
     @ValidateNested({ each: true })

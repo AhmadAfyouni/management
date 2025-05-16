@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { FileVersionDocument } from './schema/file-version.schema';
+import { FileVersionDocument, FileVersionOld } from './schema/file-version.schema';
+import { EntityType, FileType, FileTypeString, UpdateFileVersionDto } from './dto/file-version.dto';
 
 /**
- * Service for managing file versions
+ * Enhanced service for managing file versions with Google Drive-like functionality
  */
 @Injectable()
 export class FileVersionService {
@@ -13,96 +14,42 @@ export class FileVersionService {
     ) { }
 
     /**
-     * Creates a new version of a department file
-     * @param fileUrl URL of the file
-     * @param departmentId ID of the department
-     * @param fileType Type of the file (supporting, template, program)
-     * @returns URL of the file
+     * Creates a new version of a file
+     * @param params File parameters including URL, type, entity IDs, and metadata
+     * @returns The file URL
      */
-    async createDepartmentFileVersion(
-        fileUrl: string,
-        departmentId: string,
-        fileType: string
-    ): Promise<string> {
-        return this.createNewVersion({
-            fileUrl,
-            fileType,
-            departmentId: new Types.ObjectId(departmentId)
-        });
-    }
-
-    /**
-     * Creates a new version of an employee file
-     * @param fileUrl URL of the file
-     * @param empId ID of the employee
-     * @param fileType Type of the file (certification, legal_document)
-     * @param documentType Type of document
-     * @param documentName Name of the document
-     * @returns URL of the file
-     */
-    async createEmployeeFileVersion(
-        fileUrl: string,
-        empId: string,
-        fileType: string,
-        documentType: string,
-        documentName?: string
-    ): Promise<string> {
-        return this.createNewVersion({
-            fileUrl,
-            fileType,
-            empId: new Types.ObjectId(empId),
-            documentType,
-            documentName
-        });
-    }
-
-    /**
-     * Creates a new version of a task file
-     * @param fileUrl URL of the file
-     * @param taskId ID of the task
-     * @param fileType Type of the file (task)
-     * @returns URL of the file
-     */
-    async createTaskFileVersion(
-        fileUrl: string,
-        taskId: string,
-        fileType: string
-    ): Promise<string> {
-        return this.createNewVersion({
-            fileUrl,
-            fileType,
-            taskId: new Types.ObjectId(taskId)
-        });
-    }
-
-    /**
-     * Core method to create a new file version
-     */
-    private async createNewVersion(params: {
+    async createNewFileVersion(params: {
         fileUrl: string;
-        fileType: string;
-        departmentId?: Types.ObjectId;
-        empId?: Types.ObjectId;
-        taskId?: Types.ObjectId;
+        fileType: FileType | FileTypeString;
+        originalName?: string;
+        departmentId?: string;
+        empId?: string;
+        taskId?: string;
         documentType?: string;
         documentName?: string;
+        description?: string;
+        createdBy?: string;
+        mimeType?: string;
+        fileSize?: number;
     }): Promise<string> {
         try {
-            // Extract filename from URL
-            const urlParts = params.fileUrl.split('/');
-            const originalFileName = urlParts[urlParts.length - 1];
+            // Extract filename from URL if not provided
+            if (!params.originalName) {
+                const urlParts = params.fileUrl.split('/');
+                params.originalName = urlParts[urlParts.length - 1];
+            }
 
             // Build search criteria based on the file and its associated entity
             const searchCriteria: any = {
-                originalName: originalFileName,
+                originalName: params.originalName,
                 fileType: params.fileType
             };
 
             // Add criteria based on the entity type
             if (params.departmentId) {
-                searchCriteria.departmentId = params.departmentId;
+                searchCriteria.departmentId = new Types.ObjectId(params.departmentId);
             } else if (params.empId) {
-                searchCriteria.empId = params.empId;
+                searchCriteria.empId = new Types.ObjectId(params.empId);
 
                 if (params.documentType) {
                     searchCriteria.documentType = params.documentType;
@@ -112,7 +59,7 @@ export class FileVersionService {
                     searchCriteria.documentName = params.documentName;
                 }
             } else if (params.taskId) {
-                searchCriteria.taskId = params.taskId;
+                searchCriteria.taskId = new Types.ObjectId(params.taskId);
             }
 
             // Find the highest version number for this file
@@ -123,17 +70,30 @@ export class FileVersionService {
             // Calculate new version number
             const newVersion = highestVersionDoc ? highestVersionDoc.version + 1 : 1;
 
+            // Set all existing versions as not current
+            if (highestVersionDoc) {
+                await this.fileVersionModel.updateMany(
+                    searchCriteria,
+                    { $set: { isCurrentVersion: false } }
+                );
+            }
+
             // Create and save the new version
             const fileVersion = new this.fileVersionModel({
-                originalName: originalFileName,
+                originalName: params.originalName,
                 fileUrl: params.fileUrl,
                 version: newVersion,
                 fileType: params.fileType,
-                ...(params.departmentId && { departmentId: params.departmentId }),
-                ...(params.empId && { empId: params.empId }),
-                ...(params.taskId && { taskId: params.taskId }),
+                isCurrentVersion: true,
+                ...(params.departmentId && { departmentId: new Types.ObjectId(params.departmentId) }),
+                ...(params.empId && { empId: new Types.ObjectId(params.empId) }),
+                ...(params.taskId && { taskId: new Types.ObjectId(params.taskId) }),
                 ...(params.documentType && { documentType: params.documentType }),
-                ...(params.documentName && { documentName: params.documentName })
+                ...(params.documentName && { documentName: params.documentName }),
+                ...(params.description && { description: params.description }),
+                ...(params.createdBy && { createdBy: new Types.ObjectId(params.createdBy) }),
+                ...(params.mimeType && { mimeType: params.mimeType }),
+                ...(params.fileSize && { fileSize: params.fileSize })
             });
 
             await fileVersion.save();
@@ -146,17 +106,156 @@ export class FileVersionService {
     }
 
     /**
+     * Creates a new version of a department file
+     */
+    async createDepartmentFileVersion(
+        fileUrl: string,
+        departmentId: string,
+        fileType: FileType | FileTypeString,
+        metadata?: {
+            description?: string;
+            createdBy?: string;
+            originalName?: string;
+            mimeType?: string;
+            fileSize?: number;
+        }
+    ): Promise<string> {
+        return this.createNewFileVersion({
+            fileUrl,
+            fileType,
+            departmentId,
+            originalName: metadata?.originalName,
+            description: metadata?.description,
+            createdBy: metadata?.createdBy,
+            mimeType: metadata?.mimeType,
+            fileSize: metadata?.fileSize
+        });
+    }
+
+    /**
+     * Creates a new version of an employee file
+     */
+    async createEmployeeFileVersion(
+        fileUrl: string,
+        empId: string,
+        fileType: FileType | FileTypeString,
+        documentType: string,
+        metadata?: {
+            documentName?: string;
+            description?: string;
+            createdBy?: string;
+            originalName?: string;
+            mimeType?: string;
+            fileSize?: number;
+        }
+    ): Promise<string> {
+        return this.createNewFileVersion({
+            fileUrl,
+            fileType,
+            empId,
+            documentType,
+            documentName: metadata?.documentName,
+            originalName: metadata?.originalName,
+            description: metadata?.description,
+            createdBy: metadata?.createdBy,
+            mimeType: metadata?.mimeType,
+            fileSize: metadata?.fileSize
+        });
+    }
+
+    /**
+     * Creates a new version of a task file
+     */
+    async createTaskFileVersion(
+        fileUrl: string,
+        taskId: string,
+        fileType: FileType | FileTypeString,
+        metadata?: {
+            description?: string;
+            createdBy?: string;
+            originalName?: string;
+            mimeType?: string;
+            fileSize?: number;
+        }
+    ): Promise<string> {
+        return this.createNewFileVersion({
+            fileUrl,
+            fileType,
+            taskId,
+            originalName: metadata?.originalName,
+            description: metadata?.description,
+            createdBy: metadata?.createdBy,
+            mimeType: metadata?.mimeType,
+            fileSize: metadata?.fileSize
+        });
+    }
+
+    /**
+     * Get all versions of a file
+     */
+    async getAllFileVersions(params: {
+        originalName: string;
+        fileType: FileType | FileTypeString;
+        entityType: EntityType | string;
+        entityId: string;
+        documentType?: string;
+        documentName?: string;
+    }): Promise<any[]> {
+        try {
+            const { originalName, fileType, entityType, entityId, documentType, documentName } = params;
+
+            const criteria: any = {
+                originalName,
+                fileType
+            };
+
+            // Set the appropriate entity ID field
+            if (entityType === EntityType.DEPARTMENT || entityType === 'department') {
+                criteria.departmentId = new Types.ObjectId(entityId);
+            } else if (entityType === EntityType.EMPLOYEE || entityType === 'employee') {
+                criteria.empId = new Types.ObjectId(entityId);
+                if (documentType) criteria.documentType = documentType;
+                if (documentName) criteria.documentName = documentName;
+            } else if (entityType === EntityType.TASK || entityType === 'task') {
+                criteria.taskId = new Types.ObjectId(entityId);
+            }
+
+            const versions = await this.fileVersionModel.find(criteria)
+                .sort({ version: -1 })  // Most recent first
+                .populate('createdBy', 'name email')
+                .exec();
+
+            return versions.map(version => ({
+                id: version._id,
+                fileUrl: version.fileUrl,
+                version: version.version,
+                createdAt: version.createdAt,
+                originalName: version.originalName,
+                description: version.description,
+                createdBy: version.createdBy,
+                mimeType: version.mimeType,
+                fileSize: version.fileSize,
+                isCurrentVersion: version.isCurrentVersion
+            }));
+        } catch (error) {
+            console.error('Error retrieving file versions:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Get all versions of a department file
      */
     async getDepartmentFileVersions(
         originalName: string,
         departmentId: string,
-        fileType: string
+        fileType: FileType | FileTypeString
     ): Promise<any[]> {
-        return this.getAllVersions({
+        return this.getAllFileVersions({
             originalName,
             fileType,
-            departmentId: new Types.ObjectId(departmentId)
+            entityType: 'department',
+            entityId: departmentId
         });
     }
 
@@ -166,25 +265,18 @@ export class FileVersionService {
     async getEmployeeFileVersions(
         originalName: string,
         empId: string,
-        fileType: string,
+        fileType: FileType | FileTypeString,
         documentType?: string,
         documentName?: string
     ): Promise<any[]> {
-        const criteria: any = {
+        return this.getAllFileVersions({
             originalName,
             fileType,
-            empId: new Types.ObjectId(empId)
-        };
-
-        if (documentType) {
-            criteria.documentType = documentType;
-        }
-
-        if (documentName) {
-            criteria.documentName = documentName;
-        }
-
-        return this.getAllVersions(criteria);
+            entityType: 'employee',
+            entityId: empId,
+            documentType,
+            documentName
+        });
     }
 
     /**
@@ -193,105 +285,99 @@ export class FileVersionService {
     async getTaskFileVersions(
         originalName: string,
         taskId: string,
-        fileType: string
+        fileType: FileType | FileTypeString
     ): Promise<any[]> {
-        return this.getAllVersions({
+        return this.getAllFileVersions({
             originalName,
             fileType,
-            taskId: new Types.ObjectId(taskId)
+            entityType: 'task',
+            entityId: taskId
         });
     }
 
     /**
-     * Core method to get all versions of a file
+     * Get the current version of a file
      */
-    private async getAllVersions(criteria: any): Promise<any[]> {
+    async getCurrentVersion(params: {
+        originalName: string;
+        fileType: FileType | FileTypeString;
+        entityType: EntityType | string;
+        entityId: string;
+        documentType?: string;
+        documentName?: string;
+    }): Promise<any> {
         try {
-            const versions = await this.fileVersionModel.find(criteria)
-                .sort({ version: -1 })  // Most recent first
-                .exec() as any;
+            const { originalName, fileType, entityType, entityId, documentType, documentName } = params;
 
-            return versions.map(version => ({
-                fileUrl: version.fileUrl,
-                version: version.version,
-                createdAt: version.createdAt,
-                originalName: version.originalName
-            }));
-        } catch (error) {
-            console.error('Error retrieving file versions:', error);
-            throw error;
-        }
-    }
+            const criteria: any = {
+                originalName,
+                fileType,
+                isCurrentVersion: true
+            };
 
-    /**
-     * Get latest version of a department file
-     */
-    async getLatestDepartmentFileVersion(
-        originalName: string,
-        departmentId: string,
-        fileType: string
-    ): Promise<string | null> {
-        return this.getLatestVersion({
-            originalName,
-            fileType,
-            departmentId: new Types.ObjectId(departmentId)
-        });
-    }
+            // Set the appropriate entity ID field
+            if (entityType === EntityType.DEPARTMENT) {
+                criteria.departmentId = new Types.ObjectId(entityId);
+            } else if (entityType === EntityType.EMPLOYEE) {
+                criteria.empId = new Types.ObjectId(entityId);
+                if (documentType) criteria.documentType = documentType;
+                if (documentName) criteria.documentName = documentName;
+            } else if (entityType === EntityType.TASK) {
+                criteria.taskId = new Types.ObjectId(entityId);
+            }
 
-    /**
-     * Get latest version of an employee file
-     */
-    async getLatestEmployeeFileVersion(
-        originalName: string,
-        empId: string,
-        fileType: string,
-        documentType?: string,
-        documentName?: string
-    ): Promise<string | null> {
-        const criteria: any = {
-            originalName,
-            fileType,
-            empId: new Types.ObjectId(empId)
-        };
-
-        if (documentType) {
-            criteria.documentType = documentType;
-        }
-
-        if (documentName) {
-            criteria.documentName = documentName;
-        }
-
-        return this.getLatestVersion(criteria);
-    }
-
-    /**
-     * Get latest version of a task file
-     */
-    async getLatestTaskFileVersion(
-        originalName: string,
-        taskId: string,
-        fileType: string
-    ): Promise<string | null> {
-        return this.getLatestVersion({
-            originalName,
-            fileType,
-            taskId: new Types.ObjectId(taskId)
-        });
-    }
-
-    /**
-     * Core method to get the latest version of a file
-     */
-    private async getLatestVersion(criteria: any): Promise<string | null> {
-        try {
-            const latestVersion = await this.fileVersionModel.findOne(criteria)
-                .sort({ version: -1 })
+            const currentVersion = await this.fileVersionModel.findOne(criteria)
+                .populate('createdBy', 'name email')
                 .exec();
 
-            return latestVersion ? latestVersion.fileUrl : null;
+            if (!currentVersion) {
+                // If no version is marked as current, get the latest version by number
+                const latestVersion = await this.fileVersionModel.findOne({
+                    ...criteria,
+                    isCurrentVersion: { $exists: true }  // Remove this filter
+                })
+                    .sort({ version: -1 })
+                    .populate('createdBy', 'name email')
+                    .exec();
+
+                if (!latestVersion) {
+                    return null;
+                }
+
+                // Update it as the current version
+                await this.fileVersionModel.updateOne(
+                    { _id: latestVersion._id },
+                    { $set: { isCurrentVersion: true } }
+                );
+
+                return {
+                    id: latestVersion._id,
+                    fileUrl: latestVersion.fileUrl,
+                    version: latestVersion.version,
+                    createdAt: latestVersion.createdAt,
+                    originalName: latestVersion.originalName,
+                    description: latestVersion.description,
+                    createdBy: latestVersion.createdBy,
+                    mimeType: latestVersion.mimeType,
+                    fileSize: latestVersion.fileSize,
+                    isCurrentVersion: true
+                };
+            }
+
+            return {
+                id: currentVersion._id,
+                fileUrl: currentVersion.fileUrl,
+                version: currentVersion.version,
+                createdAt: currentVersion.createdAt,
+                originalName: currentVersion.originalName,
+                description: currentVersion.description,
+                createdBy: currentVersion.createdBy,
+                mimeType: currentVersion.mimeType,
+                fileSize: currentVersion.fileSize,
+                isCurrentVersion: currentVersion.isCurrentVersion
+            };
         } catch (error) {
-            console.error('Error retrieving latest file version:', error);
+            console.error('Error retrieving current file version:', error);
             throw error;
         }
     }
@@ -299,16 +385,18 @@ export class FileVersionService {
     /**
      * Get a specific version of a file
      */
-    async getSpecificVersion(
-        originalName: string,
-        version: number,
-        entityId: string,
-        entityType: 'department' | 'employee' | 'task',
-        fileType: string,
-        documentType?: string,
-        documentName?: string
-    ): Promise<string | null> {
+    async getSpecificVersion(params: {
+        originalName: string;
+        version: number;
+        fileType: FileType | FileTypeString;
+        entityType: EntityType | string;
+        entityId: string;
+        documentType?: string;
+        documentName?: string;
+    }): Promise<any> {
         try {
+            const { originalName, version, fileType, entityType, entityId, documentType, documentName } = params;
+
             const criteria: any = {
                 originalName,
                 version,
@@ -316,18 +404,36 @@ export class FileVersionService {
             };
 
             // Set the appropriate entity ID field
-            if (entityType === 'department') {
+            if (entityType === EntityType.DEPARTMENT) {
                 criteria.departmentId = new Types.ObjectId(entityId);
-            } else if (entityType === 'employee') {
+            } else if (entityType === EntityType.EMPLOYEE) {
                 criteria.empId = new Types.ObjectId(entityId);
                 if (documentType) criteria.documentType = documentType;
                 if (documentName) criteria.documentName = documentName;
-            } else if (entityType === 'task') {
+            } else if (entityType === EntityType.TASK) {
                 criteria.taskId = new Types.ObjectId(entityId);
             }
 
-            const versionDoc = await this.fileVersionModel.findOne(criteria).exec();
-            return versionDoc ? versionDoc.fileUrl : null;
+            const versionDoc = await this.fileVersionModel.findOne(criteria)
+                .populate('createdBy', 'name email')
+                .exec();
+
+            if (!versionDoc) {
+                return null;
+            }
+
+            return {
+                id: versionDoc._id,
+                fileUrl: versionDoc.fileUrl,
+                version: versionDoc.version,
+                createdAt: versionDoc.createdAt,
+                originalName: versionDoc.originalName,
+                description: versionDoc.description,
+                createdBy: versionDoc.createdBy,
+                mimeType: versionDoc.mimeType,
+                fileSize: versionDoc.fileSize,
+                isCurrentVersion: versionDoc.isCurrentVersion
+            };
         } catch (error) {
             console.error('Error retrieving specific file version:', error);
             throw error;
@@ -335,30 +441,267 @@ export class FileVersionService {
     }
 
     /**
+     * Update metadata for a specific version
+     */
+    async updateVersionMetadata(
+        versionId: string,
+        updateDto: UpdateFileVersionDto
+    ): Promise<any> {
+        try {
+            const fileVersion = await this.fileVersionModel.findById(versionId);
+
+            if (!fileVersion) {
+                throw new NotFoundException('File version not found');
+            }
+
+            if (updateDto.description !== undefined) {
+                fileVersion.description = updateDto.description;
+            }
+
+            await fileVersion.save();
+
+            return {
+                id: fileVersion._id,
+                fileUrl: fileVersion.fileUrl,
+                version: fileVersion.version,
+                description: fileVersion.description,
+                isCurrentVersion: fileVersion.isCurrentVersion
+            };
+        } catch (error) {
+            console.error('Error updating file version metadata:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Restore a previous version as the current version
+     */
+    async restoreVersion(params: {
+        originalName: string;
+        versionToRestore: number;
+        fileType: FileType | FileTypeString;
+        entityType: EntityType | string;
+        entityId: string;
+        documentType?: string;
+        documentName?: string;
+        createdBy?: string;
+    }): Promise<any> {
+        try {
+            const {
+                originalName,
+                versionToRestore,
+                fileType,
+                entityType,
+                entityId,
+                documentType,
+                documentName,
+                createdBy
+            } = params;
+
+            // Find the version to restore
+            const versionCriteria: any = {
+                originalName,
+                version: versionToRestore,
+                fileType
+            };
+
+            // Set the appropriate entity ID field
+            if (entityType === EntityType.DEPARTMENT) {
+                versionCriteria.departmentId = new Types.ObjectId(entityId);
+            } else if (entityType === EntityType.EMPLOYEE) {
+                versionCriteria.empId = new Types.ObjectId(entityId);
+                if (documentType) versionCriteria.documentType = documentType;
+                if (documentName) versionCriteria.documentName = documentName;
+            } else if (entityType === EntityType.TASK) {
+                versionCriteria.taskId = new Types.ObjectId(entityId);
+            }
+
+            const versionToRestoreDoc = await this.fileVersionModel.findOne(versionCriteria).exec();
+
+            if (!versionToRestoreDoc) {
+                throw new NotFoundException(`Version ${versionToRestore} not found`);
+            }
+
+            // If this version is already the current version, do nothing
+            if (versionToRestoreDoc.isCurrentVersion) {
+                return {
+                    fileUrl: versionToRestoreDoc.fileUrl,
+                    version: versionToRestoreDoc.version,
+                    message: 'This version is already the current version'
+                };
+            }
+
+            // Find and update all versions to set isCurrentVersion to false
+            const searchCriteria: any = {
+                originalName,
+                fileType
+            };
+
+            // Set the appropriate entity ID field
+            if (entityType === EntityType.DEPARTMENT) {
+                searchCriteria.departmentId = new Types.ObjectId(entityId);
+            } else if (entityType === EntityType.EMPLOYEE) {
+                searchCriteria.empId = new Types.ObjectId(entityId);
+                if (documentType) searchCriteria.documentType = documentType;
+                if (documentName) searchCriteria.documentName = documentName;
+            } else if (entityType === EntityType.TASK) {
+                searchCriteria.taskId = new Types.ObjectId(entityId);
+            }
+
+            await this.fileVersionModel.updateMany(
+                searchCriteria,
+                { $set: { isCurrentVersion: false } }
+            );
+
+            // Create a new version based on the version to restore
+            const highestVersionDoc = await this.fileVersionModel.findOne(searchCriteria)
+                .sort({ version: -1 })
+                .exec();
+
+            const newVersion = highestVersionDoc ? highestVersionDoc.version + 1 : 1;
+
+            // Create and save the new version
+            const fileVersion = new this.fileVersionModel({
+                originalName: versionToRestoreDoc.originalName,
+                fileUrl: versionToRestoreDoc.fileUrl,
+                version: newVersion,
+                fileType: versionToRestoreDoc.fileType,
+                isCurrentVersion: true,
+                ...(versionToRestoreDoc.departmentId && { departmentId: versionToRestoreDoc.departmentId }),
+                ...(versionToRestoreDoc.empId && { empId: versionToRestoreDoc.empId }),
+                ...(versionToRestoreDoc.taskId && { taskId: versionToRestoreDoc.taskId }),
+                ...(versionToRestoreDoc.documentType && { documentType: versionToRestoreDoc.documentType }),
+                ...(versionToRestoreDoc.documentName && { documentName: versionToRestoreDoc.documentName }),
+                description: `Restored from version ${versionToRestore}`,
+                ...(createdBy && { createdBy: new Types.ObjectId(createdBy) }),
+                ...(versionToRestoreDoc.mimeType && { mimeType: versionToRestoreDoc.mimeType }),
+                ...(versionToRestoreDoc.fileSize && { fileSize: versionToRestoreDoc.fileSize })
+            });
+
+            await fileVersion.save();
+
+            return {
+                fileUrl: fileVersion.fileUrl,
+                version: fileVersion.version,
+                message: `Version ${versionToRestore} successfully restored as version ${newVersion}`
+            };
+        } catch (error) {
+            console.error('Error restoring file version:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Compare two versions of a file
+     */
+    async compareVersions(params: {
+        originalName: string;
+        version1: number;
+        version2: number;
+        fileType: FileType | FileTypeString;
+        entityType: EntityType | string;
+        entityId: string;
+        documentType?: string;
+        documentName?: string;
+    }): Promise<any> {
+        try {
+            const {
+                originalName,
+                version1,
+                version2,
+                fileType,
+                entityType,
+                entityId,
+                documentType,
+                documentName
+            } = params;
+
+            // Find both versions
+            const criteriaBase: any = {
+                originalName,
+                fileType
+            };
+
+            // Set the appropriate entity ID field
+            if (entityType === EntityType.DEPARTMENT) {
+                criteriaBase.departmentId = new Types.ObjectId(entityId);
+            } else if (entityType === EntityType.EMPLOYEE) {
+                criteriaBase.empId = new Types.ObjectId(entityId);
+                if (documentType) criteriaBase.documentType = documentType;
+                if (documentName) criteriaBase.documentName = documentName;
+            } else if (entityType === EntityType.TASK) {
+                criteriaBase.taskId = new Types.ObjectId(entityId);
+            }
+
+            const version1Doc = await this.fileVersionModel.findOne({
+                ...criteriaBase,
+                version: version1
+            })
+                .populate('createdBy', 'name email')
+                .exec();
+
+            const version2Doc = await this.fileVersionModel.findOne({
+                ...criteriaBase,
+                version: version2
+            })
+                .populate('createdBy', 'name email')
+                .exec();
+
+            if (!version1Doc || !version2Doc) {
+                throw new NotFoundException('One or both versions not found');
+            }
+
+            return {
+                version1: {
+                    fileUrl: version1Doc.fileUrl,
+                    version: version1Doc.version,
+                    createdAt: version1Doc.createdAt,
+                    description: version1Doc.description,
+                    createdBy: version1Doc.createdBy,
+                    isCurrentVersion: version1Doc.isCurrentVersion
+                },
+                version2: {
+                    fileUrl: version2Doc.fileUrl,
+                    version: version2Doc.version,
+                    createdAt: version2Doc.createdAt,
+                    description: version2Doc.description,
+                    createdBy: version2Doc.createdBy,
+                    isCurrentVersion: version2Doc.isCurrentVersion
+                }
+            };
+        } catch (error) {
+            console.error('Error comparing file versions:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Delete all versions of a file
      */
-    async deleteAllVersions(
-        originalName: string,
-        entityId: string,
-        entityType: 'department' | 'employee' | 'task',
-        fileType: string,
-        documentType?: string,
-        documentName?: string
-    ): Promise<boolean> {
+    async deleteAllVersions(params: {
+        originalName: string;
+        entityType: EntityType | string;
+        entityId: string;
+        fileType: FileType | FileTypeString;
+        documentType?: string;
+        documentName?: string;
+    }): Promise<boolean> {
         try {
+            const { originalName, entityType, entityId, fileType, documentType, documentName } = params;
+
             const criteria: any = {
                 originalName,
                 fileType
             };
 
             // Set the appropriate entity ID field
-            if (entityType === 'department') {
+            if (entityType === EntityType.DEPARTMENT) {
                 criteria.departmentId = new Types.ObjectId(entityId);
-            } else if (entityType === 'employee') {
+            } else if (entityType === EntityType.EMPLOYEE) {
                 criteria.empId = new Types.ObjectId(entityId);
                 if (documentType) criteria.documentType = documentType;
                 if (documentName) criteria.documentName = documentName;
-            } else if (entityType === 'task') {
+            } else if (entityType === EntityType.TASK) {
                 criteria.taskId = new Types.ObjectId(entityId);
             }
 
@@ -373,16 +716,18 @@ export class FileVersionService {
     /**
      * Delete a specific version of a file
      */
-    async deleteSpecificVersion(
-        originalName: string,
-        version: number,
-        entityId: string,
-        entityType: 'department' | 'employee' | 'task',
-        fileType: string,
-        documentType?: string,
-        documentName?: string
-    ): Promise<boolean> {
+    async deleteSpecificVersion(params: {
+        originalName: string;
+        version: number;
+        entityType: EntityType | string;
+        entityId: string;
+        fileType: FileType | FileTypeString;
+        documentType?: string;
+        documentName?: string;
+    }): Promise<boolean> {
         try {
+            const { originalName, version, entityType, entityId, fileType, documentType, documentName } = params;
+
             const criteria: any = {
                 originalName,
                 version,
@@ -390,20 +735,107 @@ export class FileVersionService {
             };
 
             // Set the appropriate entity ID field
-            if (entityType === 'department') {
+            if (entityType === EntityType.DEPARTMENT) {
                 criteria.departmentId = new Types.ObjectId(entityId);
-            } else if (entityType === 'employee') {
+            } else if (entityType === EntityType.EMPLOYEE) {
                 criteria.empId = new Types.ObjectId(entityId);
                 if (documentType) criteria.documentType = documentType;
                 if (documentName) criteria.documentName = documentName;
-            } else if (entityType === 'task') {
+            } else if (entityType === EntityType.TASK) {
                 criteria.taskId = new Types.ObjectId(entityId);
+            }
+
+            // Check if this is the current version
+            const versionDoc = await this.fileVersionModel.findOne(criteria).exec();
+
+            if (!versionDoc) {
+                return false;
+            }
+
+            if (versionDoc.isCurrentVersion) {
+                throw new BadRequestException('Cannot delete the current version. Set another version as current first.');
             }
 
             const result = await this.fileVersionModel.deleteOne(criteria).exec();
             return result.deletedCount > 0;
         } catch (error) {
             console.error('Error deleting specific file version:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get file version history with pagination
+     */
+    async getFileVersionHistory(params: {
+        originalName: string;
+        fileType: FileType | FileTypeString;
+        entityType: EntityType | string;
+        entityId: string;
+        documentType?: string;
+        documentName?: string;
+        page?: number;
+        limit?: number;
+    }): Promise<{ versions: any[], total: number, page: number, limit: number }> {
+        try {
+            const {
+                originalName,
+                fileType,
+                entityType,
+                entityId,
+                documentType,
+                documentName,
+                page = 1,
+                limit = 10
+            } = params;
+
+            const criteria: any = {
+                originalName,
+                fileType
+            };
+
+            // Set the appropriate entity ID field
+            if (entityType === EntityType.DEPARTMENT) {
+                criteria.departmentId = new Types.ObjectId(entityId);
+            } else if (entityType === EntityType.EMPLOYEE) {
+                criteria.empId = new Types.ObjectId(entityId);
+                if (documentType) criteria.documentType = documentType;
+                if (documentName) criteria.documentName = documentName;
+            } else if (entityType === EntityType.TASK) {
+                criteria.taskId = new Types.ObjectId(entityId);
+            }
+
+            const skip = (page - 1) * limit;
+
+            const [versions, total] = await Promise.all([
+                this.fileVersionModel.find(criteria)
+                    .sort({ version: -1 })
+                    .skip(skip)
+                    .limit(limit)
+                    .populate('createdBy', 'name email')
+                    .exec(),
+                this.fileVersionModel.countDocuments(criteria).exec()
+            ]);
+
+            return {
+                versions: versions.map(version => ({
+                    id: version._id,
+                    fileUrl: version.fileUrl,
+                    version: version.version,
+                    createdAt: version.createdAt,
+                    originalName: version.originalName,
+                    description: version.description,
+                    createdBy: version.createdBy,
+                    mimeType: version.mimeType,
+                    fileSize: version.fileSize,
+                    isCurrentVersion: version.isCurrentVersion
+                })),
+                total,
+                page,
+                limit
+            };
+        } catch (error) {
+            console.error('Error retrieving file version history:', error);
             throw error;
         }
     }

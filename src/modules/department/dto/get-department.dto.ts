@@ -1,104 +1,52 @@
-import { Types } from 'mongoose';
-import { IsMongoId, IsString, IsOptional, IsArray, IsNumber } from 'class-validator';
 import { DepartmentDocument } from '../schema/department.schema';
-
-class NumericOwnerDto {
-    @IsString()
-    category: string;
-
-    @IsNumber()
-    count: number;
-
-    constructor(category: string, count: number) {
-        this.category = category;
-        this.count = count;
-    }
-}
-
-class RequiredReportDto {
-    @IsString()
-    name: string;
-
-    @IsString()
-    templateFile: string;
-
-    constructor(name: string, templateFile: string) {
-        this.name = name;
-        this.templateFile = templateFile;
-    }
-}
-
-class DevelopmentProgramDto {
-    @IsString()
-    programName: string;
-
-    @IsString()
-    objective: string;
-
-    @IsOptional()
-    @IsString()
-    notes?: string;
-
-    @IsOptional()
-    @IsString()
-    programFile?: string;
-
-    constructor(programName: string, objective: string, notes?: string, programFile?: string) {
-        this.programName = programName;
-        this.objective = objective;
-        this.notes = notes;
-        this.programFile = programFile;
-    }
-}
+import { Types } from 'mongoose';
 
 export class GetDepartmentDto {
-    @IsMongoId()
     id: string;
-
-    @IsString()
     name: string;
-
-    @IsString()
     goal: string;
-
-    @IsString()
     category: string;
-
-    @IsString()
     mainTasks: string;
+    parent_department: any;
+    numericOwners: Array<{ category: string; count: number }>;
+    supportingFiles: any[];
+    requiredReports: any[];
+    developmentPrograms: any[];
+    createdAt?: Date;
+    updatedAt?: Date;
 
-    @IsMongoId()
-    @IsOptional()
-    parent_department?: Types.ObjectId;
-
-    @IsArray()
-    numericOwners: NumericOwnerDto[];
-
-    @IsArray()
-    supportingFiles: string[];
-
-    @IsArray()
-    requiredReports: RequiredReportDto[];
-
-    @IsArray()
-    developmentPrograms: DevelopmentProgramDto[];
-
-    constructor(department: DepartmentDocument) {
+    constructor(department: any) {
         this.id = department._id.toString();
         this.name = department.name;
         this.goal = department.goal;
         this.category = department.category;
         this.mainTasks = department.mainTasks;
-        this.parent_department = department.parent_department_id;
-        this.numericOwners = department.numericOwners.map(
-            (owner) => new NumericOwnerDto(owner.category, owner.count)
-        );
+
+        // Handle parent department
+        if (department.parent_department_id) {
+            if (typeof department.parent_department_id === 'object' && department.parent_department_id !== null) {
+                this.parent_department = {
+                    id: department.parent_department_id._id.toString(),
+                    name: department.parent_department_id.name
+                };
+            } else {
+                this.parent_department = { id: department.parent_department_id.toString() };
+            }
+        } else {
+            this.parent_department = null;
+        }
+
+        // Handle supporting files with deep population
         this.supportingFiles = department.supportingFiles;
-        this.requiredReports = department.requiredReports.map(
-            (report) => new RequiredReportDto(report.name, report.templateFile)
-        );
-        this.developmentPrograms = department.developmentPrograms.map(
-            (program) => new DevelopmentProgramDto(program.programName, program.objective, program.notes, program.programFile)
-        );
+
+        // Handle required reports with deep population
+        this.requiredReports = department.requiredReports
+
+        // Handle development programs with deep population
+        this.developmentPrograms = department.developmentPrograms
+
+        this.numericOwners = department.numericOwners || [];
+        this.createdAt = department.createdAt;
+        this.updatedAt = department.updatedAt;
     }
 }

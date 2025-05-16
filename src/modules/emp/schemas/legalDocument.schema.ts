@@ -1,4 +1,5 @@
 import { Prop } from "@nestjs/mongoose";
+import { Types } from "mongoose";
 
 export class LegalDocument {
     @Prop({ required: true })
@@ -9,4 +10,8 @@ export class LegalDocument {
 
     @Prop({ required: true })
     file: string;
+
+    // Add fileId reference to the File model
+    @Prop({ type: Types.ObjectId, ref: 'File' })
+    fileId?: Types.ObjectId;
 }

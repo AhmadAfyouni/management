@@ -27,6 +27,11 @@ export class LegalDocumentDto {
     @IsString()
     @IsNotEmpty()
     file: string;
+
+    @IsMongoId()
+    @IsOptional()
+    @Type(() => Types.ObjectId)
+    fileId?: Types.ObjectId;
 }
 
 export class CertificationDto {
@@ -45,7 +50,13 @@ export class CertificationDto {
     @IsString()
     @IsOptional()
     file: string;
+
+    @IsMongoId()
+    @IsOptional()
+    @Type(() => Types.ObjectId)
+    fileId?: Types.ObjectId;
 }
+
 
 export class AllowanceDto {
     @IsString()

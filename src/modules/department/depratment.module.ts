@@ -1,10 +1,10 @@
 import { forwardRef, Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
 import { PaginationService } from "src/common/services/pagination.service";
 import { EmpModule } from "../emp/emp.module";
-import { FileVersionModule } from "../file-version/file-version.module";
+import { FileModule } from "../file-manager/file-manager.module";
 import { NotificationModule } from "../notification/notification.module";
-import { FileUploadModule } from "../upload";
 import { DepartmentController } from "./depratment.controller";
 import { DepartmentService } from "./depratment.service";
 import { Department, DepartmentSchema } from "./schema/department.schema";
@@ -13,8 +13,9 @@ import { Department, DepartmentSchema } from "./schema/department.schema";
     imports: [
         MongooseModule.forFeature([{ name: Department.name, schema: DepartmentSchema }]),
         forwardRef(() => EmpModule),
+        ConfigModule,
         NotificationModule,
-        FileVersionModule
+        FileModule
     ],
     controllers: [DepartmentController],
     providers: [DepartmentService, PaginationService],

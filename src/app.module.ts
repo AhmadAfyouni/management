@@ -18,6 +18,7 @@ import { TemplateModule } from "./modules/template/template.module";
 import { TransactionModule } from "./modules/transaction/transaction.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
+import { FileModule } from "./modules/file-manager/file-manager.module";
 
 @Module(
   {
@@ -45,7 +46,8 @@ import { DashboardModule } from "./modules/dashboard/dashboard.module";
       TemplateModule,
       TransactionModule,
       NotificationModule,
-      DashboardModule
+      DashboardModule,
+      FileModule
     ],
   }
 )

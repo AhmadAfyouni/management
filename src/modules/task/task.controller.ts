@@ -64,7 +64,7 @@ export class TasksController {
     @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
     @Post('update/:id')
     async updateTask(@Param('id') id: string, @Body() updateTaskDto: UpdateTaskDto, @GetAccount() empId) {
-        return this.taskService.updateTask(id, updateTaskDto,empId);
+        return this.taskService.updateTask(id, updateTaskDto, empId);
     }
 
     @Roles(UserRole.PRIMARY_USER)
