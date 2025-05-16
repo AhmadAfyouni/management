@@ -1,11 +1,11 @@
-import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCommentDto {
-    @IsNotEmpty()
     @IsString()
+    @IsNotEmpty()
     content: string;
 
-    @IsNotEmpty()
+    @IsMongoId()
     taskId: string;
 
     @IsArray()
