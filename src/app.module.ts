@@ -19,6 +19,7 @@ import { TransactionModule } from "./modules/transaction/transaction.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { FileModule } from "./modules/file-manager/file-manager.module";
+import { FileUploadModule } from "./modules/file-upload/file-upload.module";
 
 @Module(
   {
@@ -47,7 +48,8 @@ import { FileModule } from "./modules/file-manager/file-manager.module";
       TransactionModule,
       NotificationModule,
       DashboardModule,
-      FileModule
+      FileModule,
+      FileUploadModule
     ],
   }
 )
