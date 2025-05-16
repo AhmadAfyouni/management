@@ -4,7 +4,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { PaginationService } from "src/common/services/pagination.service";
 import { DepartmentModule } from "../department/depratment.module";
 import { FileModule } from "../file-manager/file-manager.module";
-import { FileSchema } from "../file-manager/schemas/file.scheme";
+import { File, FileSchema } from "../file-manager/schemas/file.scheme";
 import { JobTitlesModule } from "../job-titles/job-titles.module";
 import { EmpController } from "./emp.controller";
 import { EmpService } from "./emp.service";
