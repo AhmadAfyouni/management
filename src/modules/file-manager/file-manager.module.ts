@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { FileController } from './file-manager.controller';
 import { FileService } from './file-manager.service';
 import { FileVersion, FileVersionSchema } from './schemas/file-version.scheme';
-import { FileSchema } from './schemas/file.scheme';
+import { File, FileSchema } from './schemas/file.scheme';
 
 @Module({
     imports: [
