@@ -15,7 +15,7 @@ export class CommentService {
                 content: createCommentDto.content,
                 task: createCommentDto.taskId,
                 emp: userId,
-                files: createCommentDto.files || [],
+                fileUrl: createCommentDto.fileUrl,
             });
             const c = await (await comment.save()).populate("emp");
             return new GetCommentDto(c);

@@ -4,7 +4,7 @@ import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
 export class GetCommentDto {
     id: string;
     content?: string;
-    files?: string[];
+    fileUrl?: string
     createdAt?: Date;
     updatedAt?: Date;
     author: {
@@ -15,7 +15,7 @@ export class GetCommentDto {
     constructor(comment: any) {
         this.id = comment._id.toString();
         this.content = comment.content;
-        this.files = comment.files || [];
+        this.fileUrl = comment.fileUrl;
         this.createdAt = comment.createdAt;
         this.updatedAt = comment.updatedAt;
         this.author = {

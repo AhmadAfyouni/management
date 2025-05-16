@@ -7,7 +7,7 @@ export type CommentDocument = Comment & Document;
 
 @Schema({ timestamps: true })
 export class Comment {
-    @Prop({ required: true })
+    @Prop({ required: false })
     content: string;
 
     @Prop({ type: Types.ObjectId, required: true, ref: Task.name })
@@ -16,8 +16,8 @@ export class Comment {
     @Prop({ type: Types.ObjectId, required: true, ref: Emp.name })
     emp: Types.ObjectId;
 
-    @Prop({ type: [String], default: [] })
-    files: string[];
+    @Prop({})
+    fileUrl: string;
 
     @Prop({ type: Date })
     createdAt?: Date;

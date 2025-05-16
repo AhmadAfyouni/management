@@ -1,6 +1,7 @@
 import { IsArray, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCommentDto {
+    @IsOptional()
     @IsString()
     @IsNotEmpty()
     content: string;
@@ -8,10 +9,9 @@ export class CreateCommentDto {
     @IsMongoId()
     taskId: string;
 
-    @IsArray()
-    @IsString({ each: true })
-    @IsOptional()
-    files?: string[];
+    @IsString()
+    @IsNotEmpty()
+    fileUrl?: string;
 }
 export class UpdateCommentDto {
     @IsNotEmpty()
