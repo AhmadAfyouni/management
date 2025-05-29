@@ -20,6 +20,8 @@ import { NotificationModule } from "./modules/notification/notification.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { FileModule } from "./modules/file-manager/file-manager.module";
 import { FileUploadModule } from "./modules/file-upload/file-upload.module";
+import { CompanyProfileModule } from "./modules/company-profile/company-profile.module";
+import { CompanySettingsModule } from "./modules/company-settings/company-settings.module";
 
 @Module(
   {
@@ -33,6 +35,8 @@ import { FileUploadModule } from "./modules/file-upload/file-upload.module";
         }
       ),
       ScheduleModule.forRoot(),
+      CompanyProfileModule,
+      CompanySettingsModule,
       ProjectModule,
       SectionModule,
       JobCategoryModule,

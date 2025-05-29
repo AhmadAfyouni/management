@@ -46,23 +46,93 @@ export class CreateTaskDto {
     @IsNotEmpty()
     due_date: Date;
 
+    // Enhanced date fields for better progress calculation
+    @IsDate()
+    @Type(() => Date)
+    @IsNotEmpty()
+    start_date: Date;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    actual_end_date?: Date;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    expected_end_date?: Date;
+
+    // Enhanced time tracking fields
+    @IsNumber()
+    @IsOptional()
+    estimated_hours?: number;
+
+    @IsNumber()
+    @IsOptional()
+    actual_hours?: number;
+
     @IsArray()
     @IsString({ each: true })
     @IsOptional()
     files?: string[];
 
+    // Recurring task enhancements
     @IsBoolean()
     @IsOptional()
     isRecurring?: boolean;
 
-    @IsDate()
-    @Type(() => Date)
+    @IsString()
+    @IsEnum(['daily', 'weekly', 'monthly', 'yearly'])
     @IsOptional()
-    end_date?: Date;
+    recurringType?: string;
 
     @IsInt()
     @IsOptional()
     intervalInDays?: number;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    recurringEndDate?: Date;
+
+    @IsBoolean()
+    @IsOptional()
+    isRoutineTask?: boolean;
+
+    @IsString()
+    @IsOptional()
+    routineTaskId?: string;
+
+    // Progress calculation method
+    @IsString()
+    @IsEnum(['time_based', 'date_based'])
+    @IsOptional()
+    progressCalculationMethod?: string;
+
+    // Task relationships
+    @IsMongoId()
+    @IsOptional()
+    parent_task?: string;
+
+    @IsArray()
+    @IsMongoId({ each: true })
+    @IsOptional()
+    dependencies?: string[];
+
+    // Board customization
+    @IsString()
+    @IsOptional()
+    boardPosition?: string;
+
+    @IsNumber()
+    @IsOptional()
+    boardOrder?: number;
+
+    // Legacy fields (keeping for backward compatibility)
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    end_date?: Date;
 
     @IsOptional()
     @IsNumber()

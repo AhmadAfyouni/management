@@ -40,21 +40,47 @@ export class Task {
     @Prop({ type: Date, required: true })
     due_date: Date;
 
+    // Enhanced date fields for better progress calculation
+    @Prop({ type: Date, required: true })
+    start_date: Date;
+
+    @Prop({ type: Date })
+    actual_end_date?: Date;
+
+    @Prop({ type: Date })
+    expected_end_date?: Date;
+
+    // Enhanced time tracking fields
+    @Prop({ type: Number, default: 0 })
+    estimated_hours?: number;
+
+    @Prop({ type: Number, default: 0 })
+    actual_hours?: number;
+
     @Prop({ type: [String], default: [] })
     files: string[];
 
+    // Recurring task enhancements
     @Prop({ type: Boolean, default: false })
     isRecurring: boolean;
 
-    @Prop({ type: Date, default: null })
-    end_date?: Date;
+    @Prop({ type: String, enum: ['daily', 'weekly', 'monthly', 'yearly'] })
+    recurringType?: string;
 
     @Prop({ type: Number, default: 1 })
     intervalInDays?: number;
 
+    @Prop({ type: Date, default: null })
+    recurringEndDate?: Date;
+
+    @Prop({ type: Boolean, default: false })
+    isRoutineTask: boolean; // For Job Title linked routine tasks
+
+    @Prop({ type: String })
+    routineTaskId?: string; // Link to the main routine task
+
     @Prop({ type: Types.ObjectId, ref: Department.name })
     department_id?: Types.ObjectId;
-
 
     @Prop({ type: Types.ObjectId, ref: Project.name })
     project_id?: Types.ObjectId;
@@ -62,6 +88,14 @@ export class Task {
     @Prop({ type: Types.ObjectId, ref: Section.name, required: false })
     section_id?: Types.ObjectId;
 
+    // Progress calculation fields
+    @Prop({ type: Number, default: 0, min: 0, max: 100 })
+    progress: number;
+
+    @Prop({ type: String, enum: ['time_based', 'date_based'], default: 'time_based' })
+    progressCalculationMethod: string;
+
+    // Enhanced time tracking
     @Prop({ type: Number, default: 0 })
     totalTimeSpent: number;
 
@@ -71,14 +105,43 @@ export class Task {
     @Prop({ type: [{ start: Date, end: Date }], default: [] })
     timeLogs: { start: Date; end?: Date }[];
 
+    // Task relationships
     @Prop({ type: Types.ObjectId, ref: Task.name, default: null })
     parent_task?: Types.ObjectId;
 
+    @Prop({ type: [Types.ObjectId], ref: Task.name, default: [] })
+    sub_tasks: Types.ObjectId[];
+
+    @Prop({ type: [Types.ObjectId], ref: Task.name, default: [] })
+    dependencies: Types.ObjectId[]; // Tasks that must be completed before this one
+
+    @Prop({ type: [Types.ObjectId], ref: Task.name, default: [] })
+    blocking: Types.ObjectId[]; // Tasks that are blocked by this one
+
+    // Additional fields
     @Prop({ type: String })
     over_all_time?: String;
 
-    @Prop({ type: Number, default: 0, })
+    @Prop({ type: Number, default: 0 })
     rate: Number;
+
+    // Validation fields
+    @Prop({ type: Boolean, default: false })
+    hasLoggedHours: boolean; // Track if any hours have been logged
+
+    @Prop({ type: Boolean, default: true })
+    isActive: boolean;
+
+    // Board customization
+    @Prop({ type: String })
+    boardPosition?: string; // For storing position in Kanban board
+
+    @Prop({ type: Number, default: 0 })
+    boardOrder?: number; // For ordering tasks within sections
+
+    // Legacy fields (keeping for backward compatibility)
+    @Prop({ type: Date, default: null })
+    end_date?: Date;
 }
 
 export const TaskSchema = SchemaFactory.createForClass(Task);

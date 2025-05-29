@@ -33,6 +33,7 @@ export class TaskSchedulerService {
                             emp: task.emp?.toString(),
                             status: task.status,
                             due_date: new Date(),
+                            start_date: new Date(),
                             files: task.files,
                         };
 
