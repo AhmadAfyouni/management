@@ -2,12 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
-import { Project, ProjectDocument } from '../project/schema/project.schema';
+import { Project, ProjectDocument } from './schema/project.schema';
 import { Task, TaskDocument } from '../task/schema/task.schema';
 import { Emp, EmpDocument } from '../emp/schemas/emp.schema';
 import { NotificationService } from '../notification/notification.service';
 import { TASK_STATUS } from '../task/enums/task-status.enum';
-import { ProjectStatus } from '../project/enums/project-status';
+import { ProjectStatus } from './enums/project-status';
 
 @Injectable()
 class ProjectManagementService {

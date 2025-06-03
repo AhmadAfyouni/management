@@ -6,7 +6,7 @@ import { RequiredPermissions, Roles } from 'src/common/decorators/role.decorator
 import { UserRole } from 'src/config/role.enum';
 import { PermissionsEnum } from 'src/config/permissions.enum';
 import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
-import { CreateTaskDto } from './dtos/create-task.dto';
+import { CreateSubTaskDto, CreateTaskDto } from './dtos/create-task.dto';
 import { UpdateTaskDto } from './dtos/update-task.dto';
 import { TASK_STATUS } from './enums/task-status.enum';
 import { GetTreeDto } from './dtos/get-tree.dto';
@@ -129,7 +129,7 @@ export class TasksController {
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_ADD)
     @Post('add-subtask/:taskId')
-    async addSubtask(@Param('taskId') taskId: string, @Body() createTaskDto: CreateTaskDto, @GetAccount() userId, @GetDepartment() departmentId) {
+    async addSubtask(@Param('taskId') taskId: string, @Body() createTaskDto: CreateSubTaskDto, @GetAccount() userId, @GetDepartment() departmentId) {
         createTaskDto.assignee = userId;
         return this.taskService.addSubtask(taskId, createTaskDto);
     }

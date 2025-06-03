@@ -1,9 +1,9 @@
-import { IsArray, IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsMongoId, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PermissionsEnum } from 'src/config/permissions.enum';
+import { CreateRoutineTaskDto } from './routine-task.dto';
 
 export class CreateJobTitleDto {
-
-
   @IsString()
   @IsNotEmpty()
   title: string;
@@ -19,7 +19,7 @@ export class CreateJobTitleDto {
   @IsOptional()
   @IsArray()
   @IsEnum(PermissionsEnum, { each: true })
-  permissions: PermissionsEnum[];
+  permissions: PermissionsEnum[] = [];
 
   @IsMongoId()
   department_id: string;
@@ -29,20 +29,35 @@ export class CreateJobTitleDto {
 
   @IsBoolean()
   @IsOptional()
-  is_manager: boolean;
+  is_manager: boolean = false;
 
   @IsArray()
   @IsMongoId({ each: true })
   @IsOptional()
-  accessibleDepartments: string[];
+  accessibleDepartments: string[] = [];
 
   @IsArray()
   @IsMongoId({ each: true })
   @IsOptional()
-  accessibleJobTitles: string[];
+  accessibleJobTitles: string[] = [];
 
   @IsArray()
   @IsMongoId({ each: true })
   @IsOptional()
-  accessibleEmps: string[];
+  accessibleEmps: string[] = [];
+
+  // New routine tasks fields
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateRoutineTaskDto)
+  @IsOptional()
+  routineTasks: CreateRoutineTaskDto[] = [];
+
+  @IsBoolean()
+  @IsOptional()
+  hasRoutineTasks: boolean = false;
+
+  @IsBoolean()
+  @IsOptional()
+  autoGenerateRoutineTasks: boolean = true;
 }

@@ -57,7 +57,7 @@ export class ProjectController {
         @Body() updateProjectDto: UpdateProjectDto,
         @GetAccount() empId,
     ) {
-        return this.projectService.updateProject(id, updateProjectDto, empId);
+        return await this.projectService.updateProject(id, updateProjectDto, empId);
     }
 
     @Delete(':id')

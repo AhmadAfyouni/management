@@ -112,12 +112,6 @@ export class Task {
     @Prop({ type: [Types.ObjectId], ref: Task.name, default: [] })
     sub_tasks: Types.ObjectId[];
 
-    @Prop({ type: [Types.ObjectId], ref: Task.name, default: [] })
-    dependencies: Types.ObjectId[]; // Tasks that must be completed before this one
-
-    @Prop({ type: [Types.ObjectId], ref: Task.name, default: [] })
-    blocking: Types.ObjectId[]; // Tasks that are blocked by this one
-
     // Additional fields
     @Prop({ type: String })
     over_all_time?: String;
@@ -131,13 +125,6 @@ export class Task {
 
     @Prop({ type: Boolean, default: true })
     isActive: boolean;
-
-    // Board customization
-    @Prop({ type: String })
-    boardPosition?: string; // For storing position in Kanban board
-
-    @Prop({ type: Number, default: 0 })
-    boardOrder?: number; // For ordering tasks within sections
 
     // Legacy fields (keeping for backward compatibility)
     @Prop({ type: Date, default: null })

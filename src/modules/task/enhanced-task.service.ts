@@ -80,7 +80,7 @@ class EnhancedTasksService {
                     new Date(createTaskDto.start_date),
                     new Date(createTaskDto.expected_end_date)
                 );
-                
+
                 // Only set if not manually provided
                 if (!createTaskDto.estimated_hours) {
                     createTaskDto.estimated_hours = estimatedHours;
@@ -89,7 +89,7 @@ class EnhancedTasksService {
 
             // Set progress calculation method from company settings
             const progressMethod = await this.companySettingsService.getProgressCalculationMethod();
-            
+
             // Create task
             const task = new this.taskModel({
                 ...createTaskDto,
@@ -136,7 +136,7 @@ class EnhancedTasksService {
             if (!project) {
                 throw new BadRequestException('Project not found');
             }
-            
+
             if (project.status !== ProjectStatus.IN_PROGRESS) {
                 throw new BadRequestException('Project must be in ONGOING status to add tasks');
             }
@@ -161,7 +161,7 @@ class EnhancedTasksService {
                 name: createTaskDto.name,
                 project_id: createTaskDto.project_id,
             });
-            
+
             if (existingTask) {
                 throw new BadRequestException('Task with this name already exists in the project');
             }
@@ -172,7 +172,7 @@ class EnhancedTasksService {
             const endDate = new Date(createTaskDto.expected_end_date);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             if (endDate < today) {
                 throw new BadRequestException('Task end date cannot be in the past');
             }
@@ -240,8 +240,6 @@ class EnhancedTasksService {
 
             // Update task position
             task.section_id = new Types.ObjectId(sectionId);
-            task.boardOrder = boardOrder;
-            task.boardPosition = `${sectionId}_${boardOrder}`;
 
             await task.save();
 
@@ -259,7 +257,7 @@ class EnhancedTasksService {
      */
     async calculateTaskProgress(task: TaskDocument): Promise<number> {
         const settings = await this.companySettingsService.getOrCreateSettings();
-        
+
         if (task.status === TASK_STATUS.DONE) {
             return 100;
         }
@@ -276,10 +274,10 @@ class EnhancedTasksService {
                 const now = new Date();
                 const startDate = new Date(task.start_date);
                 const endDate = new Date(task.actual_end_date || task.expected_end_date);
-                
+
                 const totalDuration = endDate.getTime() - startDate.getTime();
                 const elapsedDuration = now.getTime() - startDate.getTime();
-                
+
                 if (totalDuration > 0) {
                     const progress = (elapsedDuration / totalDuration) * 100;
                     return Math.min(Math.max(progress, 0), 100); // Between 0-100%
@@ -342,7 +340,7 @@ class EnhancedTasksService {
             if (!assignee) {
                 throw new BadRequestException('Assignee not found');
             }
-            
+
             // Check if assignee is in the same department or project team
             if (parentTask.department_id && assignee.department_id.toString() !== parentTask.department_id.toString()) {
                 throw new BadRequestException('Assignee must be in the same department as parent task');
@@ -371,7 +369,7 @@ class EnhancedTasksService {
 
             // Update status
             task.status = newStatus;
-            
+
             // Update actual end date if marking as done
             if (newStatus === TASK_STATUS.DONE) {
                 task.actual_end_date = new Date();
@@ -474,7 +472,7 @@ class EnhancedTasksService {
             const tasksBySection = tasks.reduce((acc, task) => {
                 const sectionId = task.section_id ? task.section_id.toString() : 'no_section';
                 const sectionName = task.section_id ? (task.section_id as any).name : 'No Section';
-                
+
                 if (!acc[sectionId]) {
                     acc[sectionId] = {
                         sectionId,
@@ -482,20 +480,20 @@ class EnhancedTasksService {
                         tasks: []
                     };
                 }
-                
+
                 acc[sectionId].tasks.push({
                     ...task,
                     progress: task.progress || 0,
                     isOverdue: task.due_date < new Date() && task.status !== TASK_STATUS.DONE
                 });
-                
+
                 return acc;
             }, {});
 
-            return { 
-                status: true, 
-                message: 'Tasks by board sections retrieved successfully', 
-                data: Object.values(tasksBySection) 
+            return {
+                status: true,
+                message: 'Tasks by board sections retrieved successfully',
+                data: Object.values(tasksBySection)
             };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks by board sections', error.message);
@@ -506,8 +504,8 @@ class EnhancedTasksService {
      * Helper method to check and update parent task status
      */
     private async checkAndUpdateParentTaskStatus(
-        parentTaskId: string, 
-        subtaskStatus: TASK_STATUS, 
+        parentTaskId: string,
+        subtaskStatus: TASK_STATUS,
         empId: string
     ): Promise<void> {
         const parentTask = await this.taskModel.findById(parentTaskId);
@@ -535,8 +533,8 @@ class EnhancedTasksService {
 
                 if (parentTask.parent_task) {
                     await this.checkAndUpdateParentTaskStatus(
-                        parentTask.parent_task.toString(), 
-                        TASK_STATUS.DONE, 
+                        parentTask.parent_task.toString(),
+                        TASK_STATUS.DONE,
                         empId
                     );
                 }
@@ -561,8 +559,8 @@ class EnhancedTasksService {
 
                 if (parentTask.parent_task) {
                     await this.checkAndUpdateParentTaskStatus(
-                        parentTask.parent_task.toString(), 
-                        minStatus, 
+                        parentTask.parent_task.toString(),
+                        minStatus,
                         empId
                     );
                 }

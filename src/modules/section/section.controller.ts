@@ -24,6 +24,8 @@ export class SectionController {
 
     @Get()
     async getMySections(@GetAccount() empId: string) {
+        console.log(empId);
+
         return this.sectionService.getSectionsByEmployee(empId);
     }
 

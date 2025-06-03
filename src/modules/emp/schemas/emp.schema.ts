@@ -92,6 +92,12 @@ export class Emp {
 
     @Prop()
     parentId?: string;
+
+    @Prop({ default: true })
+    isActive: boolean;
+
+    @Prop({ default: false })
+    isDeleted: boolean;
 }
 
 export const EmpSchema = SchemaFactory.createForClass(Emp);

@@ -18,6 +18,7 @@ export class Project {
 
     @Prop({ type: String, enum: ProjectStatus, default: ProjectStatus.PENDING })
     status: ProjectStatus;
+
     @Prop({ type: Date, required: true })
     startDate: Date;
 

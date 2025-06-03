@@ -91,4 +91,47 @@ export class DashboardController {
     ) {
         return this.dashboardService.getDashboardData(userId, departmentId, {}).then(data => data.messages);
     }
+
+    @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
+    @Get('routine-tasks-overview')
+    async getRoutineTasksOverview(
+        @GetAccount() userId: string,
+        @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getRoutineTasksOverview(userId, departmentId);
+    }
+
+    @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
+    @Get('progress-analytics')
+    async getProgressAnalytics(
+        @GetAccount() userId: string,
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getProgressAnalytics(userId, departmentId, params);
+    }
+
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
+    @Get('workload-distribution')
+    async getWorkloadDistribution(
+        @GetAccount() userId: string,
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getWorkloadDistribution(userId, departmentId, params);
+    }
+
+    @Roles(UserRole.PRIMARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
+    @Get('department-overview')
+    async getDepartmentOverview(
+        @GetAccount() userId: string,
+        @Query() params: DashboardParamsDto,
+        @GetDepartment() departmentId: string
+    ) {
+        return this.dashboardService.getDepartmentOverview(userId, departmentId, params);
+    }
 }

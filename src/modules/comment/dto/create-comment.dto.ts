@@ -1,9 +1,8 @@
 import { IsArray, IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCommentDto {
-    @IsOptional()
     @IsString()
-    @IsNotEmpty()
+    @IsOptional()
     content: string;
 
     @IsMongoId()
@@ -16,5 +15,6 @@ export class CreateCommentDto {
 export class UpdateCommentDto {
     @IsNotEmpty()
     @IsString()
+    @IsOptional()
     content: string;
 }

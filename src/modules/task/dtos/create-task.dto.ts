@@ -67,9 +67,7 @@ export class CreateTaskDto {
     @IsOptional()
     estimated_hours?: number;
 
-    @IsNumber()
-    @IsOptional()
-    actual_hours?: number;
+
 
     @IsArray()
     @IsString({ each: true })
@@ -114,27 +112,76 @@ export class CreateTaskDto {
     @IsOptional()
     parent_task?: string;
 
-    @IsArray()
-    @IsMongoId({ each: true })
-    @IsOptional()
-    dependencies?: string[];
-
-    // Board customization
-    @IsString()
-    @IsOptional()
-    boardPosition?: string;
-
-    @IsNumber()
-    @IsOptional()
-    boardOrder?: number;
-
-    // Legacy fields (keeping for backward compatibility)
     @IsDate()
     @Type(() => Date)
     @IsOptional()
     end_date?: Date;
 
-    @IsOptional()
-    @IsNumber()
-    rate?: number;
 }
+
+export class CreateSubTaskDto {
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsString()
+    @IsNotEmpty()
+    description: string;
+
+    @IsEnum(PRIORITY_TYPE)
+    @IsString()
+    priority: PRIORITY_TYPE;
+
+    @IsMongoId()
+    @IsOptional()
+    emp?: string; // اختياري - إذا لم يتم تحديده، سيتم استخدام موظف المهمة الأب
+
+    @IsMongoId()
+    @IsOptional()
+    assignee?: string; // اختياري - الموظف المُسند إليه المهمة الفرعية
+
+    @IsDate()
+    @Type(() => Date)
+    @IsNotEmpty()
+    due_date: Date;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsNotEmpty()
+    start_date: Date;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    actual_end_date?: Date;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    expected_end_date?: Date;
+
+    @IsNumber()
+    @IsOptional()
+    estimated_hours?: number;
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    files?: string[];
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    recurringEndDate?: Date;
+
+    @IsString()
+    @IsEnum(['time_based', 'date_based'])
+    @IsOptional()
+    progressCalculationMethod?: string;
+
+    @IsDate()
+    @Type(() => Date)
+    @IsOptional()
+    end_date?: Date;
+}
+

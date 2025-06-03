@@ -3,6 +3,10 @@ export interface TaskSummary {
     inProgress: number;
     completed: number;
     pending: number;
+    routineTasks: number;
+    projectTasks: number;
+    overdueCount: number;
+    completionRate: number;
 }
 
 export interface TimelineEntry {
@@ -31,6 +35,10 @@ export interface TimeTracking {
     breakTime: number;      // Break hours
     overtimeHours: number;  // Overtime hours
     overtimeRate: number;   // Overtime rate percentage
+    efficiency: number;     // Efficiency percentage
+    expectedHours: number;  // Expected daily hours
+    workingDaysThisWeek: number; // Working days count
+    productivityScore: number;   // Overall productivity score
     hoursByDay: {
         date: string;
         plannedHours: number;
@@ -44,7 +52,12 @@ export interface DailyTask {
     dueTime: string;
     priority: string;
     status: string;
-
+    isRoutineTask: boolean;
+    isOverdue: boolean;
+    progress: number;
+    estimatedHours: number;
+    actualHours: number;
+    timeLogs: any;
 }
 
 export interface ProjectStats {
@@ -53,6 +66,12 @@ export interface ProjectStats {
     progress: number;
     tasksCount: number;
     hoursSpent: number;
+    completedTasks: number;
+    pendingTasks: number;
+    health: 'excellent' | 'good' | 'warning' | 'critical';
+    isOnTrack: boolean;
+    daysRemaining: number;
+    estimatedCompletionDate: Date;
 }
 
 export interface MyTask {
@@ -63,6 +82,14 @@ export interface MyTask {
     dueDate: string;
     timeSpent: number;
     progress: number;
+    commentsCount: number;
+    filesCount: number;
+    isRoutineTask: boolean;
+    isOverdue: boolean;
+    priorityScore: number;
+    estimatedHours: number;
+    actualHours: number;
+    section: string;
 }
 
 export interface RecentActivity {

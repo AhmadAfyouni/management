@@ -107,6 +107,7 @@ export class ProjectService {
 
             return updatedProject;
         } catch (error) {
+            console.log(error);
             throw new BadRequestException(error.message || 'Failed to update project');
         }
     }

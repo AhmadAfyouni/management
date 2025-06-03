@@ -5,6 +5,7 @@ import { JobCategory } from 'src/modules/job-category/schemas/job-category.schem
 
 export type JobTitlesDocument = JobTitles & Document;
 
+export type RoutineTaskDocument = RoutineTask & Document;
 @Schema()
 export class RoutineTask {
     @Prop({ required: true })
@@ -37,6 +38,9 @@ export class RoutineTask {
     @Prop({ type: [{ name: String, description: String, estimatedHours: Number }], default: [] })
     subTasks: { name: string; description: string; estimatedHours: number }[];
 }
+
+
+export const RoutineTaskSchema = SchemaFactory.createForClass(RoutineTask);
 
 @Schema()
 export class JobTitles {
