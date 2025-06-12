@@ -295,7 +295,6 @@ export class EmpService {
         } catch (error) {
             console.error('Error creating employee:', error);
             throw new InternalServerErrorException(
-                'Failed to create employee',
                 error.message,
             );
         }
