@@ -121,7 +121,7 @@ export class CreateEmpDto {
     @IsNotEmpty()
     marital_status: string;
 
-    @IsPhoneNumber()
+    // @IsPhoneNumber()
     @IsNotEmpty()
     phone: string;
 
