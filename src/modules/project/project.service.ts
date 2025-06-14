@@ -57,11 +57,9 @@ export class ProjectService {
         }
         return project;
     }
-
     async getEmpProject(empId: string) {
-        return await this.projectModel.find({ members: { $in: empId } }).populate('departments').lean().exec();
+        return await this.projectModel.find({ members: { $in: [empId] } }).populate('departments').lean().exec();
     }
-
     async getManagerProject(departmentId: string) {
         return await this.projectModel.find({ departments: { $in: departmentId } }).populate('departments').lean().exec();
     }
