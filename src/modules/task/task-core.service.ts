@@ -9,11 +9,13 @@ import { EmpService } from '../emp/emp.service';
 import { SectionService } from '../section/section.service';
 import { NotificationService } from '../notification/notification.service';
 import { TaskValidationService } from './task-validation.service';
+import { Project, ProjectDocument } from '../project/schema/project.schema';
 
 @Injectable()
 export class TaskCoreService {
     constructor(
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
+        @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
         private readonly empService: EmpService,
         private readonly sectionService: SectionService,
         private readonly notificationService: NotificationService,
@@ -132,6 +134,66 @@ export class TaskCoreService {
                 throw error;
             }
             throw new InternalServerErrorException('Failed to create Task', error.message);
+        }
+    }
+
+    async createTaskForProject(createTaskDto: CreateTaskDto): Promise<{ status: boolean; message: string; data?: Task }> {
+        try {
+            if (!createTaskDto.project_id) {
+                throw new BadRequestException('Project ID is required');
+            }
+            if (!createTaskDto.emp) {
+                throw new BadRequestException('Employee ID is required');
+            }
+
+            // Validate project existence
+            const project = await this.projectModel.findById(createTaskDto.project_id);
+            if (!project) {
+                throw new NotFoundException(`Project with ID ${createTaskDto.project_id} not found`);
+            }
+            await this.taskValidationService.validateTaskDatesAgainstProject(createTaskDto, project);
+
+            // Validate employee and get department ID
+            const departmentId = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
+            if (!departmentId) {
+                throw new NotFoundException('Department ID not found for this employee');
+            }
+
+            // Check if employee's department is part of the project
+            if (!project.departments.map((dept) => dept.toString()).includes(departmentId)) {
+                throw new ForbiddenException('Employee’s department is not associated with this project');
+            }
+
+            // Validate task data
+            await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
+            await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
+
+            // Assign section
+            await this.sectionService.createInitialSections(createTaskDto.emp);
+            const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.emp);
+            createTaskDto.section_id = section_id;
+
+            // Create task
+            const task = new this.taskModel({
+                ...createTaskDto,
+                department_id: departmentId,
+                project_id: new Types.ObjectId(createTaskDto.project_id),
+            });
+            const savedTask = await task.save();
+
+            // Send notification
+            await this.notificationService.notifyTaskCreated(
+                savedTask,
+                createTaskDto.emp,
+                savedTask.assignee?.toString(),
+            );
+
+            return { status: true, message: 'Task created successfully for project', data: savedTask };
+        } catch (error) {
+            if (error instanceof BadRequestException || error instanceof NotFoundException || error instanceof ForbiddenException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to create task for project', error.message);
         }
     }
 
