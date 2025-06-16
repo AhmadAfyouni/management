@@ -2,6 +2,29 @@ import { IsEnum, IsNotEmpty, IsOptional, IsNumber, IsString, IsArray, IsBoolean,
 import { Type } from 'class-transformer';
 import { WorkDay, ProgressCalculationMethod } from '../schemas/company-settings.schema';
 
+export class DayWorkingHoursDto {
+  @IsNotEmpty()
+  @IsEnum(WorkDay)
+  day: WorkDay;
+
+  @IsNotEmpty()
+  @IsBoolean()
+  isWorkingDay: boolean;
+
+  @IsOptional()
+  @IsString()
+  startTime?: string; // Format: HH:MM
+
+  @IsOptional()
+  @IsString()
+  endTime?: string; // Format: HH:MM
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  breakTimeMinutes?: number;
+}
+
 export class TaskFieldSettingsDto {
   @IsOptional()
   @IsBoolean()
@@ -47,22 +70,9 @@ export class TaskFieldSettingsDto {
 export class WorkSettingsDto {
   @IsOptional()
   @IsArray()
-  @IsEnum(WorkDay, { each: true })
-  workDays?: WorkDay[];
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(24)
-  officialWorkingHoursPerDay?: number;
-
-  @IsOptional()
-  @IsString()
-  workStartTime?: string; // Format: HH:MM
-
-  @IsOptional()
-  @IsString()
-  workEndTime?: string; // Format: HH:MM
+  @ValidateNested({ each: true })
+  @Type(() => DayWorkingHoursDto)
+  dayWorkingHours?: DayWorkingHoursDto[];
 
   @IsOptional()
   @IsArray()
@@ -80,7 +90,7 @@ export class WorkSettingsDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  breakTimeMinutes?: number;
+  defaultBreakTimeMinutes?: number;
 }
 
 export class CreateCompanySettingsDto {
@@ -141,3 +151,5 @@ export class CreateCompanySettingsDto {
   @IsString({ each: true })
   allowedFileTypes?: string[];
 }
+
+export class UpdateCompanySettingsDto extends CreateCompanySettingsDto { }

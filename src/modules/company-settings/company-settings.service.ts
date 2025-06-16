@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CompanySettings, CompanySettingsDocument, ProgressCalculationMethod, WorkDay } from './schemas/company-settings.schema';
+import { CompanySettings, CompanySettingsDocument, ProgressCalculationMethod, WorkDay, DayWorkingHours } from './schemas/company-settings.schema';
 import { CreateCompanySettingsDto } from './dto/create-company-settings.dto';
 import { UpdateCompanySettingsDto } from './dto/update-company-settings.dto';
 
@@ -53,16 +53,23 @@ export class CompanySettingsService {
   }
 
   private async createDefaultSettings(): Promise<CompanySettingsDocument> {
+    const defaultDayWorkingHours: DayWorkingHours[] = [
+      { day: WorkDay.SUNDAY, isWorkingDay: true, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+      { day: WorkDay.MONDAY, isWorkingDay: true, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+      { day: WorkDay.TUESDAY, isWorkingDay: true, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+      { day: WorkDay.WEDNESDAY, isWorkingDay: true, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+      { day: WorkDay.THURSDAY, isWorkingDay: true, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+      { day: WorkDay.FRIDAY, isWorkingDay: false, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+      { day: WorkDay.SATURDAY, isWorkingDay: false, startTime: '09:00', endTime: '17:00', breakTimeMinutes: 60 },
+    ];
+
     const defaultSettings = new this.companySettingsModel({
       workSettings: {
-        workDays: [WorkDay.SUNDAY, WorkDay.MONDAY, WorkDay.TUESDAY, WorkDay.WEDNESDAY, WorkDay.THURSDAY],
-        officialWorkingHoursPerDay: 8,
-        workStartTime: '09:00',
-        workEndTime: '17:00',
+        dayWorkingHours: defaultDayWorkingHours,
         holidays: [],
         timezone: 'Asia/Riyadh',
         overtimeRate: 1.5,
-        breakTimeMinutes: 60,
+        defaultBreakTimeMinutes: 60,
       },
       taskFieldSettings: {
         enableEstimatedTime: true,
@@ -94,12 +101,81 @@ export class CompanySettingsService {
 
   async getWorkingDays(): Promise<WorkDay[]> {
     const settings = await this.getOrCreateSettings();
-    return settings.workSettings.workDays;
+    return settings.workSettings.dayWorkingHours
+      .filter(day => day.isWorkingDay)
+      .map(day => day.day);
+  }
+
+  async getDayWorkingHours(): Promise<DayWorkingHours[]> {
+    const settings = await this.getOrCreateSettings();
+    return settings.workSettings.dayWorkingHours;
+  }
+
+  async updateDayWorkingHours(day: WorkDay, workingHours: Partial<DayWorkingHours>): Promise<CompanySettings | null> {
+    const settings = await this.getOrCreateSettings();
+
+    const dayIndex = settings.workSettings.dayWorkingHours.findIndex(d => d.day === day);
+    if (dayIndex === -1) {
+      throw new NotFoundException(`Working hours for ${day} not found`);
+    }
+
+    settings.workSettings.dayWorkingHours[dayIndex] = {
+      ...settings.workSettings.dayWorkingHours[dayIndex],
+      ...workingHours,
+      day // Ensure day doesn't change
+    };
+
+    return await this.companySettingsModel
+      .findByIdAndUpdate(
+        settings._id,
+        { 'workSettings.dayWorkingHours': settings.workSettings.dayWorkingHours },
+        { new: true }
+      )
+      .exec();
   }
 
   async getOfficialWorkingHours(): Promise<number> {
-    const settings = await this.getOrCreateSettings();
-    return settings.workSettings.officialWorkingHoursPerDay;
+    // Calculate average working hours per day from all working days
+    const dayWorkingHours = await this.getDayWorkingHours();
+    const workingDays = dayWorkingHours.filter(day => day.isWorkingDay);
+
+    if (workingDays.length === 0) return 8; // Default fallback
+
+    const totalHours = workingDays.reduce((total, day) => {
+      const startTime = this.parseTime(day.startTime);
+      const endTime = this.parseTime(day.endTime);
+      const breakMinutes = day.breakTimeMinutes || 0;
+
+      const workMinutes = (endTime.hours * 60 + endTime.minutes) -
+        (startTime.hours * 60 + startTime.minutes) -
+        breakMinutes;
+
+      return total + (workMinutes / 60);
+    }, 0);
+
+    return totalHours / workingDays.length;
+  }
+
+  async getWorkingHoursForDay(day: WorkDay): Promise<number> {
+    const dayWorkingHours = await this.getDayWorkingHours();
+    const dayConfig = dayWorkingHours.find(d => d.day === day);
+
+    if (!dayConfig || !dayConfig.isWorkingDay) return 0;
+
+    const startTime = this.parseTime(dayConfig.startTime);
+    const endTime = this.parseTime(dayConfig.endTime);
+    const breakMinutes = dayConfig.breakTimeMinutes || 0;
+
+    const workMinutes = (endTime.hours * 60 + endTime.minutes) -
+      (startTime.hours * 60 + startTime.minutes) -
+      breakMinutes;
+
+    return workMinutes / 60;
+  }
+
+  private parseTime(timeString: string): { hours: number; minutes: number } {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return { hours, minutes };
   }
 
   async getProgressCalculationMethod(): Promise<ProgressCalculationMethod> {
@@ -114,10 +190,11 @@ export class CompanySettingsService {
 
   async calculateWorkingDaysBetween(startDate: Date, endDate: Date): Promise<number> {
     const settings = await this.getOrCreateSettings();
-    const workDays = settings.workSettings.workDays;
+    const dayWorkingHours = settings.workSettings.dayWorkingHours;
+    const workingDays = dayWorkingHours.filter(day => day.isWorkingDay).map(day => day.day);
     const holidays = settings.workSettings.holidays || [];
 
-    let workingDays = 0;
+    let workingDaysCount = 0;
     const current = new Date(startDate);
 
     while (current <= endDate) {
@@ -127,20 +204,43 @@ export class CompanySettingsService {
         return holidayDate.toDateString() === current.toDateString();
       });
 
-      if (workDays.includes(dayName) && !isHoliday) {
-        workingDays++;
+      if (workingDays.includes(dayName) && !isHoliday) {
+        workingDaysCount++;
       }
 
       current.setDate(current.getDate() + 1);
     }
 
-    return workingDays;
+    return workingDaysCount;
   }
 
   async calculateEstimatedHours(startDate: Date, endDate: Date): Promise<number> {
-    const workingDays = await this.calculateWorkingDaysBetween(startDate, endDate);
-    const dailyHours = await this.getOfficialWorkingHours();
-    return workingDays * dailyHours;
+    const settings = await this.getOrCreateSettings();
+    const dayWorkingHours = settings.workSettings.dayWorkingHours;
+    const holidays = settings.workSettings.holidays || [];
+
+    let totalHours = 0;
+    const current = new Date(startDate);
+
+    while (current <= endDate) {
+      const dayName = current.toLocaleDateString('en-US', { weekday: 'long' }) as WorkDay;
+      const isHoliday = holidays.some(holiday => {
+        const holidayDate = new Date(holiday);
+        return holidayDate.toDateString() === current.toDateString();
+      });
+
+      if (!isHoliday) {
+        const dayConfig = dayWorkingHours.find(day => day.day === dayName);
+        if (dayConfig && dayConfig.isWorkingDay) {
+          const hoursForDay = await this.getWorkingHoursForDay(dayName);
+          totalHours += hoursForDay;
+        }
+      }
+
+      current.setDate(current.getDate() + 1);
+    }
+
+    return totalHours;
   }
 
   async addHoliday(date: Date): Promise<CompanySettings | null> {

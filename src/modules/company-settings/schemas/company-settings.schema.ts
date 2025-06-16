@@ -14,8 +14,26 @@ export enum WorkDay {
 }
 
 export enum ProgressCalculationMethod {
-  TIME_BASED = 'time_based',    // Based on estimated vs actual time
-  DATE_BASED = 'date_based'     // Based on dates only
+  TIME_BASED = 'time_based',
+  DATE_BASED = 'date_based'
+}
+
+@Schema()
+export class DayWorkingHours {
+  @Prop({ required: true })
+  day: WorkDay;
+
+  @Prop({ required: true })
+  isWorkingDay: boolean;
+
+  @Prop({ required: true, default: '09:00' })
+  startTime: string;
+
+  @Prop({ required: true, default: '17:00' })
+  endTime: string;
+
+  @Prop({ default: 60 })
+  breakTimeMinutes: number;
 }
 
 @Schema()
@@ -53,29 +71,20 @@ export class TaskFieldSettings {
 
 @Schema()
 export class WorkSettings {
-  @Prop({ type: [String], enum: WorkDay, default: [WorkDay.SUNDAY, WorkDay.MONDAY, WorkDay.TUESDAY, WorkDay.WEDNESDAY, WorkDay.THURSDAY] })
-  workDays: WorkDay[];
-
-  @Prop({ required: true, default: 8 })
-  officialWorkingHoursPerDay: number;
-
-  @Prop({ required: true, default: '09:00' })
-  workStartTime: string;
-
-  @Prop({ required: true, default: '17:00' })
-  workEndTime: string;
+  @Prop({ type: [DayWorkingHours], required: true })
+  dayWorkingHours: DayWorkingHours[];
 
   @Prop({ type: [Date], default: [] })
-  holidays: Date[];// add event 
+  holidays: Date[];
 
   @Prop({ required: true, default: 'Asia/Riyadh' })
   timezone: string;
 
   @Prop({ default: 1.5 })
-  overtimeRate: number; // Multiplier for overtime pay
+  overtimeRate: number;
 
   @Prop({ default: 60 })
-  breakTimeMinutes: number; // Default break time in minutes
+  defaultBreakTimeMinutes: number; // Default break time for new working days
 }
 
 @Schema({
@@ -119,7 +128,7 @@ export class CompanySettings {
   enableProjectDeadlineReminders: boolean;
 
   // File Management Settings
-  @Prop({ default: 10 }) // MB
+  @Prop({ default: 10 })
   maxFileUploadSize: number;
 
   @Prop({ type: [String], default: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg'] })
@@ -134,3 +143,4 @@ export class CompanySettings {
 }
 
 export const CompanySettingsSchema = SchemaFactory.createForClass(CompanySettings);
+export const DayWorkingHoursSchema = SchemaFactory.createForClass(DayWorkingHours);

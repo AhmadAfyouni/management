@@ -4,39 +4,41 @@ import { forwardRef } from '@nestjs/common/utils';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { parseObject } from 'src/helper/parse-object';
-import { DepartmentService } from '../department/depratment.service';
 import { EmpService } from '../emp/emp.service';
 import { TASK_STATUS } from '../task/enums/task-status.enum';
-import { TasksService } from '../task/task.service';
 import { CreateProjectDto } from './dtos/create-project.dto';
 import { UpdateProjectDto } from './dtos/update-project.dto';
 import { ProjectStatus } from './enums/project-status';
 import { Project, ProjectDocument } from './schema/project.schema';
+import { TaskQueryService } from '../task/task-query.service';
+import { DepartmentService } from '../department/depratment.service';
 
 @Injectable()
 export class ProjectService {
     constructor(
         @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
         private readonly empService: EmpService,
-        @Inject(forwardRef(() => TasksService))
-        private readonly taskService: TasksService,
-        private readonly departmentService: DepartmentService
+        @Inject(forwardRef(() => TaskQueryService))
+        private readonly taskQueryService: TaskQueryService,
+        private readonly departmentService: DepartmentService,
     ) { }
 
-
     async getContributorsProject(projectId: string) {
-        const project = await this.projectModel.findById(parseObject(projectId)).populate("departments").lean().exec();
+        const project = await this.projectModel.findById(parseObject(projectId)).populate('departments').lean().exec();
         const deparmentsId = project?.departments;
         let mangers;
         if (deparmentsId) {
-            mangers = deparmentsId.map(async (department) => await this.empService.findManagerByDepartment(department.toString()));
+            mangers = deparmentsId.map(async (department) =>
+                await this.empService.findManagerByDepartment(department.toString()),
+            );
         }
-        return { mangers }
+        return { mangers };
     }
 
     async getAllProject() {
         return await this.projectModel.find().populate('departments').exec();
     }
+
     async createProject(createProjectDto: CreateProjectDto): Promise<Project> {
         try {
             const project = new this.projectModel(createProjectDto) as any;
@@ -57,9 +59,11 @@ export class ProjectService {
         }
         return project;
     }
+
     async getEmpProject(empId: string) {
         return await this.projectModel.find({ members: { $in: [empId] } }).populate('departments').lean().exec();
     }
+
     async getManagerProject(departmentId: string) {
         return await this.projectModel.find({ departments: { $in: departmentId } }).populate('departments').lean().exec();
     }
@@ -75,8 +79,8 @@ export class ProjectService {
             }
             const updateFields: any = {};
             if (updateProjectDto.status === ProjectStatus.COMPLETED) {
-                const tasks = await this.taskService.getProjectTaskDetails(id);
-                const completedTasks = tasks.filter(task => task.status === TASK_STATUS.DONE);
+                const tasks = await this.taskQueryService.getProjectTaskDetails(id);
+                const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE);
                 if (tasks.length !== completedTasks.length) {
                     throw new BadRequestException('Project cannot be marked as completed because some tasks are not completed');
                 }
@@ -88,16 +92,14 @@ export class ProjectService {
                 }
 
                 const existingDepartments = existingProject.departments.map((deptId: any) => deptId.toString());
-                const newDepartments = updateProjectDto.departments.map(deptId => deptId.toString());
+                const newDepartments = updateProjectDto.departments.map((deptId) => deptId.toString());
                 const mergedDepartments = Array.from(new Set([...existingDepartments, ...newDepartments]));
-
+                updateFields.departments = mergedDepartments;
             }
 
-            const updatedProject = await this.projectModel.findByIdAndUpdate(
-                id,
-                { $set: { ...updateProjectDto, ...updateFields } },
-                { new: true }
-            ).exec();
+            const updatedProject = await this.projectModel
+                .findByIdAndUpdate(id, { $set: { ...updateProjectDto, ...updateFields } }, { new: true })
+                .exec();
 
             if (!updatedProject) {
                 throw new NotFoundException(`Project with ID ${id} not found`);
@@ -110,17 +112,15 @@ export class ProjectService {
         }
     }
 
-
     async canCompleteProject(id: string): Promise<boolean> {
         const project = await this.projectModel.findById(new Types.ObjectId(id)).exec();
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
-        const tasks = await this.taskService.getProjectTaskDetails(id);
+        const tasks = await this.taskQueryService.getProjectTaskDetails(id);
         const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE).length;
         return tasks.length === completedTasks;
     }
-
 
     async deleteProject(id: string): Promise<void> {
         const result = await this.projectModel.findByIdAndDelete(id).exec();
@@ -141,16 +141,27 @@ export class ProjectService {
                 parentId: department.parent_department_id || null,
             }));
         }
-        const projectTasks = (await this.taskService.buildFullTaskList({ departmentId: departmentId, projectId: id }, "")).info;
-        const taskDone = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.DONE).length;
-        const taskOnGoing = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.ONGOING).length;
-        const taskOnTest = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.ON_TEST).length;
-        const taskPending = projectTasks.filter((task: { status: TASK_STATUS; }) => task.status === TASK_STATUS.PENDING).length;
-        return { ...project, is_over_due: project.endDate < new Date(), projectTasks, taskDone, taskOnGoing, taskOnTest, taskPending };
+        const projectTasks = (await this.taskQueryService.buildFullTaskList({ departmentId, projectId: id }, '')).info;
+        const taskDone = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.DONE).length;
+        const taskOnGoing = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.ONGOING)
+            .length;
+        const taskOnTest = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.ON_TEST)
+            .length;
+        const taskPending = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.PENDING)
+            .length;
+        return {
+            ...project,
+            is_over_due: project.endDate < new Date(),
+            projectTasks,
+            taskDone,
+            taskOnGoing,
+            taskOnTest,
+            taskPending,
+        };
     }
 
     async getTaskDetailsProject(departmentId: string, projectId: string) {
-        const tasks = await this.taskService.getTaskProjectByDepartmentId(departmentId, projectId);
+        const tasks = await this.taskQueryService.getTaskProjectByDepartmentId(projectId, departmentId);
         return tasks;
     }
 

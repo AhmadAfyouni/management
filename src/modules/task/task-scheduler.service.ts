@@ -3,15 +3,15 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateTaskDto } from './dtos/create-task.dto';
-import { TasksService } from './task.service';
 import { Task, TaskDocument } from './schema/task.schema';
-import { JobTitles, JobTitlesDocument, RoutineTask } from '../job-titles/schema/job-ttiles.schema';
 import { Emp, EmpDocument } from '../emp/schemas/emp.schema';
 import { SectionService } from '../section/section.service';
 import { NotificationService } from '../notification/notification.service';
 import { TASK_STATUS } from './enums/task-status.enum';
 import { PRIORITY_TYPE } from './enums/priority.enum';
 import { RoutineTaskStats } from './interfaces/scheduler.interface';
+import { TaskCoreService } from './task-core.service';
+import { JobTitles, JobTitlesDocument, RoutineTask } from '../job-titles/schema/job-ttiles.schema';
 
 @Injectable()
 export class TaskSchedulerService {
@@ -20,7 +20,7 @@ export class TaskSchedulerService {
     private lastRunStats: RoutineTaskStats | null = null;
 
     constructor(
-        private readonly taskService: TasksService,
+        private readonly taskCoreService: TaskCoreService,
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
         @InjectModel(JobTitles.name) private jobTitlesModel: Model<JobTitlesDocument>,
         @InjectModel(Emp.name) private empModel: Model<EmpDocument>,
@@ -51,11 +51,10 @@ export class TaskSchedulerService {
             this.lastRunStats = {
                 ...routineStats,
                 executionTime,
-                lastRun: new Date()
+                lastRun: new Date(),
             };
 
             this.logger.log(`Scheduled task generation completed in ${executionTime}ms`, this.lastRunStats);
-
         } catch (error) {
             this.logger.error('Failed to complete scheduled task generation', error);
         } finally {
@@ -65,7 +64,7 @@ export class TaskSchedulerService {
 
     private async createScheduledTasks() {
         try {
-            const recurringTasks = await this.taskService.getRecurringTasks();
+            const recurringTasks = await this.getRecurringTasks();
             const today = new Date();
             today.setHours(0, 0, 0, 0); // Set to start of day for accurate comparison
 
@@ -84,8 +83,8 @@ export class TaskSchedulerService {
                         isRecurring: false, // This is the generated instance
                         createdAt: {
                             $gte: today,
-                            $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-                        }
+                            $lt: new Date(today.getTime() + 24 * 60 * 60 * 1000),
+                        },
                     });
 
                     if (!existingTask) {
@@ -105,7 +104,7 @@ export class TaskSchedulerService {
                             department_id: task.department_id?.toString(),
                         };
 
-                        await this.taskService.createTaskForEmp(taskData);
+                        await this.taskCoreService.createTaskForEmp(taskData);
                         this.logger.log(`Created scheduled task: ${task.name} for employee: ${task.emp}`);
                     }
                 }
@@ -114,6 +113,22 @@ export class TaskSchedulerService {
             this.logger.log('Scheduled tasks processed successfully.');
         } catch (error) {
             this.logger.error('Failed to create scheduled tasks', error);
+            throw error;
+        }
+    }
+
+    private async getRecurringTasks(): Promise<TaskDocument[]> {
+        try {
+            return await this.taskModel
+                .find({ isRecurring: true, isActive: true })
+                .populate([
+                    { path: 'emp', model: 'Emp' },
+                    { path: 'department_id', model: 'Department' },
+                    { path: 'project_id', model: 'Project' },
+                ])
+                .exec();
+        } catch (error) {
+            this.logger.error('Failed to fetch recurring tasks', error);
             throw error;
         }
     }
@@ -128,18 +143,19 @@ export class TaskSchedulerService {
             tasksGenerated: 0,
             errors: 0,
             executionTime: 0,
-            lastRun: new Date()
+            lastRun: new Date(),
         };
 
         try {
             // Get all employees with job titles that have routine tasks
-            const employees = await this.empModel.find({
-                // Add any employee filtering here (e.g., isActive: true)
-            }).populate({
-                path: 'job_id',
-                model: 'JobTitles',
-                match: { hasRoutineTasks: true, autoGenerateRoutineTasks: true }
-            }).exec();
+            const employees = await this.empModel
+                .find({})
+                .populate({
+                    path: 'job_id',
+                    model: 'JobTitles',
+                    match: { hasRoutineTasks: true, autoGenerateRoutineTasks: true },
+                })
+                .exec();
 
             stats.totalEmployees = employees.length;
 
@@ -161,7 +177,6 @@ export class TaskSchedulerService {
 
             this.logger.log(`Routine task generation completed. Stats:`, stats);
             return stats;
-
         } catch (error) {
             this.logger.error('Failed to generate routine tasks:', error);
             throw error;
@@ -184,7 +199,7 @@ export class TaskSchedulerService {
             emp: employee._id,
             isRoutineTask: true,
             parent_task: null,
-            routineTaskId: { $regex: `^routine_main_${employee._id}` }
+            routineTaskId: { $regex: `^routine_main_${employee._id}` },
         });
 
         if (!mainRoutineTask) {
@@ -213,15 +228,11 @@ export class TaskSchedulerService {
                 parent_task: mainRoutineTask._id,
                 name: routineTaskDef.name,
                 isRoutineTask: true,
-                createdAt: { $gte: today, $lt: tomorrow }
+                createdAt: { $gte: today, $lt: tomorrow },
             });
 
             if (!existingTask) {
-                await this.createRoutineTaskInstance(
-                    employee,
-                    routineTaskDef,
-                    mainRoutineTask._id
-                );
+                await this.createRoutineTaskInstance(employee, routineTaskDef, mainRoutineTask._id);
                 tasksCreated++;
 
                 // Create subtasks if defined
@@ -229,7 +240,7 @@ export class TaskSchedulerService {
                     const subTasksCreated = await this.createRoutineSubTasks(
                         employee,
                         routineTaskDef.subTasks,
-                        mainRoutineTask._id
+                        mainRoutineTask._id,
                     );
                     tasksCreated += subTasksCreated;
                 }
@@ -264,7 +275,7 @@ export class TaskSchedulerService {
             recurringType: 'daily',
             isActive: true,
             progress: 0,
-            sub_tasks: []
+            sub_tasks: [],
         });
 
         const savedTask = await mainTask.save();
@@ -273,7 +284,7 @@ export class TaskSchedulerService {
         await this.notificationService.notifyTaskCreated(
             savedTask,
             employee._id.toString(),
-            employee._id.toString()
+            employee._id.toString(),
         );
 
         return savedTask;
@@ -285,7 +296,7 @@ export class TaskSchedulerService {
     private async createRoutineTaskInstance(
         employee: any,
         routineTaskDef: RoutineTask,
-        parentTaskId: Types.ObjectId
+        parentTaskId: Types.ObjectId,
     ): Promise<TaskDocument> {
         const dueDate = this.calculateRoutineTaskDueDate(routineTaskDef);
         const section = await this.sectionService.createInitialSections(employee._id.toString());
@@ -309,16 +320,13 @@ export class TaskSchedulerService {
             isRecurring: false, // Instance is not recurring
             isActive: true,
             progress: 0,
-            sub_tasks: []
+            sub_tasks: [],
         });
 
         const savedTask = await task.save();
 
         // Update parent task's sub_tasks array
-        await this.taskModel.findByIdAndUpdate(
-            parentTaskId,
-            { $addToSet: { sub_tasks: savedTask._id } }
-        );
+        await this.taskModel.findByIdAndUpdate(parentTaskId, { $addToSet: { sub_tasks: savedTask._id } });
 
         return savedTask;
     }
@@ -329,7 +337,7 @@ export class TaskSchedulerService {
     private async createRoutineSubTasks(
         employee: any,
         subTaskDefs: any[],
-        parentTaskId: Types.ObjectId
+        parentTaskId: Types.ObjectId,
     ): Promise<number> {
         let created = 0;
         const section = await this.sectionService.createInitialSections(employee._id.toString());
@@ -351,17 +359,14 @@ export class TaskSchedulerService {
                 expected_end_date: new Date(Date.now() + 24 * 60 * 60 * 1000),
                 estimated_hours: subTaskDef.estimatedHours || 0,
                 isActive: true,
-                progress: 0
+                progress: 0,
             });
 
             await subTask.save();
             created++;
 
             // Update parent's sub_tasks array
-            await this.taskModel.findByIdAndUpdate(
-                parentTaskId,
-                { $addToSet: { sub_tasks: subTask._id } }
-            );
+            await this.taskModel.findByIdAndUpdate(parentTaskId, { $addToSet: { sub_tasks: subTask._id } });
         }
 
         return created;
