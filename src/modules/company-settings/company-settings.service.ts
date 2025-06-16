@@ -48,6 +48,8 @@ export class CompanySettingsService {
     let settings = await this.companySettingsModel.findOne().exec();
     if (!settings) {
       settings = await this.createDefaultSettings() as any;
+    } else {
+      await this.companySettingsModel.findOneAndDelete();
     }
     return settings;
   }
