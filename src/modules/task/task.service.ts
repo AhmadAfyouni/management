@@ -176,13 +176,13 @@ export class TasksService {
             const taskStartDate = new Date(createTaskDto.start_date);
             taskStartDate.setHours(0, 0, 0, 0);
 
-            if (taskStartDate < projectStartDate) {
+            if (taskStartDate <= projectStartDate) {
                 throw new BadRequestException(
                     `Task start date (${taskStartDate.toDateString()}) cannot be before project start date (${projectStartDate.toDateString()})`
                 );
             }
 
-            if (taskStartDate > projectEndDate) {
+            if (taskStartDate >= projectEndDate) {
                 throw new BadRequestException(
                     `Task start date (${taskStartDate.toDateString()}) cannot be after project end date (${projectEndDate.toDateString()})`
                 );
@@ -193,13 +193,13 @@ export class TasksService {
             const taskDueDate = new Date(createTaskDto.due_date);
             taskDueDate.setHours(23, 59, 59, 999);
 
-            if (taskDueDate < projectStartDate) {
+            if (taskDueDate <= projectStartDate) {
                 throw new BadRequestException(
                     `Task due date (${taskDueDate.toDateString()}) cannot be before project start date (${projectStartDate.toDateString()})`
                 );
             }
 
-            if (taskDueDate > projectEndDate) {
+            if (taskDueDate >= projectEndDate) {
                 throw new BadRequestException(
                     `Task due date (${taskDueDate.toDateString()}) cannot be after project end date (${projectEndDate.toDateString()})`
                 );
@@ -210,13 +210,13 @@ export class TasksService {
             const taskExpectedEndDate = new Date(createTaskDto.expected_end_date);
             taskExpectedEndDate.setHours(23, 59, 59, 999);
 
-            if (taskExpectedEndDate < projectStartDate) {
+            if (taskExpectedEndDate <= projectStartDate) {
                 throw new BadRequestException(
                     `Task expected end date (${taskExpectedEndDate.toDateString()}) cannot be before project start date (${projectStartDate.toDateString()})`
                 );
             }
 
-            if (taskExpectedEndDate > projectEndDate) {
+            if (taskExpectedEndDate >= projectEndDate) {
                 throw new BadRequestException(
                     `Task expected end date (${taskExpectedEndDate.toDateString()}) cannot be after project end date (${projectEndDate.toDateString()})`
                 );
@@ -227,13 +227,13 @@ export class TasksService {
             const taskEndDate = new Date(createTaskDto.end_date);
             taskEndDate.setHours(23, 59, 59, 999);
 
-            if (taskEndDate < projectStartDate) {
+            if (taskEndDate <= projectStartDate) {
                 throw new BadRequestException(
                     `Task end date (${taskEndDate.toDateString()}) cannot be before project start date (${projectStartDate.toDateString()})`
                 );
             }
 
-            if (taskEndDate > projectEndDate) {
+            if (taskEndDate >= projectEndDate) {
                 throw new BadRequestException(
                     `Task end date (${taskEndDate.toDateString()}) cannot be after project end date (${projectEndDate.toDateString()})`
                 );
