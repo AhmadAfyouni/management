@@ -2,5 +2,7 @@ export enum TASK_STATUS {
     PENDING = 'PENDING',
     ONGOING = 'ONGOING',
     ON_TEST = 'ON_TEST',
-    DONE = "DONE"
+    DONE = "DONE",
+    CLOSED = "CLOSED",
+    CANCELED = "CANCELED"
 }

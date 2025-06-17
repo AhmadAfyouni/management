@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsNumber, IsString, IsArray, IsBoolean, ValidateNested, Min, Max } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsNumber, IsString, IsArray, IsBoolean, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WorkDay, ProgressCalculationMethod } from '../schemas/company-settings.schema';
 

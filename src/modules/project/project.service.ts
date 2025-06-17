@@ -80,7 +80,7 @@ export class ProjectService {
             const updateFields: any = {};
             if (updateProjectDto.status === ProjectStatus.COMPLETED) {
                 const tasks = await this.taskQueryService.getProjectTaskDetails(id);
-                const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE);
+                const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE || task.status === TASK_STATUS.CLOSED || task.status === TASK_STATUS.CANCELED);
                 if (tasks.length !== completedTasks.length) {
                     throw new BadRequestException('Project cannot be marked as completed because some tasks are not completed');
                 }

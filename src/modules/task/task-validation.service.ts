@@ -11,6 +11,7 @@ import { EmpService } from '../emp/emp.service';
 import { CompanySettingsService } from '../company-settings/company-settings.service';
 import { ProjectStatus } from '../project/enums/project-status';
 import { WorkDay } from '../company-settings/schemas/company-settings.schema';
+import { TASK_STATUS } from './enums/task-status.enum';
 
 @Injectable()
 export class TaskValidationService {
@@ -533,7 +534,7 @@ export class TaskValidationService {
             }
         }
 
-        if (task.status === 'DONE' && oldStatus !== 'DONE') {
+        if (task.status === TASK_STATUS.DONE && oldStatus !== TASK_STATUS.DONE) {
             throw new ForbiddenException('You are not authorized to update this task because it is done');
         }
 
@@ -559,7 +560,7 @@ export class TaskValidationService {
         }
 
         if (updateTaskDto.status && updateTaskDto.status !== oldStatus) {
-            if (updateTaskDto.status === 'DONE') {
+            if (updateTaskDto.status === TASK_STATUS.DONE) {
                 if (!updateTaskDto.actual_hours || updateTaskDto.actual_hours <= 0) {
                     throw new BadRequestException(
                         'Cannot mark task as completed without logging actual hours. Please add actual hours first.'
@@ -577,7 +578,7 @@ export class TaskValidationService {
 
             const hasSubtasks = await this.taskModel.exists({ parent_task: task._id });
             if (hasSubtasks) {
-                if (updateTaskDto.status === 'DONE') {
+                if (updateTaskDto.status === TASK_STATUS.DONE) {
                     const allSubtasksDone = await this.areAllSubtasksDone(task._id.toString());
                     if (!allSubtasksDone) {
                         throw new BadRequestException('Cannot mark task as done until all subtasks are completed');
@@ -587,7 +588,7 @@ export class TaskValidationService {
                 }
             }
 
-            if (updateTaskDto.status === 'DONE') {
+            if (updateTaskDto.status === TASK_STATUS.DONE) {
                 if (task.assignee?.toString() !== empId) {
                     throw new ForbiddenException('You are not authorized to mark this task as done');
                 }
@@ -641,6 +642,6 @@ export class TaskValidationService {
             return true;
         }
 
-        return subtasks.every(subtask => subtask.status === 'DONE');
+        return subtasks.every(subtask => subtask.status === TASK_STATUS.DONE);
     }
 }

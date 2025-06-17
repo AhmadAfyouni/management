@@ -142,9 +142,14 @@ export class TaskCoreService {
             if (!createTaskDto.project_id) {
                 throw new BadRequestException('Project ID is required');
             }
-            if (!createTaskDto.emp) {
-                throw new BadRequestException('Employee ID is required');
+            if (!createTaskDto.department_id) {
+                throw new BadRequestException('Department ID is required');
             }
+            const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
+            if (!manager) {
+                throw new NotFoundException("this department does not have manager");
+            }
+
 
             // Validate project existence
             const project = await this.projectModel.findById(createTaskDto.project_id);
@@ -153,14 +158,8 @@ export class TaskCoreService {
             }
             await this.taskValidationService.validateTaskDatesAgainstProject(createTaskDto, project);
 
-            // Validate employee and get department ID
-            const departmentId = await this.empService.findDepartmentIdByEmpId(createTaskDto.emp);
-            if (!departmentId) {
-                throw new NotFoundException('Department ID not found for this employee');
-            }
-
             // Check if employee's department is part of the project
-            if (!project.departments.map((dept) => dept.toString()).includes(departmentId)) {
+            if (!project.departments.map((dept) => dept.toString()).includes(createTaskDto.department_id)) {
                 throw new ForbiddenException('Employee’s department is not associated with this project');
             }
 
@@ -169,14 +168,14 @@ export class TaskCoreService {
             await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
 
             // Assign section
-            await this.sectionService.createInitialSections(createTaskDto.emp);
-            const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.emp);
+            await this.sectionService.createInitialSections(manager._id.toString());
+            const section_id = await this.sectionService.getRecentlySectionId(manager._id.toString());
             createTaskDto.section_id = section_id;
 
             // Create task
             const task = new this.taskModel({
                 ...createTaskDto,
-                department_id: departmentId,
+                department_id: createTaskDto.department_id,
                 project_id: new Types.ObjectId(createTaskDto.project_id),
             });
             const savedTask = await task.save();
@@ -184,7 +183,7 @@ export class TaskCoreService {
             // Send notification
             await this.notificationService.notifyTaskCreated(
                 savedTask,
-                createTaskDto.emp,
+                manager._id.toString(),
                 savedTask.assignee?.toString(),
             );
 
