@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { GetTaskDto } from './dtos/get-task.dto';
 import { GetTreeDto } from './dtos/get-tree.dto';
 import { Task, TaskDocument } from './schema/task.schema';
@@ -201,7 +201,7 @@ export class TaskQueryService {
 
             if (treeDto.departmentId && treeDto.projectId) {
                 query.department_id = treeDto.departmentId;
-                query.project_id = treeDto.projectId;
+                query.project_id = new Types.ObjectId(treeDto.projectId);
             } else if (treeDto.departmentId) {
                 query.department_id = treeDto.departmentId;
                 query.project_id = null;
