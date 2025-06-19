@@ -160,8 +160,9 @@ export class EmpService {
 
                 if (alreadyManager) {
                     throw new ConflictException(
-                        'Cannot create two primary users for that job title.',
+                        "A user with this job title already exists. You cannot assign the same job title to multiple users.",
                     );
+
                 }
 
                 role = UserRole.PRIMARY_USER;

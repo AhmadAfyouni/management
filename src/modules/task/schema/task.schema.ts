@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
+import { ProgressCalculationMethod } from 'src/modules/company-settings/schemas/company-settings.schema';
 import { Department } from 'src/modules/department/schema/department.schema';
 import { Emp } from 'src/modules/emp/schemas/emp.schema';
 import { Project } from 'src/modules/project/schema/project.schema';
@@ -92,7 +93,7 @@ export class Task {
     @Prop({ type: Number, default: 0, min: 0, max: 100 })
     progress: number;
 
-    @Prop({ type: String, enum: ['time_based', 'date_based'], default: 'time_based' })
+    @Prop({ type: String, enum: ProgressCalculationMethod, default: 'time_based' })
     progressCalculationMethod: string;
 
     // Enhanced time tracking
