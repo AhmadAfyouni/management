@@ -1,6 +1,40 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsNumber, IsString, IsArray, IsBoolean, ValidateNested, Min } from 'class-validator';
+
+// create-company-settings.dto.ts
+import { IsEnum, IsNotEmpty, IsOptional, IsNumber, IsString, IsArray, IsBoolean, ValidateNested, Min, Validate, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WorkDay, ProgressCalculationMethod } from '../schemas/company-settings.schema';
+
+// Custom validator for time validation
+@ValidatorConstraint({ name: 'isStartTimeBeforeEndTime', async: false })
+export class IsStartTimeBeforeEndTimeConstraint implements ValidatorConstraintInterface {
+  validate(startTime: string, args: ValidationArguments) {
+    const object = args.object as DayWorkingHoursDto;
+
+    // If either time is missing, let other validators handle it
+    if (!startTime || !object.endTime) {
+      return true;
+    }
+
+    // Only validate if it's a working day
+    if (!object.isWorkingDay) {
+      return true;
+    }
+
+    const startMinutes = this.timeToMinutes(startTime);
+    const endMinutes = this.timeToMinutes(object.endTime);
+
+    return startMinutes < endMinutes;
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return 'Start time must be before end time';
+  }
+
+  private timeToMinutes(timeString: string): number {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+}
 
 export class DayWorkingHoursDto {
   @IsNotEmpty()
@@ -13,6 +47,7 @@ export class DayWorkingHoursDto {
 
   @IsOptional()
   @IsString()
+  @Validate(IsStartTimeBeforeEndTimeConstraint)
   startTime?: string; // Format: HH:MM
 
   @IsOptional()
@@ -151,5 +186,3 @@ export class CreateCompanySettingsDto {
   @IsString({ each: true })
   allowedFileTypes?: string[];
 }
-
-export class UpdateCompanySettingsDto extends CreateCompanySettingsDto { }
