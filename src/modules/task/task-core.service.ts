@@ -212,18 +212,18 @@ export class TaskCoreService {
 
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: any }> {
         try {
-            // const task = await this.taskModel.findById(id)
-            //     .populate(this.defaultPopulateOptions)
-            //     .lean()
-            //     .exec();
+            const task = await this.taskModel.findById(id)
+                .populate(this.defaultPopulateOptions)
+                .lean()
+                .exec();
 
-            // if (!task) {
-            //     throw new NotFoundException(`Task with ID ${id} not found`);
-            // }
+            if (!task) {
+                throw new NotFoundException(`Task with ID ${id} not found`);
+            }
 
             const subtasks = await this.fetchSubtasksRecursively(id);
-            // const taskWithSubtasks = { ...task, subtasks };
-            // const taskDto = new GetTaskDto(taskWithSubtasks);
+            const taskWithSubtasks = { ...task, subtasks };
+            const taskDto = new GetTaskDto(taskWithSubtasks);
 
             return { status: true, message: 'Task retrieved successfully', data: subtasks };
         } catch (error) {
@@ -236,7 +236,7 @@ export class TaskCoreService {
 
     private async fetchSubtasksRecursively(parentId: string): Promise<any[]> {
         const subtasks = await this.taskModel.find({ parent_task: parentId })
-            .populate(this.defaultPopulateOptions)
+            // .populate(this.defaultPopulateOptions)
             .lean()
             .exec();
 
