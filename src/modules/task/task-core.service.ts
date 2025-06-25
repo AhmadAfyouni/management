@@ -240,7 +240,6 @@ export class TaskCoreService {
             .lean()
             .exec();
 
-        console.log(subtasks);
 
         return subtasks;
     }
