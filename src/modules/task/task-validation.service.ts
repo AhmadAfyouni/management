@@ -573,7 +573,7 @@ export class TaskValidationService {
         // Check creating employee
         if (parentTask.department_id) {
             const empDepartmentId = emp.department_id._id.toString();
-            const parentDepartmentId = parentTask.department_id.toString();
+            const parentDepartmentId = parentTask.department_id._id.toString();
 
             if (empDepartmentId !== parentDepartmentId) {
                 throw new BadRequestException(

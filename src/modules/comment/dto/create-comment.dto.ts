@@ -10,6 +10,7 @@ export class CreateCommentDto {
 
     @IsString()
     @IsNotEmpty()
+    @IsOptional()
     fileUrl?: string;
 }
 export class UpdateCommentDto {
