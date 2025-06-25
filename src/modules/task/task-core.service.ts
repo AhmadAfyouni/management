@@ -210,7 +210,7 @@ export class TaskCoreService {
         }
     }
 
-    async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: any }> {
+    async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
         try {
             const task = await this.taskModel.findById(id)
                 .populate(this.defaultPopulateOptions)
@@ -223,9 +223,9 @@ export class TaskCoreService {
 
             const subtasks = await this.fetchSubtasksRecursively(id);
             const taskWithSubtasks = { ...task, subtasks };
-            // const taskDto = new GetTaskDto(taskWithSubtasks);
+            const taskDto = new GetTaskDto(taskWithSubtasks);
 
-            return { status: true, message: 'Task retrieved successfully', data: taskWithSubtasks };
+            return { status: true, message: 'Task retrieved successfully', data: taskDto };
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw error;
@@ -240,14 +240,8 @@ export class TaskCoreService {
             .lean()
             .exec();
 
-        const results = await Promise.all(
-            subtasks.map(async (subtask) => {
-                const childSubtasks = await this.fetchSubtasksRecursively(subtask._id.toString());
-                return { ...subtask, subtasks: childSubtasks };
-            })
-        );
 
-        return results;
+        return subtasks;
     }
 
     async updateTask(id: string, updateTaskDto: UpdateTaskDto, empId: string): Promise<{ status: boolean; message: string }> {
