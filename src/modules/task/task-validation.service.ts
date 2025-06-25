@@ -591,7 +591,7 @@ export class TaskValidationService {
 
             if (parentTask.department_id) {
                 const assigneeDepartmentId = assignee.department_id._id.toString();
-                const parentDepartmentId = parentTask.department_id.toString();
+                const parentDepartmentId = parentTask.department_id._id.toString();
 
                 if (assigneeDepartmentId !== parentDepartmentId) {
                     throw new BadRequestException(
