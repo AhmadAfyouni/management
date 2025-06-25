@@ -225,7 +225,7 @@ export class TaskCoreService {
             const taskWithSubtasks = { ...task, subtasks };
             const taskDto = new GetTaskDto(taskWithSubtasks);
 
-            return { status: true, message: 'Task retrieved successfully', data: subtasks };
+            return { status: true, message: 'Task retrieved successfully', data: taskDto };
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw error;
