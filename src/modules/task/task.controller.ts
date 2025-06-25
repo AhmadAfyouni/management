@@ -68,6 +68,7 @@ export class TasksController {
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('task/:id')
     async getTaskById(@Param('id') id: string) {
+        return {};
         return this.taskCoreService.getTaskById(id);
     }
 
