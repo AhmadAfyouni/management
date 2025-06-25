@@ -210,7 +210,7 @@ export class TaskCoreService {
         }
     }
 
-    async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: any }> {
+    async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
         try {
             const task = await this.taskModel.findById(id)
                 .populate(this.defaultPopulateOptions)
@@ -222,10 +222,10 @@ export class TaskCoreService {
             }
 
             // const subtasks = await this.fetchSubtasksRecursively(id);
-            // const taskWithSubtasks = { ...task, subtasks };
-            // const taskDto = new GetTaskDto(taskWithSubtasks);
+            const taskWithSubtasks = { ...task };
+            const taskDto = new GetTaskDto(taskWithSubtasks);
 
-            return { status: true, message: 'Task retrieved successfully', data: task };
+            return { status: true, message: 'Task retrieved successfully', data: taskDto };
         } catch (error) {
             if (error instanceof NotFoundException) {
                 throw error;
