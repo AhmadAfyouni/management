@@ -112,14 +112,14 @@ export class GetTaskDto {
         this.isRoutineTask = task.isRoutineTask || false;
         this.routineTaskId = task.routineTaskId;
 
-        // Relationships - FIXED: Use the helper method
-        this.parent_task = this.extractObjectId(task.parent_task);
+        // Relationships
+        this.parent_task = task.parent_task?.toString() || task.parent_task;
         this.sub_tasks = task.sub_tasks || [];
 
-        // Organization - FIXED: Use the helper method 
-        this.section = this.extractObjectOrId(task.section_id);
-        this.department = this.extractObjectOrId(task.department_id);
-        this.project = this.extractObjectOrId(task.project_id);
+        // Organization
+        this.section = task.section_id;
+        this.department = task.department_id;
+        this.project = task.project_id;
 
         // Legacy fields
         this.over_all_time = task.over_all_time;
@@ -130,54 +130,6 @@ export class GetTaskDto {
         if (task.subtasks && Array.isArray(task.subtasks)) {
             this.subtasks = task.subtasks.map((subtask: any) => new GetTaskDto(subtask));
         }
-    }
-
-    /**
-     * Extract ObjectId string only - for relationships that need to be ObjectId strings
-     */
-    private extractObjectId(value: any): string | undefined {
-        if (!value) return undefined;
-
-        // If it's already a string (ObjectId), return it
-        if (typeof value === 'string') return value;
-
-        // If it's a populated object with _id, extract the _id
-        if (value._id) {
-            return value._id.toString();
-        }
-
-        // If it's an ObjectId instance, convert to string
-        if (value.toString && typeof value.toString === 'function') {
-            return value.toString();
-        }
-
-        return undefined;
-    }
-
-    /**
-     * Return full object if populated, otherwise return ID string
-     */
-    private extractObjectOrId(value: any): any {
-        if (!value) return undefined;
-
-        // If it's a populated object (has _id and other properties), return the full object
-        if (value._id && typeof value === 'object' && !Array.isArray(value)) {
-            // Check if it has more than just _id (indicating it's populated)
-            const keys = Object.keys(value);
-            if (keys.length > 1) {
-                return value; // Return full populated object
-            }
-        }
-
-        // If it's already a string (ObjectId), return it
-        if (typeof value === 'string') return value;
-
-        // If it's an ObjectId instance, convert to string
-        if (value.toString && typeof value.toString === 'function') {
-            return value.toString();
-        }
-
-        return undefined;
     }
 
     /**
