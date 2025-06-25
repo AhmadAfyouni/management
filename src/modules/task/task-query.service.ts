@@ -250,7 +250,7 @@ export class TaskQueryService {
 
         try {
             const subTasks = await this.taskModel
-                .find({ parent_task: task.id })
+                .find({ parent_task: new Types.ObjectId(task.id) })
                 .populate(this.defaultPopulateOptions)
                 .lean()
                 .exec();
