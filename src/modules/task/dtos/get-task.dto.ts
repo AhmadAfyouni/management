@@ -113,13 +113,13 @@ export class GetTaskDto {
         this.routineTaskId = task.routineTaskId;
 
         // Relationships
-        this.parent_task = task.parent_task?.toString() || task.parent_task;
+        this.parent_task = this.extractObjectId(task.parent_task);
         this.sub_tasks = task.sub_tasks || [];
 
         // Organization
-        this.section = task.section_id;
-        this.department = task.department_id;
-        this.project = task.project_id;
+        this.section = this.extractObjectId(task.section_id);
+        this.department = this.extractObjectId(task.department_id);
+        this.project = this.extractObjectId(task.project_id);
 
         // Legacy fields
         this.over_all_time = task.over_all_time;
@@ -130,6 +130,25 @@ export class GetTaskDto {
         if (task.subtasks && Array.isArray(task.subtasks)) {
             this.subtasks = task.subtasks.map((subtask: any) => new GetTaskDto(subtask));
         }
+    }
+
+    private extractObjectId(value: any): string | any | undefined {
+        if (!value) return undefined;
+
+        // If it's a populated object (has _id property), return the full object
+        if (value._id && typeof value === 'object' && !Array.isArray(value)) {
+            return value;
+        }
+
+        // If it's already a string (ObjectId), return it
+        if (typeof value === 'string') return value;
+
+        // If it's an ObjectId instance, convert to string
+        if (value.toString && typeof value.toString === 'function') {
+            return value.toString();
+        }
+
+        return undefined;
     }
 
     /**
