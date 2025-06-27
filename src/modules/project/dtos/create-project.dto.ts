@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsString, IsNotEmpty, IsArray, IsMongoId, IsOptional, Matches, IsDate, IsEnum, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, IsMongoId, IsOptional, Matches, IsDate, IsEnum, IsNumber, IsHexColor } from 'class-validator';
 import { ProjectStatus } from '../enums/project-status';
 
 export class CreateProjectDto {
@@ -42,4 +42,8 @@ export class CreateProjectDto {
     @IsOptional()
     @IsNumber()
     rate?: number;
+
+    @IsOptional()
+    @IsHexColor()
+    color: string;
 }

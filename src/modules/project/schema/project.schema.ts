@@ -30,6 +30,9 @@ export class Project {
 
     @Prop({ type: Number, default: 0 })
     rate: Number;
+
+    @Prop({ default: "#" })
+    color: string;
 }
 
 export const ProjectSchema = SchemaFactory.createForClass(Project);
