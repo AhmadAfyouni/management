@@ -7,7 +7,7 @@ import { Emp, EmpDocument } from '../emp/schemas/emp.schema';
 import { Department, DepartmentDocument } from '../department/schema/department.schema';
 import { Comment, CommentDocument } from '../comment/schema/comment.schema';
 import { CompanySettingsService } from '../company-settings/company-settings.service';
-import { ProgressCalculationMethod } from '../company-settings/schemas/company-settings.schema';
+import { ProgressCalculationMethod, WorkDay } from '../company-settings/schemas/company-settings.schema';
 import { TASK_STATUS } from '../task/enums/task-status.enum';
 import { PRIORITY_TYPE } from '../task/enums/priority.enum';
 import { DashboardParamsDto, TimeRange } from './dto/dashboard-params.dto';
@@ -171,10 +171,11 @@ export class DashboardService {
         today.setHours(0, 0, 0, 0);
 
         const { workSettings } = companySettings;
-        const shiftStart = workSettings.workStartTime;
-        const shiftEnd = workSettings.workEndTime;
-        const dailyWorkHours = workSettings.officialWorkingHoursPerDay;
-        const overtimeRate = workSettings.overtimeRate;
+
+        // Get today's working hours
+        const todayWorkingHours = this.getDayWorkingHours(today, companySettings);
+        const dailyWorkHours = this.calculateDailyWorkingHours(todayWorkingHours);
+        const overtimeRate = workSettings.overtimeRate || 1.5;
 
         const todayTasks = await this.taskModel.find({
             emp: userId,
@@ -182,7 +183,6 @@ export class DashboardService {
         }).exec();
 
         let totalHoursToday = 0;
-        let breakTime = 0;
         const allTimeLogs: Array<{ start: Date; end: Date }> = [];
 
         todayTasks.forEach(task => {
@@ -192,7 +192,7 @@ export class DashboardService {
                         const startTime = new Date(log.start);
                         const endTime = new Date(log.end);
 
-                        if (this.isWithinShift(startTime, endTime, shiftStart, shiftEnd)) {
+                        if (this.isWithinShift(startTime, endTime, companySettings)) {
                             const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
                             totalHoursToday += hours;
                             allTimeLogs.push({ start: startTime, end: endTime });
@@ -202,7 +202,7 @@ export class DashboardService {
             }
         });
 
-        breakTime = this.calculateBreakTime(allTimeLogs, shiftStart, shiftEnd);
+        const breakTime = this.calculateBreakTime(allTimeLogs, companySettings);
         const overtimeHours = totalHoursToday > dailyWorkHours ? totalHoursToday - dailyWorkHours : 0;
         const totalTime = totalHoursToday + breakTime;
         const efficiency = dailyWorkHours > 0 ? Math.round((totalHoursToday / dailyWorkHours) * 100) : 0;
@@ -231,7 +231,7 @@ export class DashboardService {
                             const logEnd = new Date(log.end);
 
                             if (logStart >= date && logStart < nextDay) {
-                                if (this.isWithinShift(logStart, logEnd, shiftStart, shiftEnd)) {
+                                if (this.isWithinShift(logStart, logEnd, companySettings)) {
                                     const hours = (logEnd.getTime() - logStart.getTime()) / (1000 * 60 * 60);
                                     actualHours += hours;
                                 }
@@ -241,9 +241,12 @@ export class DashboardService {
                 }
             });
 
+            const dayWorkingHours = this.getDayWorkingHours(date, companySettings);
+            const plannedHours = this.calculateDailyWorkingHours(dayWorkingHours);
+
             return {
                 date: date.toISOString().split('T')[0],
-                plannedHours: dailyWorkHours,
+                plannedHours,
                 actualHours: Number(actualHours.toFixed(2))
             };
         }));
@@ -401,9 +404,8 @@ export class DashboardService {
         const nextDay = new Date(targetDate);
         nextDay.setDate(nextDay.getDate() + 1);
 
-        const { workSettings } = companySettings;
-        const shiftStart = workSettings.workStartTime;
-        const shiftEnd = workSettings.workEndTime;
+        // Get working hours for the target date
+        const dayWorkingHours = this.getDayWorkingHours(targetDate, companySettings);
 
         const tasksWithTimeLogs = await this.taskModel.find({
             emp: userId,
@@ -432,8 +434,8 @@ export class DashboardService {
                             const { position, width } = this.calculateTimelinePosition(
                                 startDate,
                                 endDate,
-                                shiftStart,
-                                shiftEnd
+                                dayWorkingHours.startTime,
+                                dayWorkingHours.endTime
                             );
 
                             timelineEntries.push({
@@ -475,8 +477,8 @@ export class DashboardService {
             entries: timelineEntries,
             totalWorkingTime: Math.round(totalWorkingTime * 10) / 10,
             totalBreakTime: Math.round(totalBreakTime * 10) / 10,
-            shiftStart,
-            shiftEnd
+            shiftStart: dayWorkingHours.startTime,
+            shiftEnd: dayWorkingHours.endTime
         };
     }
 
@@ -792,11 +794,90 @@ export class DashboardService {
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
 
-    private isWithinShift(start: Date, end: Date, shiftStart: string, shiftEnd: string): boolean {
-        const startHours = parseInt(shiftStart.split(':')[0]);
-        const startMinutes = parseInt(shiftStart.split(':')[1]);
-        const endHours = parseInt(shiftEnd.split(':')[0]);
-        const endMinutes = parseInt(shiftEnd.split(':')[1]);
+    // Rewritten helper methods based on company settings schema
+    private getDayWorkingHours(date: Date, companySettings: any): { startTime: string; endTime: string; isWorkingDay: boolean; breakTimeMinutes: number } {
+        const { workSettings } = companySettings;
+
+        if (!workSettings || !workSettings.dayWorkingHours || !Array.isArray(workSettings.dayWorkingHours)) {
+            return {
+                startTime: '09:00',
+                endTime: '17:00',
+                isWorkingDay: true,
+                breakTimeMinutes: workSettings?.defaultBreakTimeMinutes || 60
+            };
+        }
+
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'long' }) as WorkDay;
+        const dayWorkingHours = workSettings.dayWorkingHours.find(
+            (day: any) => day.day === dayName
+        );
+
+        if (!dayWorkingHours) {
+            return {
+                startTime: '09:00',
+                endTime: '17:00',
+                isWorkingDay: true,
+                breakTimeMinutes: workSettings.defaultBreakTimeMinutes || 60
+            };
+        }
+
+        return {
+            startTime: dayWorkingHours.startTime || '09:00',
+            endTime: dayWorkingHours.endTime || '17:00',
+            isWorkingDay: dayWorkingHours.isWorkingDay || false,
+            breakTimeMinutes: dayWorkingHours.breakTimeMinutes || workSettings.defaultBreakTimeMinutes || 60
+        };
+    }
+
+    private calculateDailyWorkingHours(dayWorkingHours: { startTime: string; endTime: string; isWorkingDay: boolean; breakTimeMinutes: number }): number {
+        if (!dayWorkingHours.isWorkingDay) {
+            return 0;
+        }
+
+        const [startHour, startMinute] = dayWorkingHours.startTime.split(':').map(Number);
+        const [endHour, endMinute] = dayWorkingHours.endTime.split(':').map(Number);
+
+        const startMinutes = startHour * 60 + startMinute;
+        const endMinutes = endHour * 60 + endMinute;
+        const totalMinutes = endMinutes - startMinutes;
+        const workingMinutes = totalMinutes - dayWorkingHours.breakTimeMinutes;
+
+        return Math.max(0, workingMinutes / 60);
+    }
+
+    private isWithinShift(start: Date, end: Date, companySettings: any): boolean {
+        const dayWorkingHours = this.getDayWorkingHours(start, companySettings);
+
+        // If it's not a working day, return false
+        if (!dayWorkingHours.isWorkingDay) {
+            return false;
+        }
+
+        const shiftStart = dayWorkingHours.startTime;
+        const shiftEnd = dayWorkingHours.endTime;
+
+        // Validate time format
+        if (!shiftStart || !shiftEnd || !shiftStart.includes(':') || !shiftEnd.includes(':')) {
+            return true; // Default to allowing if format is invalid
+        }
+
+        const startParts = shiftStart.split(':');
+        const endParts = shiftEnd.split(':');
+
+        // Ensure we have valid parts
+        if (startParts.length < 2 || endParts.length < 2) {
+            return true;
+        }
+
+        const startHours = parseInt(startParts[0]);
+        const startMinutes = parseInt(startParts[1]);
+        const endHours = parseInt(endParts[0]);
+        const endMinutes = parseInt(endParts[1]);
+
+        // Validate parsed values
+        if (isNaN(startHours) || isNaN(startMinutes) || isNaN(endHours) || isNaN(endMinutes)) {
+            return true;
+        }
 
         const sessionStartHours = start.getHours();
         const sessionStartMinutes = start.getMinutes();
@@ -808,10 +889,18 @@ export class DashboardService {
         const sessionStartTotalMinutes = sessionStartHours * 60 + sessionStartMinutes;
         const sessionEndTotalMinutes = sessionEndHours * 60 + sessionEndMinutes;
 
+        // Handle overnight shifts (e.g., night shifts that cross midnight)
+        if (shiftEndMinutes < shiftStartMinutes) {
+            // Overnight shift
+            return (sessionStartTotalMinutes >= shiftStartMinutes || sessionStartTotalMinutes <= shiftEndMinutes) &&
+                (sessionEndTotalMinutes >= shiftStartMinutes || sessionEndTotalMinutes <= shiftEndMinutes);
+        }
+
+        // Regular shift within the same day
         return sessionStartTotalMinutes >= shiftStartMinutes && sessionEndTotalMinutes <= shiftEndMinutes;
     }
 
-    private calculateBreakTime(timeLogs: Array<{ start: Date; end: Date }>, shiftStart: string, shiftEnd: string): number {
+    private calculateBreakTime(timeLogs: Array<{ start: Date; end: Date }>, companySettings: any): number {
         if (timeLogs.length <= 1) return 0;
 
         const sortedLogs = timeLogs.sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -822,12 +911,13 @@ export class DashboardService {
             const nextStart = sortedLogs[i + 1].start;
             const gapMinutes = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60);
 
-            if (this.isWithinShift(currentEnd, nextStart, shiftStart, shiftEnd)) {
+            // Check if this gap is within working hours using company settings
+            if (this.isWithinShift(currentEnd, nextStart, companySettings)) {
                 totalBreakTime += gapMinutes;
             }
         }
 
-        return totalBreakTime / 60;
+        return totalBreakTime / 60; // Convert to hours
     }
 
     private calculateTimelinePosition(
@@ -836,12 +926,38 @@ export class DashboardService {
         shiftStart: string,
         shiftEnd: string
     ): { position: number; width: number } {
-        const [startHour, startMinute] = shiftStart.split(':').map(Number);
-        const [endHour, endMinute] = shiftEnd.split(':').map(Number);
+        // Handle undefined/null values with defaults
+        if (!shiftStart || !shiftEnd) {
+            shiftStart = '09:00';
+            shiftEnd = '17:00';
+        }
+
+        // Validate time format
+        if (!shiftStart.includes(':') || !shiftEnd.includes(':')) {
+            return { position: 0, width: 100 };
+        }
+
+        const startParts = shiftStart.split(':');
+        const endParts = shiftEnd.split(':');
+
+        if (startParts.length < 2 || endParts.length < 2) {
+            return { position: 0, width: 100 };
+        }
+
+        const [startHour, startMinute] = startParts.map(Number);
+        const [endHour, endMinute] = endParts.map(Number);
+
+        if (isNaN(startHour) || isNaN(startMinute) || isNaN(endHour) || isNaN(endMinute)) {
+            return { position: 0, width: 100 };
+        }
 
         const shiftStartMinutes = startHour * 60 + startMinute;
         const shiftEndMinutes = endHour * 60 + endMinute;
         const shiftDurationMinutes = shiftEndMinutes - shiftStartMinutes;
+
+        if (shiftDurationMinutes <= 0) {
+            return { position: 0, width: 100 };
+        }
 
         const taskStartMinutes = startTime.getHours() * 60 + startTime.getMinutes();
         const taskEndMinutes = endTime.getHours() * 60 + endTime.getMinutes();
@@ -1020,6 +1136,7 @@ export class DashboardService {
         const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
         const overdueRate = totalTasks > 0 ? (overdueTasks / totalTasks) * 100 : 0;
         const projectDelayRate = projectStats.totalProjects > 0 ? (projectStats.delayedProjects / projectStats.totalProjects) * 100 : 0;
+
         if (completionRate >= 90 && overdueRate <= 5 && projectDelayRate <= 10) return 'excellent';
         if (completionRate >= 75 && overdueRate <= 15 && projectDelayRate <= 20) return 'good';
         if (completionRate >= 60 && overdueRate <= 25 && projectDelayRate <= 35) return 'warning';
