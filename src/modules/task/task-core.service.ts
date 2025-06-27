@@ -124,7 +124,7 @@ export class TaskCoreService {
 
             await this.notificationService.notifyTaskCreated(
                 savedTask,
-                createTaskDto.emp!,
+                createTaskDto.emp,
                 savedTask.assignee?.toString()
             );
 
@@ -256,7 +256,7 @@ export class TaskCoreService {
             }
 
             const oldStatus = task.status;
-            await this.taskValidationService.validateTaskUpdate(task, updateTaskDto, empId);
+            // await this.taskValidationService.validateTaskUpdate(task, updateTaskDto, empId);
 
             const updatedTask = await this.taskModel
                 .findByIdAndUpdate(id, updateTaskDto, { new: true })

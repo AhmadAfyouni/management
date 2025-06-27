@@ -328,11 +328,11 @@ export class TaskValidationService {
                 const taskStartDate = new Date(taskDto.start_date);
                 taskStartDate.setHours(0, 0, 0, 0);
 
-                if (taskStartDate < projectStartDate) {
-                    throw new BadRequestException(
-                        `Task start date (${taskStartDate.toDateString()}) cannot be before project start date (${projectStartDate.toDateString()})`
-                    );
-                }
+                // if (taskStartDate < projectStartDate) {
+                //     throw new BadRequestException(
+                //         `Task start date (${taskStartDate.toDateString()}) cannot be before project start date (${projectStartDate.toDateString()})`
+                //     );
+                // }
 
                 if (taskStartDate > projectEndDate) {
                     throw new BadRequestException(
