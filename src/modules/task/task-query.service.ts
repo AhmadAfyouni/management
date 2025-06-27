@@ -267,9 +267,9 @@ export class TaskQueryService {
                 })
                 .filter(subTask => subTask !== null);
 
-            for (const subTask of subTaskDtos) {
-                await this.collectTasksRecursively(subTask!, fullList);
-            }
+            // for (const subTask of subTaskDtos) {
+            //     // await this.collectTasksRecursively(subTask!, fullList);
+            // }
         } catch (error) {
             console.error(`Error processing subtasks for task ${task.id}:`, error);
         }
