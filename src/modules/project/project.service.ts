@@ -12,6 +12,8 @@ import { ProjectStatus } from './enums/project-status';
 import { Project, ProjectDocument } from './schema/project.schema';
 import { TaskQueryService } from '../task/task-query.service';
 import { DepartmentService } from '../department/depratment.service';
+import { take } from 'rxjs';
+import { Task } from '../task/schema/task.schema';
 
 @Injectable()
 export class ProjectService {
@@ -141,6 +143,7 @@ export class ProjectService {
                 parentId: department.parent_department_id || null,
             }));
         }
+        // return 
         const projectTasks = (await this.taskQueryService.buildFullTaskList({ departmentId, projectId: id }, '')).info;
         const taskDone = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.ONGOING)
@@ -157,6 +160,7 @@ export class ProjectService {
             taskOnGoing,
             taskOnTest,
             taskPending,
+            totalTime: projectTasks.reduce((sum, task: Task) => sum + task.totalTimeSpent, 0),
         };
     }
 

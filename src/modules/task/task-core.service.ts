@@ -177,6 +177,7 @@ export class TaskCoreService {
                 ...createTaskDto,
                 department_id: createTaskDto.department_id,
                 project_id: new Types.ObjectId(createTaskDto.project_id),
+                emp: manager._id.toString()
             });
             const savedTask = await task.save();
 
