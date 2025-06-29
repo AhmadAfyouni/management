@@ -152,6 +152,52 @@ export class ProjectService {
             .length;
         const taskPending = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.PENDING)
             .length;
+
+        // Calculate team information and time spent by each member
+        const teamMap = new Map();
+
+        // Process all tasks to extract team member information
+        projectTasks.forEach((task: any) => {
+            if (task.emp) {
+                const empId = task.emp._id ? task.emp._id.toString() : task.emp.toString();
+
+                if (teamMap.has(empId)) {
+                    // Add time spent to existing team member
+                    const existingMember = teamMap.get(empId);
+                    existingMember.totalTimeSpent += task.totalTimeSpent || 0;
+                    existingMember.taskCount += 1;
+
+                    // Update task status counts
+                    if (task.status === TASK_STATUS.DONE) existingMember.completedTasks += 1;
+                    else if (task.status === TASK_STATUS.ONGOING) existingMember.ongoingTasks += 1;
+                    else if (task.status === TASK_STATUS.ON_TEST) existingMember.testingTasks += 1;
+                    else if (task.status === TASK_STATUS.PENDING) existingMember.pendingTasks += 1;
+                } else {
+                    // Create new team member entry
+                    teamMap.set(empId, {
+                        empInfo: task.emp,
+                        totalTimeSpent: task.totalTimeSpent || 0,
+                        taskCount: 1,
+                        completedTasks: task.status === TASK_STATUS.DONE ? 1 : 0,
+                        ongoingTasks: task.status === TASK_STATUS.ONGOING ? 1 : 0,
+                        testingTasks: task.status === TASK_STATUS.ON_TEST ? 1 : 0,
+                        pendingTasks: task.status === TASK_STATUS.PENDING ? 1 : 0,
+                    });
+                }
+            }
+        });
+
+        // Convert team map to array and sort by total time spent (descending)
+        const team = Array.from(teamMap.values()).sort((a, b) => b.totalTimeSpent - a.totalTimeSpent);
+
+        // Calculate team statistics
+        const teamStats = {
+            totalMembers: team.length,
+            totalTeamTime: team.reduce((sum, member) => sum + member.totalTimeSpent, 0),
+            averageTimePerMember: team.length > 0 ? team.reduce((sum, member) => sum + member.totalTimeSpent, 0) / team.length : 0,
+            mostActiveMembers: team.slice(0, 3), // Top 3 members by time spent
+        };
+
         return {
             ...project,
             is_over_due: project.endDate < new Date(),
@@ -161,6 +207,9 @@ export class ProjectService {
             taskOnTest,
             taskPending,
             totalTime: projectTasks.reduce((sum, task: Task) => sum + task.totalTimeSpent, 0),
+            // New team information
+            team,
+            teamStats,
         };
     }
 
