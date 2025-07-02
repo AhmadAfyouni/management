@@ -29,16 +29,6 @@ export class SectionController {
         return this.sectionService.getSectionsByEmployee(empId);
     }
 
-    // @Get('recently-assigned')
-    // async getRecentlyAssignedSection(@GetAccount() empId: string) {
-    //     return this.sectionService.getRecentlySectionId(empId);
-    // }
-
-    // @Get(':id')
-    // async getSectionById(@Param('id') id: string) {
-    //     return this.sectionService.getSectionById(id);
-    // }
-
     @Put(':id')
     async updateSection(
         @Param('id') id: string,
@@ -48,7 +38,7 @@ export class SectionController {
     }
 
     @Delete(':id')
-    async deleteSection(@Param('id') id: string) {
-        return this.sectionService.deleteSection(id);
+    async deleteSection(@Param('id') id: string, @GetAccount() empId: string) {
+        return this.sectionService.deleteSection(id, empId);
     }
 }

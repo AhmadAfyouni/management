@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { Task, TaskDocument } from '../task/schema/task.schema';
+import { TaskValidationService } from '../task/task-validation.service';
 import { CreateSectionDto } from './dtos/create-section.dto';
 import { UpdateSectionDto } from './dtos/update-section.dto';
 import { Section, SectionDocument } from './schemas/section.schema';
@@ -9,6 +11,7 @@ import { Section, SectionDocument } from './schemas/section.schema';
 export class SectionService {
     constructor(
         @InjectModel(Section.name) private sectionModel: Model<SectionDocument>,
+        @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
     ) { }
 
     async createSection(createSectionDto: CreateSectionDto): Promise<Section> {
@@ -70,10 +73,28 @@ export class SectionService {
         return updatedSection;
     }
 
-    async deleteSection(id: string): Promise<void> {
-        const result = await this.sectionModel.findByIdAndDelete(id).exec();
-        if (!result) {
+    async deleteSection(id: string, empId: string): Promise<void> {
+        // First check if the section exists
+        const sectionToDelete = await this.sectionModel.findById(id).exec();
+        if (!sectionToDelete) {
             throw new NotFoundException(`Section with ID ${id} not found`);
         }
+
+        // Get or create a default section to move tasks to
+        const defaultSection = await this.createInitialSections(empId);
+
+        // Find all tasks in the section to be deleted
+        const tasks = await this.taskModel.find({ section_id: id });
+
+        // Update all tasks to point to the default section
+        if (tasks.length > 0) {
+            await this.taskModel.updateMany(
+                { section_id: id },
+                { section_id: defaultSection }
+            );
+        }
+
+        // Now delete the section
+        await this.sectionModel.findByIdAndDelete(id).exec();
     }
 }
