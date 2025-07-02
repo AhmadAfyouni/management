@@ -35,7 +35,7 @@ export class TaskSubtaskService {
                 throw new NotFoundException('Parent task not found');
             }
 
-            if (parentTask.status === 'DONE') {
+            if (parentTask.status === TASK_STATUS.DONE) {
                 throw new ConflictException("You cannot add sub task for this task because this task is Done");
             }
 

@@ -36,7 +36,7 @@ export class TaskTimeTrackingService {
             task.timeLogs = task.timeLogs || [];
             task.timeLogs.push({ start: new Date(), end: undefined });
 
-            if (task.status !== TASK_STATUS.DONE && task.status !== 'ON_TEST') {
+            if (task.status !== TASK_STATUS.DONE && task.status !== TASK_STATUS.ON_TEST) {
                 task.status = TASK_STATUS.ONGOING;
             }
 
@@ -70,14 +70,26 @@ export class TaskTimeTrackingService {
             const now = new Date();
             lastLog.end = now;
 
+            // Calculate time difference in milliseconds and convert to seconds
             const timeDiffInMilliseconds = now.getTime() - lastLog.start.getTime();
             const timeDiffInSeconds = Math.round(timeDiffInMilliseconds / 1000);
 
+            // Update totalTimeSpent (in seconds)
             task.totalTimeSpent = (task.totalTimeSpent || 0) + parseFloat(timeDiffInSeconds.toFixed(2));
+
+            // Automatically calculate and update actual_hours
+            const hoursWorked = timeDiffInSeconds / 3600; // Convert seconds to hours
+            task.actual_hours = (task.actual_hours || 0) + parseFloat(hoursWorked.toFixed(4)); // Keep precision for small time periods
+
+            // Set hasLoggedHours flag to true since we're automatically logging hours
+            task.hasLoggedHours = true;
 
             await task.save();
 
-            return { status: true, message: 'Task paused successfully' };
+            return {
+                status: true,
+                message: `Task paused successfully. Added ${hoursWorked.toFixed(2)} hours to actual_hours. Total: ${task.actual_hours.toFixed(2)} hours.`
+            };
         } catch (error) {
             if (error instanceof BadRequestException || error instanceof NotFoundException) {
                 throw error;
@@ -85,7 +97,6 @@ export class TaskTimeTrackingService {
             throw new InternalServerErrorException('Failed to pause task', error.message);
         }
     }
-
     async completeTask(taskId: string, userId: string): Promise<{ status: boolean, message: string, finalTime: number }> {
         try {
             const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId) });
