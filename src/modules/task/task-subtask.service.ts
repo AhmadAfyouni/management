@@ -56,7 +56,7 @@ export class TaskSubtaskService {
             };
 
             await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
-            await this.taskValidationService.validateSubtaskDatesAgainstParent(createTaskDto, parentTask);
+            // await this.taskValidationService.validateSubtaskDatesAgainstParent(createTaskDto, parentTask);
 
             let empId = createSubTaskDto.emp || parentTask.emp?.toString();
             if (!empId) {
@@ -75,7 +75,7 @@ export class TaskSubtaskService {
                 await this.taskValidationService.validateOngoingProjectRequirement(parentTask.project_id.toString());
                 const project = await this.projectService.getProjectById(parentTask.project_id.toString());
                 if (project) {
-                    await this.taskValidationService.validateTaskDatesAgainstProject(createTaskDto, project);
+                    // await this.taskValidationService.validateTaskDatesAgainstProject(createTaskDto, project);
                 }
                 await this.taskValidationService.validateUniqueTaskNameInProject(createTaskDto.name, parentTask.project_id.toString());
             }
