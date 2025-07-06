@@ -103,7 +103,8 @@ export class TaskQueryService {
 
     async getProjectTaskDetails(projectId: string) {
         try {
-            const tasks = await this.taskModel.find({ project_id: projectId }).lean().exec();
+            const objectId = new Types.ObjectId(projectId);
+            const tasks = await this.taskModel.find({ project_id: objectId }).lean().exec();
             return tasks.map((task) => ({
                 ...task,
                 is_over_due: task.due_date < new Date() && task.status !== 'DONE'

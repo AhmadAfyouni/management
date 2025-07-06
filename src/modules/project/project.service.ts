@@ -12,7 +12,6 @@ import { ProjectStatus } from './enums/project-status';
 import { Project, ProjectDocument } from './schema/project.schema';
 import { TaskQueryService } from '../task/task-query.service';
 import { DepartmentService } from '../department/depratment.service';
-import { take } from 'rxjs';
 import { Task } from '../task/schema/task.schema';
 
 @Injectable()
@@ -24,6 +23,7 @@ export class ProjectService {
         private readonly taskQueryService: TaskQueryService,
         private readonly departmentService: DepartmentService,
     ) { }
+
 
     async getContributorsProject(projectId: string) {
         const project = await this.projectModel.findById(parseObject(projectId)).populate('departments').lean().exec();
