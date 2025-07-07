@@ -196,7 +196,11 @@ export class TasksController {
     }
 
     @Get('tree')
-    async getTaskTree(@Query() treeDto: GetTreeDto, @GetAccount() empId: string) {
+    async getTaskTree(@Query() treeDto: GetTreeDto, @GetAccount() empId: string, @Query('tasks-by-me') tasksByMe?: string) {
+        // If tasks-by-me is true, filter tasks by current user
+        if (tasksByMe === 'true') {
+            return this.taskQueryService.buildFullTaskList(treeDto, empId, true);
+        }
         return this.taskQueryService.buildFullTaskList(treeDto, empId);
     }
 

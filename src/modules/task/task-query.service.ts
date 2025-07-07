@@ -196,11 +196,13 @@ export class TaskQueryService {
         }
     }
 
-    async buildFullTaskList(treeDto: GetTreeDto, empId: string): Promise<{ tree: any[], info: any[] }> {
+    async buildFullTaskList(treeDto: GetTreeDto, empId: string, filterByMe?: boolean): Promise<{ tree: any[], info: any[] }> {
         try {
             const query: any = { parent_task: null };
 
-            if (treeDto.departmentId && treeDto.projectId) {
+            if (filterByMe) {
+                query.assignee = empId;
+            } else if (treeDto.departmentId && treeDto.projectId) {
                 query.department_id = treeDto.departmentId;
                 query.project_id = new Types.ObjectId(treeDto.projectId);
             } else if (treeDto.departmentId) {
