@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Cron } from '@nestjs/schedule';
 import { Project, ProjectDocument } from './schema/project.schema';
 import { Task, TaskDocument } from '../task/schema/task.schema';
@@ -35,6 +35,17 @@ class ProjectManagementService {
       const manager = await this.empModel.findById(managerId);
       if (!manager) {
         throw new Error('Manager not found');
+      }
+
+      // Check if all project tasks are completed
+      const objectId = new Types.ObjectId(projectId);
+      const allTasks = await this.taskModel.find({ project_id: objectId });
+      const completedTasks = allTasks.filter(task => task.status === TASK_STATUS.DONE);
+      if (allTasks.length === 0) {
+        return { status: false, message: 'No tasks found for this project. Cannot complete project.' };
+      }
+      if (completedTasks.length !== allTasks.length) {
+        return { status: false, message: 'Cannot complete project: Not all tasks are completed.' };
       }
 
       // Update project status to completed
@@ -89,7 +100,6 @@ class ProjectManagementService {
     for (const project of ongoingProjects) {
       const allTasks = await this.taskModel.find({ project_id: project._id });
       const completedTasks = allTasks.filter(task => task.status === TASK_STATUS.DONE);
-
       // If all tasks are completed, notify project manager
       if (allTasks.length > 0 && completedTasks.length === allTasks.length) {
         await this.notifyAllTasksCompleted(project);
