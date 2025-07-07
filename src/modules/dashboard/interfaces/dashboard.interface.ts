@@ -30,7 +30,6 @@ export interface DailyTimelineResponse {
 }
 
 export interface TimeTracking {
-    totalTimeToday: string; // HH:MM:SS format
     workedHours: number;    // Total task work hours
     breakTime: number;      // Break hours
     overtimeHours: number;  // Overtime hours

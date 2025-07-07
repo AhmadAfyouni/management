@@ -34,6 +34,17 @@ export class CompanySettingsService {
       return await this.createDefaultSettings();
     }
 
+    // Ensure overtimeRate is at least 1 if provided or set to 1 if cleared
+    if (updateCompanySettingsDto.workSettings) {
+      if (
+        updateCompanySettingsDto.workSettings.overtimeRate === undefined ||
+        updateCompanySettingsDto.workSettings.overtimeRate === null ||
+        updateCompanySettingsDto.workSettings.overtimeRate < 1
+      ) {
+        updateCompanySettingsDto.workSettings.overtimeRate = 1;
+      }
+    }
+
     const updatedSettings = await this.companySettingsModel
       .findByIdAndUpdate(existingSettings._id, {
         ...updateCompanySettingsDto,

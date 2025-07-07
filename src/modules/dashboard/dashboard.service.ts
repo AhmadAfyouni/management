@@ -167,31 +167,47 @@ export class DashboardService {
     }
 
     private async getEnhancedTimeTracking(userId: string, params: DashboardParamsDto, companySettings: any): Promise<TimeTracking> {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Remove today filter, calculate total worked hours for all time
+        const allUserTasks = await this.taskModel.find({ emp: userId }).exec();
+
+        let totalWorkedHours = 0;
+        allUserTasks.forEach(task => {
+            if (task.timeLogs && Array.isArray(task.timeLogs)) {
+                task.timeLogs.forEach(log => {
+                    if (log.start && log.end) {
+                        const startTime = new Date(log.start);
+                        const endTime = new Date(log.end);
+                        const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+                        totalWorkedHours += hours;
+                    }
+                });
+            }
+        });
+
+        // The rest of the fields can remain as before, but workedHours is now total
+        // You may want to adjust breakTime, overtimeHours, etc. if you want them to be total as well
+        // For now, keep them as today (or recalculate as needed)
 
         const { workSettings } = companySettings;
-
-        // Get today's working hours
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         const todayWorkingHours = this.getDayWorkingHours(today, companySettings);
         const dailyWorkHours = this.calculateDailyWorkingHours(todayWorkingHours);
         const overtimeRate = workSettings.overtimeRate || 1.5;
 
+        // Keep breakTime, overtimeHours, etc. as today for now
+        let totalHoursToday = 0;
+        const allTimeLogs: Array<{ start: Date; end: Date }> = [];
         const todayTasks = await this.taskModel.find({
             emp: userId,
             "timeLogs.start": { $gte: today },
         }).exec();
-
-        let totalHoursToday = 0;
-        const allTimeLogs: Array<{ start: Date; end: Date }> = [];
-
         todayTasks.forEach(task => {
             if (task.timeLogs && Array.isArray(task.timeLogs)) {
                 task.timeLogs.forEach(log => {
                     if (log.start && log.end && new Date(log.start) >= today) {
                         const startTime = new Date(log.start);
                         const endTime = new Date(log.end);
-
                         if (this.isWithinShift(startTime, endTime, companySettings)) {
                             const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
                             totalHoursToday += hours;
@@ -201,19 +217,13 @@ export class DashboardService {
                 });
             }
         });
-
         const breakTime = this.calculateBreakTime(allTimeLogs, companySettings);
         const overtimeHours = totalHoursToday > dailyWorkHours ? totalHoursToday - dailyWorkHours : 0;
-        const totalTime = totalHoursToday + breakTime;
-        const efficiency = dailyWorkHours > 0 ? Math.round((totalHoursToday / dailyWorkHours) * 100) : 0;
-        const totalTimeFormatted = this.formatTimeToHHMMSS(totalTime);
-
         const timeRange = params.timeRange || TimeRange.WEEKLY;
         const dates = this.getDateRange(timeRange);
         const hoursByDay = await Promise.all(dates.map(async date => {
             const nextDay = new Date(date);
             nextDay.setDate(nextDay.getDate() + 1);
-
             const dayTasks = await this.taskModel.find({
                 emp: userId,
                 "timeLogs.start": {
@@ -221,7 +231,6 @@ export class DashboardService {
                     $lt: nextDay
                 }
             }).exec();
-
             let actualHours = 0;
             dayTasks.forEach(task => {
                 if (task.timeLogs && Array.isArray(task.timeLogs)) {
@@ -229,7 +238,6 @@ export class DashboardService {
                         if (log.start && log.end) {
                             const logStart = new Date(log.start);
                             const logEnd = new Date(log.end);
-
                             if (logStart >= date && logStart < nextDay) {
                                 if (this.isWithinShift(logStart, logEnd, companySettings)) {
                                     const hours = (logEnd.getTime() - logStart.getTime()) / (1000 * 60 * 60);
@@ -240,20 +248,18 @@ export class DashboardService {
                     });
                 }
             });
-
             const dayWorkingHours = this.getDayWorkingHours(date, companySettings);
             const plannedHours = this.calculateDailyWorkingHours(dayWorkingHours);
-
             return {
                 date: date.toISOString().split('T')[0],
                 plannedHours,
                 actualHours: Number(actualHours.toFixed(2))
             };
         }));
-
+        // Efficiency and productivityScore can remain as before
+        const efficiency = dailyWorkHours > 0 ? Math.round((totalHoursToday / dailyWorkHours) * 100) : 0;
         return {
-            totalTimeToday: totalTimeFormatted,
-            workedHours: Number(totalHoursToday.toFixed(2)),
+            workedHours: Number(totalWorkedHours.toFixed(2)), // now total
             breakTime: Number(breakTime.toFixed(2)),
             overtimeHours: Number(overtimeHours.toFixed(2)),
             overtimeRate,
@@ -336,6 +342,17 @@ export class DashboardService {
             const projectHealth = this.calculateProjectHealth(project, totalTasks, completedTasks, hoursSpent);
             const isOnTrack = this.isProjectOnTrack(project, progress, companySettings);
 
+            // حساب مجموع الساعات الكلية التي عمل عليها المستخدم في هذا المشروع
+            let totalWorkedHours = 0;
+            userProjectTasks.forEach(task => {
+                if (task.timeLogs && task.timeLogs.length > 0) {
+                    totalWorkedHours += this.calculateTotalTimeSpent(task.timeLogs);
+                } else if (task.actual_hours) {
+                    totalWorkedHours += task.actual_hours * 60 * 60 * 1000; // تحويل ساعات فعلية إلى ms
+                }
+            });
+            totalWorkedHours = totalWorkedHours / (1000 * 60 * 60); // تحويل إلى ساعات
+
             return {
                 id: projectId!.toString(),
                 name: project.name,
@@ -347,7 +364,8 @@ export class DashboardService {
                 health: projectHealth,
                 isOnTrack,
                 daysRemaining: await this.calculateDaysRemaining(project.endDate, companySettings),
-                estimatedCompletionDate: this.estimateProjectCompletion(project, progress, companySettings)
+                estimatedCompletionDate: this.estimateProjectCompletion(project, progress, companySettings),
+                totalWorkedHours: Math.round(totalWorkedHours * 100) / 100 // عدد الساعات الكلية للمستخدم في هذا المشروع
             };
         }));
     }
