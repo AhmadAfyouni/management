@@ -140,6 +140,10 @@ export class CompanySettings {
 
   @Prop({ default: Date.now })
   lastUpdated: Date;
+
+  // New attribute to denote first time entry
+  @Prop({ default: true })
+  isFirstTime: boolean;
 }
 
 export const CompanySettingsSchema = SchemaFactory.createForClass(CompanySettings);

@@ -45,9 +45,11 @@ export class CompanySettingsService {
       }
     }
 
+    // Always set isFirstTime to false on update
     const updatedSettings = await this.companySettingsModel
       .findByIdAndUpdate(existingSettings._id, {
         ...updateCompanySettingsDto,
+        isFirstTime: false,
         lastUpdated: new Date(),
       }, { new: true })
       .exec();
