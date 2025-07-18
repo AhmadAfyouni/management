@@ -1017,7 +1017,8 @@ export class EmpService {
                 parentId: employee.parentId || null,
                 is_manager: employee.role === UserRole.PRIMARY_USER || employee.role === UserRole.ADMIN,
                 title: employee.job_id.title,
-                department: employee.department_id.name
+                department: employee.department_id.name,
+                departmentId: employee.department_id._id.toString(),
             });
             info.push(new GetEmpDto(employee));
         }
@@ -1118,6 +1119,8 @@ export class EmpService {
                 parentId: report.parentId || null,
                 is_manager: report.role === UserRole.PRIMARY_USER || report.role === UserRole.ADMIN,
                 title: report.job_id.title,
+                department: report.department_id.name,
+                departmentId: report.department_id._id.toString(),
             }
         });
 
