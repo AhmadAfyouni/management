@@ -110,7 +110,7 @@ export class NotificationService {
 
     async markAllAsRead(userId: string): Promise<void> {
         await this.notificationModel.updateMany(
-            { userId, isRead: false },
+            { empId: userId, isRead: false },
             { isRead: true }
         ).exec();
     }
