@@ -12,4 +12,8 @@ export class CreateNotificationDto {
   @IsNotEmpty()
   @IsString()
   empId: string;
+  titleEn?: string;
+  titleAr?: string;
+  messageEn?: string;
+  messageAr?: string;
 }

@@ -18,6 +18,15 @@ export class Notification {
     @Prop({ default: false })
     isRead: boolean;
 
+    @Prop()
+    titleEn?: string;
+    @Prop()
+    titleAr?: string;
+    @Prop()
+    messageEn?: string;
+    @Prop()
+    messageAr?: string;
+
     @Prop({ type: String, ref: Emp.name, required: true })
     empId: string;
 }

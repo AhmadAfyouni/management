@@ -107,6 +107,7 @@ export class CompanySettingsService {
       enableProjectDeadlineReminders: true,
       maxFileUploadSize: 10,
       allowedFileTypes: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.png', '.jpg', '.jpeg'],
+      isFirstTime: true,
     });
 
     return await defaultSettings.save();

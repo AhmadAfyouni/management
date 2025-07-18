@@ -19,25 +19,59 @@ export class NotificationService {
     ) { }
 
     async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+        // Add literal translation for title and message if not provided
+        const translations = {
+            'Task Created': 'تم إنشاء مهمة',
+            'Task Updated': 'تم تحديث المهمة',
+            'Task Status Updated': 'تم تحديث حالة المهمة',
+            'Task Status Changed': 'تم تغيير حالة المهمة',
+            'New Task Assigned': 'تم تعيين مهمة جديدة',
+            'Task Reassigned': 'تم إعادة تعيين المهمة',
+            'Department Updated': 'تم تحديث القسم',
+            'Department Created': 'تم إنشاء قسم',
+            'New Department Created': 'تم إنشاء قسم جديد',
+            'Transaction Status Changed': 'تم تغيير حالة المعاملة',
+            'Transaction Ready for Execution': 'المعاملة جاهزة للتنفيذ',
+            'Transaction Awaiting Approval': 'المعاملة بانتظار الموافقة',
+            'New Transaction Created': 'تم إنشاء معاملة جديدة',
+        };
+        const titleEn = createNotificationDto.titleEn || createNotificationDto.title || '';
+        const titleAr = createNotificationDto.titleAr || translations[titleEn] || createNotificationDto.title || '';
+        const messageEn = createNotificationDto.messageEn || createNotificationDto.message || '';
+        let messageAr = createNotificationDto.messageAr;
+        if (!messageAr && messageEn) {
+            // Simple literal translation for common patterns
+            messageAr = messageEn
+                .replace('has been created successfully.', 'تم إنشاؤها بنجاح.')
+                .replace('has been updated successfully.', 'تم تحديثها بنجاح.')
+                .replace('assigned to you has been updated.', 'المعينة لك تم تحديثها.')
+                .replace('You have been assigned a new task:', 'تم تعيين مهمة جديدة لك:')
+                .replace('status has been changed to', 'تم تغيير حالتها إلى')
+                .replace('status has changed from', 'تم تغيير حالتها من')
+                .replace('has been reassigned from you.', 'تمت إعادة تعيينها منك.')
+                .replace('has been updated.', 'تم تحديثها.')
+                .replace('has been created and is pending approval.', 'تم إنشاؤها وهي بانتظار الموافقة.')
+                .replace('is waiting for your department\'s approval.', 'بانتظار موافقة قسمك.')
+                .replace('has been approved and is ready for execution by your department.', 'تمت الموافقة عليها وهي جاهزة للتنفيذ من قبل قسمك.')
+                .replace('A new transaction has been created and is pending approval.', 'تم إنشاء معاملة جديدة وهي بانتظار الموافقة.')
+                .replace('Your transaction status has changed from', 'تم تغيير حالة معاملتك من')
+                .replace('to', 'إلى')
+                .replace('You have updated a transaction status from', 'لقد قمت بتحديث حالة معاملة من')
+                .replace('You have updated a transaction successfully.', 'لقد قمت بتحديث معاملة بنجاح.')
+                .replace('Your transaction has been updated.', 'تم تحديث معاملتك.');
+        }
         const notification = {
             ...createNotificationDto,
             notificationPushDateTime: new Date(),
-            isRead: false
+            isRead: false,
+            titleEn,
+            titleAr,
+            messageEn,
+            messageAr,
         };
         const newNotification = new this.notificationModel(notification);
         const savedNotification = await newNotification.save();
-
-        // const notificationDate = new Date(createNotificationDto.notificationPushDateTime);
-        // if (notificationDate > new Date()) {
-        //     const job = new CronJob(notificationDate, () => {
-        //         console.log(`Pushing notification: ${savedNotification.title}`);
-        //     });
-
-        //     this.schedulerRegistry.addCronJob(`notification_${savedNotification.id}`, job);
-        //     job.start();
-        // }
         console.log(`Pushing notification: ${savedNotification.title}`);
-
         return savedNotification;
     }
 
