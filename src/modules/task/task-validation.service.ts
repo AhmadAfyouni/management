@@ -592,10 +592,11 @@ export class TaskValidationService {
             if (parentTask.department_id) {
                 const assigneeDepartmentId = assignee.department_id._id.toString();
                 const parentDepartmentId = parentTask.department_id._id.toString();
-
+                const assigneeDepartmentName = (assignee.department_id as any).name;
+                const parentDepartmentName = (parentTask.department_id as any).name;
                 if (assigneeDepartmentId !== parentDepartmentId) {
                     throw new BadRequestException(
-                        `Assignee must be a member of the same department as the parent task. Parent task department: ${parentDepartmentId}, Assignee department: ${assigneeDepartmentId}`
+                        `Assignee must be a member of the same department as the parent task. Parent task department: ${parentDepartmentName}, Assignee department: ${assigneeDepartmentName}`
                     );
                 }
             }
