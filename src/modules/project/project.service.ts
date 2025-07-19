@@ -207,6 +207,7 @@ export class ProjectService {
             taskOnTest,
             taskPending,
             totalTime: projectTasks.reduce((sum, task: Task) => sum + task.totalTimeSpent, 0),
+            // New team information
             team,
             teamStats,
         };
