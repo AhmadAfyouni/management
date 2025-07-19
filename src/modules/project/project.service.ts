@@ -199,18 +199,7 @@ export class ProjectService {
         };
 
         return {
-            id: project._id?.toString(),
-            name: project.name,
-            description: project.description,
-            status: project.status,
-            startDate: project.startDate,
-            endDate: project.endDate,
-            assignee: project.assignee,
-            departments: project.departments,
-            rate: project.rate,
-            color: project.color,
-            createdAt: project.createdAt,
-            updatedAt: project.updatedAt,
+            ...project,
             is_over_due: project.endDate < new Date(),
             projectTasks,
             taskDone,
