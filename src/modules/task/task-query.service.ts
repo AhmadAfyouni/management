@@ -4,11 +4,13 @@ import { Model, Types } from 'mongoose';
 import { GetTaskDto } from './dtos/get-task.dto';
 import { GetTreeDto } from './dtos/get-tree.dto';
 import { Task, TaskDocument } from './schema/task.schema';
+import { Section, SectionDocument } from '../section/schemas/section.schema';
 
 @Injectable()
 export class TaskQueryService {
     constructor(
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
+        @InjectModel(Section.name) private sectionModel: Model<SectionDocument>,
     ) { }
 
     private readonly defaultPopulateOptions = [
@@ -213,6 +215,11 @@ export class TaskQueryService {
                 query.project_id = null;
             }
 
+            // Fetch all sections for the user
+            const userSections = await this.sectionModel.find({ emp: empId }).lean().exec();
+            const userSectionIds = userSections.map((s: any) => s._id.toString());
+            const firstSectionId = userSections[0] as any;
+
             const parentTasks = await this.taskModel
                 .find(query)
                 .populate(this.defaultPopulateOptions)
@@ -223,6 +230,10 @@ export class TaskQueryService {
                 .filter(task => task && task._id)
                 .map((task) => {
                     try {
+                        // If section_id is not for this user, set to firstSectionId
+                        if (task.section_id && !userSectionIds.includes(task.section_id.toString())) {
+                            task.section_id = firstSectionId;
+                        }
                         return new GetTaskDto(task);
                     } catch (error) {
                         console.error(`Error creating GetTaskDto for task ${task._id}:`, error);
@@ -270,9 +281,6 @@ export class TaskQueryService {
                 })
                 .filter(subTask => subTask !== null);
 
-            // for (const subTask of subTaskDtos) {
-            //     // await this.collectTasksRecursively(subTask!, fullList);
-            // }
         } catch (error) {
             console.error(`Error processing subtasks for task ${task.id}:`, error);
         }

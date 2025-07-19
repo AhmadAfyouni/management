@@ -21,6 +21,7 @@ import { JobTitles, JobTitlesSchema } from '../job-titles/schema/job-ttiles.sche
 import { DepartmentModule } from '../department/depratment.module';
 import { SectionModule } from '../section/section.module';
 import { CompanySettingsModule } from '../company-settings/company-settings.module';
+import { Section, SectionSchema } from '../section/schemas/section.schema';
 
 @Module({
     imports: [
@@ -35,6 +36,7 @@ import { CompanySettingsModule } from '../company-settings/company-settings.modu
             { name: Project.name, schema: ProjectSchema },
             { name: JobTitles.name, schema: JobTitlesSchema },
             { name: Emp.name, schema: EmpSchema },
+            { name: Section.name, schema: SectionSchema },
         ]),
         CompanySettingsModule
     ],
