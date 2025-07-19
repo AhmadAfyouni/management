@@ -49,8 +49,8 @@ import { CompanySettingsModule } from "./modules/company-settings/company-settin
       DatabaseModule,
       DepartmentModule,
       TemplateModule,
-      TransactionModule,
       NotificationModule,
+      TransactionModule,
       DashboardModule,
       FileModule,
       FileUploadModule
