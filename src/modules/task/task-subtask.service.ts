@@ -45,20 +45,28 @@ export class TaskSubtaskService {
                 );
             }
 
+            // Fix reference fields to always assign only the _id as string
+            const getId = (val: any) => {
+                if (!val) return undefined;
+                if (typeof val === 'string') return val;
+                if (val._id) return val._id.toString();
+                return val.toString();
+            };
+
             const createTaskDto: CreateTaskDto = {
                 ...createSubTaskDto,
-                project_id: parentTask.project_id?.toString() || undefined,
-                department_id: parentTask.department_id?.toString() || undefined,
-                emp: createSubTaskDto.emp || parentTask.emp?.toString(),
-                assignee: createSubTaskDto.assignee,
-                section_id: parentTask.section_id?.toString() || undefined,
+                project_id: getId(parentTask.project_id),
+                department_id: getId(parentTask.department_id),
+                emp: getId(createSubTaskDto.emp) || getId(parentTask.emp),
+                assignee: getId(createSubTaskDto.assignee),
+                section_id: getId(parentTask.section_id),
                 parent_task: parentTask._id.toString(),
             };
 
             await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
             // await this.taskValidationService.validateSubtaskDatesAgainstParent(createTaskDto, parentTask);
 
-            let empId = createSubTaskDto.emp || parentTask.emp?.toString();
+            let empId = getId(createSubTaskDto.emp) || getId(parentTask.emp);
             if (!empId) {
                 throw new BadRequestException('No employee specified and parent task has no assigned employee');
             }
@@ -87,10 +95,10 @@ export class TaskSubtaskService {
             }
 
             createTaskDto.emp = empId;
-            createTaskDto.department_id = parentTask.department_id?.toString() || emp.department_id._id.toString();
+            createTaskDto.department_id = getId(parentTask.department_id) || getId(emp.department_id);
 
             const section = await this.sectionService.createInitialSections(empId) as any;
-            createTaskDto.section_id = section._id.toString();
+            createTaskDto.section_id = getId(section);
 
             const subtask = new this.taskModel(createTaskDto);
             await subtask.save();
