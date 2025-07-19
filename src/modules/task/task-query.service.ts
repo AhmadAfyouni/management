@@ -231,7 +231,7 @@ export class TaskQueryService {
                 .map((task) => {
                     try {
                         // If section_id is not for this user, set to firstSectionId
-                        if (task.section_id && !userSectionIds.includes(task.section_id.toString())) {
+                        if (task.section_id && !userSectionIds.includes(task.section_id._id.toString())) {
                             task.section_id = firstSectionId;
                         }
                         return new GetTaskDto(task);
