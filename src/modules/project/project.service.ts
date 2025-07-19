@@ -144,7 +144,7 @@ export class ProjectService {
             }));
         }
 
-        const projectTasks = (await this.taskQueryService.buildFullTaskList({ departmentId, projectId: id }, '')).info;
+        const projectTasks = (await this.taskQueryService.buildFullTaskList({ projectId: id }, '')).info;
         const taskDone = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.DONE).length;
         const taskOnGoing = projectTasks.filter((task: { status: TASK_STATUS }) => task.status === TASK_STATUS.ONGOING)
             .length;

@@ -207,6 +207,8 @@ export class TaskQueryService {
             } else if (treeDto.departmentId && treeDto.projectId) {
                 query.department_id = treeDto.departmentId;
                 query.project_id = new Types.ObjectId(treeDto.projectId);
+            } else if (treeDto.projectId) {
+                query.project_id = new Types.ObjectId(treeDto.projectId);
             } else if (treeDto.departmentId) {
                 query.department_id = treeDto.departmentId;
                 query.project_id = null;
