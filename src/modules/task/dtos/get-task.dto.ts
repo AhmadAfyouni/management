@@ -117,9 +117,15 @@ export class GetTaskDto {
         this.sub_tasks = task.sub_tasks || [];
 
         // Organization
-        this.section = task.section_id;
-        this.department = task.department_id;
-        this.project = task.project_id;
+        const getId = (val: any) => {
+            if (!val) return undefined;
+            if (typeof val === 'string') return val;
+            if (val._id) return val._id.toString();
+            return val.toString();
+        };
+        this.section = getId(task.section_id);
+        this.department = getId(task.department_id);
+        this.project = getId(task.project_id);
 
         // Legacy fields
         this.over_all_time = task.over_all_time;
