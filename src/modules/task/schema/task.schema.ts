@@ -127,6 +127,12 @@ export class Task {
     @Prop({ type: Boolean, default: true })
     isActive: boolean;
 
+    @Prop({ type: Boolean, default: false })
+    requiresRating: boolean;
+
+    @Prop({ type: Number, required: false })
+    rating?: number;
+
     // Legacy fields (keeping for backward compatibility)
     @Prop({ type: Date, default: null })
     end_date?: Date;

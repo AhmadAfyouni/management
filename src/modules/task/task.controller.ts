@@ -21,7 +21,7 @@ export class TasksController {
     constructor(
         private readonly taskCoreService: TaskCoreService,
         private readonly taskSubtaskService: TaskSubtaskService,
-        private readonly taskTimeTrackingService: TaskTimeTrackingService,
+        public readonly taskTimeTrackingService: TaskTimeTrackingService,
         private readonly taskQueryService: TaskQueryService,
         private readonly taskStatusService: TaskStatusService,
     ) { }
@@ -193,6 +193,13 @@ export class TasksController {
     @Get('complete/:taskId')
     async completeTask(@Param('taskId') taskId: string, @GetAccount() userId: string) {
         return this.taskTimeTrackingService.completeTask(taskId, userId);
+    }
+
+    @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
+    @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
+    @Post('rate/:taskId')
+    async rateTask(@Param('taskId') taskId: string, @Body('rating') rating: number, @GetAccount() userId: string) {
+        return this.taskTimeTrackingService.rateTask(taskId, rating, userId);
     }
 
     @Get('tree')

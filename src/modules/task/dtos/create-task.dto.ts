@@ -67,6 +67,13 @@ export class CreateTaskDto {
     @IsOptional()
     estimated_hours?: number;
 
+    @IsBoolean()
+    @IsOptional()
+    requiresRating?: boolean;
+
+    @IsNumber()
+    @IsOptional()
+    rating?: number;
 
 
     @IsArray()
@@ -163,6 +170,14 @@ export class CreateSubTaskDto {
     @IsNumber()
     @IsOptional()
     estimated_hours?: number;
+
+    @IsBoolean()
+    @IsOptional()
+    requiresRating?: boolean;
+
+    @IsNumber()
+    @IsOptional()
+    rating?: number;
 
     @IsArray()
     @IsString({ each: true })

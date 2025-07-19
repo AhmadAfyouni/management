@@ -102,6 +102,11 @@ export class TaskTimeTrackingService {
             const task = await this.taskModel.findOne({ _id: new Types.ObjectId(taskId) });
             if (!task) throw new NotFoundException('Task not found');
 
+            // Enforce rating requirement before completion
+            if (task.requiresRating && (task.rating === undefined || task.rating === null)) {
+                throw new BadRequestException('You must provide a rating before completing this task.');
+            }
+
             const lastLog = task.timeLogs?.[task.timeLogs.length - 1];
             if (lastLog && !lastLog.end) {
                 await this.pauseTask(taskId, userId);
@@ -201,5 +206,21 @@ export class TaskTimeTrackingService {
             }
             throw new InternalServerErrorException('Failed to remove actual hours', error.message);
         }
+    }
+
+    async rateTask(taskId: string, rating: number, userId: string): Promise<{ status: boolean, message: string }> {
+        const task = await this.taskModel.findById(taskId).exec();
+        if (!task) {
+            throw new NotFoundException('Task not found');
+        }
+        if (task.emp?.toString() !== userId && task.assignee?.toString() !== userId) {
+            throw new ForbiddenException('You are not authorized to rate this task');
+        }
+        if (typeof rating !== 'number' || rating < 1 || rating > 5) {
+            throw new BadRequestException('Rating must be a number between 1 and 5');
+        }
+        task.rating = rating;
+        await task.save();
+        return { status: true, message: 'Task rated successfully' };
     }
 }
