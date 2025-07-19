@@ -204,33 +204,7 @@ export class TaskCoreService {
                 .lean()
                 .exec();
 
-            // Ensure reference fields are only _id or string
-            const getId = (val: any) => {
-                if (!val) return undefined;
-                if (typeof val === 'string') return val;
-                if (val._id) return val._id.toString();
-                return val.toString();
-            };
-
-            const tasksDto = tasks.map(task => {
-                // Patch reference fields to only _id
-                if (task.department_id && typeof task.department_id === 'object') {
-                    task.department_id = getId(task.department_id);
-                }
-                if (task.project_id && typeof task.project_id === 'object') {
-                    task.project_id = getId(task.project_id);
-                }
-                if (task.emp && typeof task.emp === 'object') {
-                    task.emp = getId(task.emp);
-                }
-                if (task.assignee && typeof task.assignee === 'object') {
-                    task.assignee = getId(task.assignee);
-                }
-                if (task.section_id && typeof task.section_id === 'object') {
-                    task.section_id = getId(task.section_id);
-                }
-                return new GetTaskDto(task);
-            });
+            const tasksDto = tasks.map(task => new GetTaskDto(task));
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
