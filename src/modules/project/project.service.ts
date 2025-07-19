@@ -199,7 +199,18 @@ export class ProjectService {
         };
 
         return {
-            ...project,
+            id: project._id?.toString(),
+            name: project.name,
+            description: project.description,
+            status: project.status,
+            startDate: project.startDate,
+            endDate: project.endDate,
+            assignee: project.assignee,
+            departments: project.departments,
+            rate: project.rate,
+            color: project.color,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
             is_over_due: project.endDate < new Date(),
             projectTasks,
             taskDone,
@@ -207,7 +218,6 @@ export class ProjectService {
             taskOnTest,
             taskPending,
             totalTime: projectTasks.reduce((sum, task: Task) => sum + task.totalTimeSpent, 0),
-            // New team information
             team,
             teamStats,
         };
