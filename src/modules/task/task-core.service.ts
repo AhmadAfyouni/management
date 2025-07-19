@@ -229,7 +229,7 @@ export class TaskCoreService {
                 if (task.section_id && typeof task.section_id === 'object') {
                     task.section_id = getId(task.section_id);
                 }
-                return new GetTaskDto(task);
+                return task as any;
             });
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
