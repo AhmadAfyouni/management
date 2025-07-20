@@ -226,7 +226,7 @@ export class DashboardService {
 
     private async getEnhancedProjectStats(userId: string, departmentId: string, params: DashboardParamsDto, companySettings: any): Promise<ProjectStats[]> {
         const projectQuery: Record<string, any> = {
-            departments: { $in: [new Types.ObjectId(departmentId)] }
+            departments: { $in: [departmentId] }
         };
 
         const dateRange = this.getDateRangeFilter(params.timeRange!);
