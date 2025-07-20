@@ -81,95 +81,42 @@ export class DashboardService {
     }
 
     private async getEnhancedTaskSummary(userId: string, departmentId: string, params: DashboardParamsDto, companySettings: any): Promise<TaskSummary> {
-        const matchQuery: Record<string, any> = {
-            emp: userId
-        };
-
-        if (params.departmentId) {
-            matchQuery.department_id = new Types.ObjectId(params.departmentId);
-        }
-
-        if (params.projectId) {
-            matchQuery.project_id = new Types.ObjectId(params.projectId);
-        }
-
+        // Use consistent filters for all queries
+        const matchQuery: Record<string, any> = { emp: userId };
+        if (params.departmentId) matchQuery.department_id = new Types.ObjectId(params.departmentId);
+        if (params.projectId) matchQuery.project_id = new Types.ObjectId(params.projectId);
         const timeRange = params.timeRange || TimeRange.MONTHLY;
         const dateRange = this.getDateRangeFilter(timeRange);
-        if (dateRange) {
-            matchQuery.createdAt = dateRange;
-        }
-
+        if (dateRange) matchQuery.createdAt = dateRange;
+        // Aggregate task stats
         const taskStats = await this.taskModel.aggregate([
             { $match: matchQuery },
-            {
-                $group: {
-                    _id: "$status",
-                    count: { $sum: 1 }
-                }
-            }
+            { $group: { _id: "$status", count: { $sum: 1 } } }
         ]).exec();
-
-        const summary: TaskSummary = {
-            total: 0,
-            inProgress: 0,
-            completed: 0,
-            pending: 0,
-            routineTasks: 0,
-            projectTasks: 0,
-            overdueCount: 0,
-            completionRate: 0
-        };
-
-        // Get routine tasks count
-        const routineTasksCount = await this.taskModel.countDocuments({
-            emp: userId,
-            isRoutineTask: true,
-            ...matchQuery
-        });
-
-        // Get project tasks count
-        const projectTasksCount = await this.taskModel.countDocuments({
-            emp: userId,
-            project_id: { $ne: null },
-            ...matchQuery
-        });
-
-        // Get overdue tasks count
-        const overdueCount = await this.taskModel.countDocuments({
-            emp: userId,
-            due_date: { $lt: new Date() },
-            status: { $ne: TASK_STATUS.DONE },
-            ...matchQuery
-        });
-
-        // Fill with actual values
+        // Routine/project/overdue counts use same filters
+        const routineTasksCount = await this.taskModel.countDocuments({ ...matchQuery, isRoutineTask: true });
+        const projectTasksCount = await this.taskModel.countDocuments({ ...matchQuery, project_id: { $ne: null } });
+        const overdueCount = await this.taskModel.countDocuments({ ...matchQuery, due_date: { $lt: new Date() }, status: { $ne: TASK_STATUS.DONE } });
+        // Fill summary
+        const summary: TaskSummary = { total: 0, inProgress: 0, completed: 0, pending: 0, routineTasks: 0, projectTasks: 0, overdueCount: 0, completionRate: 0 };
         taskStats.forEach(stat => {
             switch (stat._id) {
-                case TASK_STATUS.ONGOING:
-                    summary.inProgress = stat.count;
-                    break;
-                case TASK_STATUS.DONE:
-                    summary.completed = stat.count;
-                    break;
-                case TASK_STATUS.PENDING:
-                    summary.pending = stat.count;
-                    break;
+                case TASK_STATUS.ONGOING: summary.inProgress = stat.count; break;
+                case TASK_STATUS.DONE: summary.completed = stat.count; break;
+                case TASK_STATUS.PENDING: summary.pending = stat.count; break;
             }
         });
-
         summary.total = summary.inProgress + summary.completed + summary.pending;
         summary.routineTasks = routineTasksCount;
         summary.projectTasks = projectTasksCount;
         summary.overdueCount = overdueCount;
         summary.completionRate = summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0;
-
         return summary;
     }
 
     private async getEnhancedTimeTracking(userId: string, params: DashboardParamsDto, companySettings: any): Promise<TimeTracking> {
-        // Remove today filter, calculate total worked hours for all time
+        // Use consistent filters for all queries
         const allUserTasks = await this.taskModel.find({ emp: userId }).exec();
-
         let totalWorkedHours = 0;
         allUserTasks.forEach(task => {
             if (task.timeLogs && Array.isArray(task.timeLogs)) {
@@ -177,31 +124,19 @@ export class DashboardService {
                     if (log.start && log.end) {
                         const startTime = new Date(log.start);
                         const endTime = new Date(log.end);
-                        const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
-                        totalWorkedHours += hours;
+                        totalWorkedHours += (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
                     }
                 });
             }
         });
-
-        // The rest of the fields can remain as before, but workedHours is now total
-        // You may want to adjust breakTime, overtimeHours, etc. if you want them to be total as well
-        // For now, keep them as today (or recalculate as needed)
-
-        const { workSettings } = companySettings;
+        // Calculate today's hours, break, overtime
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayWorkingHours = this.getDayWorkingHours(today, companySettings);
         const dailyWorkHours = this.calculateDailyWorkingHours(todayWorkingHours);
-        const overtimeRate = workSettings.overtimeRate || 1.5;
-
-        // Keep breakTime, overtimeHours, etc. as today for now
         let totalHoursToday = 0;
         const allTimeLogs: Array<{ start: Date; end: Date }> = [];
-        const todayTasks = await this.taskModel.find({
-            emp: userId,
-            "timeLogs.start": { $gte: today },
-        }).exec();
+        const todayTasks = await this.taskModel.find({ emp: userId, "timeLogs.start": { $gte: today } }).exec();
         todayTasks.forEach(task => {
             if (task.timeLogs && Array.isArray(task.timeLogs)) {
                 task.timeLogs.forEach(log => {
@@ -224,13 +159,7 @@ export class DashboardService {
         const hoursByDay = await Promise.all(dates.map(async date => {
             const nextDay = new Date(date);
             nextDay.setDate(nextDay.getDate() + 1);
-            const dayTasks = await this.taskModel.find({
-                emp: userId,
-                "timeLogs.start": {
-                    $gte: date,
-                    $lt: nextDay
-                }
-            }).exec();
+            const dayTasks = await this.taskModel.find({ emp: userId, "timeLogs.start": { $gte: date, $lt: nextDay } }).exec();
             let actualHours = 0;
             dayTasks.forEach(task => {
                 if (task.timeLogs && Array.isArray(task.timeLogs)) {
@@ -256,13 +185,12 @@ export class DashboardService {
                 actualHours: Number(actualHours.toFixed(2))
             };
         }));
-        // Efficiency and productivityScore can remain as before
         const efficiency = dailyWorkHours > 0 ? Math.round((totalHoursToday / dailyWorkHours) * 100) : 0;
         return {
-            workedHours: Number(totalWorkedHours.toFixed(2)), // now total
+            workedHours: Number(totalWorkedHours.toFixed(2)),
             breakTime: Number(breakTime.toFixed(2)),
             overtimeHours: Number(overtimeHours.toFixed(2)),
-            overtimeRate,
+            overtimeRate: companySettings.workSettings?.overtimeRate || 1.5,
             hoursByDay,
             efficiency,
             expectedHours: dailyWorkHours,
@@ -411,86 +339,83 @@ export class DashboardService {
 
     private async getEnhancedDailyTimeline(userId: string, companySettings: any, date?: Date): Promise<DailyTimelineResponse> {
         const targetDate = date ? new Date(date) : new Date();
-
-        // Ensure targetDate is a valid Date object
         if (isNaN(targetDate.getTime())) {
             throw new Error('Invalid date provided for daily timeline');
         }
-
         targetDate.setHours(0, 0, 0, 0);
-
         const nextDay = new Date(targetDate);
         nextDay.setDate(nextDay.getDate() + 1);
-
-        // Get working hours for the target date
         const dayWorkingHours = this.getDayWorkingHours(targetDate, companySettings);
-
+        // Fetch all time logs for the user for the target date
         const tasksWithTimeLogs = await this.taskModel.find({
             emp: userId,
-            "timeLogs.start": {
-                $gte: targetDate,
-                $lt: nextDay
-            }
+            $or: [
+                { "timeLogs.start": { $gte: targetDate, $lt: nextDay } },
+                { "timeLogs.end": { $gte: targetDate, $lt: nextDay } }
+            ]
         })
             .populate('project_id', 'name')
             .exec();
-
         const timelineEntries: TimelineEntry[] = [];
         let totalWorkingTime = 0;
-
+        // Flatten all logs for the day
+        let allLogs: Array<{ task: any, log: any }> = [];
         tasksWithTimeLogs.forEach(task => {
-            if (task.timeLogs && task.timeLogs.length > 0) {
+            if (task.timeLogs && Array.isArray(task.timeLogs)) {
                 task.timeLogs.forEach(log => {
                     if (log.start && log.end) {
                         const startDate = new Date(log.start);
                         const endDate = new Date(log.end);
-
-                        if (startDate >= targetDate && startDate < nextDay && log.end) {
-                            const project = task.project_id as any;
-                            const duration = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-
-                            const { position, width } = this.calculateTimelinePosition(
-                                startDate,
-                                endDate,
-                                dayWorkingHours.startTime,
-                                dayWorkingHours.endTime
-                            );
-
-                            timelineEntries.push({
-                                taskId: task._id.toString(),
-                                taskName: task.name,
-                                projectId: project?._id.toString() || '',
-                                projectName: project?.name || 'No Project',
-                                startTime: startDate.toLocaleTimeString('en-US', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false
-                                }),
-                                endTime: endDate.toLocaleTimeString('en-US', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    hour12: false
-                                }),
-                                duration: Math.round(duration * 10) / 10,
-                                position,
-                                width
-                            });
-
-                            totalWorkingTime += duration;
+                        // Only include logs that overlap with the target day
+                        if ((startDate < nextDay && endDate > targetDate)) {
+                            allLogs.push({ task, log });
                         }
                     }
                 });
             }
         });
-
-        timelineEntries.sort((a, b) => {
-            const timeA = new Date(`1970-01-01T${a.startTime}`).getTime();
-            const timeB = new Date(`1970-01-01T${b.startTime}`).getTime();
-            return timeA - timeB;
+        // Sort logs by start time
+        allLogs.sort((a, b) => new Date(a.log.start).getTime() - new Date(b.log.start).getTime());
+        allLogs.forEach(({ task, log }) => {
+            const startDate = new Date(log.start);
+            const endDate = new Date(log.end);
+            // Clamp log to the current day
+            const clampedStart = startDate < targetDate ? targetDate : startDate;
+            const clampedEnd = endDate > nextDay ? nextDay : endDate;
+            // Only count time within shift
+            if (this.isWithinShift(clampedStart, clampedEnd, companySettings)) {
+                const project = task.project_id as any;
+                const duration = (clampedEnd.getTime() - clampedStart.getTime()) / (1000 * 60 * 60);
+                const { position, width } = this.calculateTimelinePosition(
+                    clampedStart,
+                    clampedEnd,
+                    dayWorkingHours.startTime,
+                    dayWorkingHours.endTime
+                );
+                timelineEntries.push({
+                    taskId: task._id.toString(),
+                    taskName: task.name,
+                    projectId: project?._id?.toString() || '',
+                    projectName: project?.name || 'No Project',
+                    startTime: clampedStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                    endTime: clampedEnd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                    duration: Math.round(duration * 10) / 10,
+                    position,
+                    width
+                });
+                totalWorkingTime += duration;
+            }
         });
-
-        const totalBreakTime = this.calculateBreakTimeFromEntries(timelineEntries);
-
+        // Calculate break time between logs
+        let totalBreakTime = 0;
+        for (let i = 0; i < timelineEntries.length - 1; i++) {
+            const currentEnd = new Date(`1970-01-01T${timelineEntries[i].endTime}`);
+            const nextStart = new Date(`1970-01-01T${timelineEntries[i + 1].startTime}`);
+            let breakDuration = (nextStart.getTime() - currentEnd.getTime()) / (1000 * 60 * 60);
+            if (breakDuration > 0) {
+                totalBreakTime += breakDuration;
+            }
+        }
         return {
             entries: timelineEntries,
             totalWorkingTime: Math.round(totalWorkingTime * 10) / 10,
