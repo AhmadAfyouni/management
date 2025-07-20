@@ -694,24 +694,24 @@ export class TaskValidationService {
             await this.autoCalculateEstimatedHours(updateTaskDto);
 
             const mergedDates = this.mergeTaskDates(task, updateTaskDto);
-            await this.validateTaskDatesWithWorkingHours(mergedDates);
+            // await this.validateTaskDatesWithWorkingHours(mergedDates);
 
             if (task.project_id) {
                 const project = await this.projectService.getProjectById(task.project_id.toString());
                 if (project) {
-                    await this.validateTaskDatesAgainstProject(mergedDates, project);
+                    // await this.validateTaskDatesAgainstProject(mergedDates, project);
                 }
             }
         }
 
         // Validate unique task name in project
-        if (updateTaskDto.name && updateTaskDto.name !== task.name && task.project_id) {
-            await this.validateUniqueTaskNameInProject(
-                updateTaskDto.name,
-                task.project_id.toString(),
-                task._id.toString()
-            );
-        }
+        // if (updateTaskDto.name && updateTaskDto.name !== task.name && task.project_id) {
+        //     await this.validateUniqueTaskNameInProject(
+        //         updateTaskDto.name,
+        //         task.project_id.toString(),
+        //         task._id.toString()
+        //     );
+        // }
 
         // Enhanced status update validation
         await this.validateStatusUpdate(task, updateTaskDto, empId, oldStatus);

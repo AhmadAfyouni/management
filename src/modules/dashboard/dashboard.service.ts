@@ -350,8 +350,8 @@ export class DashboardService {
         const tasksWithTimeLogs = await this.taskModel.find({
             emp: userId,
             $or: [
-                { "timeLogs.start": { $gte: targetDate, $lt: nextDay } },
-                { "timeLogs.end": { $gte: targetDate, $lt: nextDay } }
+                { "timeLogs.start": { $gte: targetDate, $lte: nextDay } },
+                { "timeLogs.end": { $gte: targetDate, $lte: nextDay } }
             ]
         })
             .populate('project_id', 'name')
@@ -360,6 +360,8 @@ export class DashboardService {
         let totalWorkingTime = 0;
         // Flatten all logs for the day
         let allLogs: Array<{ task: any, log: any }> = [];
+        console.log('tasksWithTimeLogs : ', tasksWithTimeLogs);
+
         tasksWithTimeLogs.forEach(task => {
             if (task.timeLogs && Array.isArray(task.timeLogs)) {
                 task.timeLogs.forEach(log => {
@@ -374,6 +376,8 @@ export class DashboardService {
                 });
             }
         });
+        console.log('allLogs : ', allLogs);
+
         // Sort logs by start time
         allLogs.sort((a, b) => new Date(a.log.start).getTime() - new Date(b.log.start).getTime());
         allLogs.forEach(({ task, log }) => {

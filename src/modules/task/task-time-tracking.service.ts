@@ -216,12 +216,17 @@ export class TaskTimeTrackingService {
         if (task.assignee?.toString() !== userId) {
             throw new ForbiddenException('You are not authorized to rate this task');
         }
-        if (typeof rating !== 'number' || rating < 1 || rating > 5) {
-            throw new BadRequestException('Rating must be a number between 1 and 5');
+        if (
+            (typeof rating !== 'number' || rating < 1 || rating > 5) &&
+            status === TASK_STATUS.DONE
+        ) {
+            throw new BadRequestException(
+                'Rating must be a number between 1 and 5',
+            );
         }
         task.comment = comment;
         task.status = status;
-        task.rating = rating;
+        if (status === TASK_STATUS.DONE) task.rating = rating;
         await task.save();
         return { status: true, message: 'Task rated successfully' };
     }
