@@ -71,9 +71,6 @@ export class CreateTaskDto {
     @IsOptional()
     requiresRating?: boolean;
 
-    @IsNumber()
-    @IsOptional()
-    rating?: number;
 
 
     @IsArray()
