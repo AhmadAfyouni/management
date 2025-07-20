@@ -197,9 +197,11 @@ export class TasksController {
 
     @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)
     @RequiredPermissions(PermissionsEnum.TASK_UPDATE)
-    @Post('rate/:taskId')
-    async rateTask(@Param('taskId') taskId: string, @Body('rating') rating: number, @GetAccount() userId: string) {
-        return this.taskTimeTrackingService.rateTask(taskId, rating, userId);
+    @Post('rate/:taskId/:status')
+    async rateTask(@Param('taskId') taskId: string,
+        @Param('status') status: TASK_STATUS,
+        @Body('rating') rating: number, @Body("comment") comment: string, @GetAccount() userId: string) {
+        return this.taskTimeTrackingService.rateTask(taskId, rating, comment, status, userId);
     }
 
     @Get('tree')

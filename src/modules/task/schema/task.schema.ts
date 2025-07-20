@@ -29,7 +29,12 @@ export class Task {
     @Prop({ type: Types.ObjectId, ref: Emp.name, required: false })
     assignee?: Types.ObjectId;
 
-    @Prop({ type: String, enum: TASK_STATUS, required: true, default: TASK_STATUS.PENDING })
+    @Prop({
+        type: String,
+        enum: TASK_STATUS,
+        required: true,
+        default: TASK_STATUS.PENDING,
+    })
     status: TASK_STATUS;
 
     @Prop({ type: Date })
@@ -93,7 +98,11 @@ export class Task {
     @Prop({ type: Number, default: 0, min: 0, max: 100 })
     progress: number;
 
-    @Prop({ type: String, enum: ProgressCalculationMethod, default: 'time_based' })
+    @Prop({
+        type: String,
+        enum: ProgressCalculationMethod,
+        default: 'time_based',
+    })
     progressCalculationMethod: string;
 
     // Enhanced time tracking
@@ -133,6 +142,8 @@ export class Task {
     @Prop({ type: Number, required: false })
     rating?: number;
 
+    @Prop({ default: null })
+    comment?: string;
     // Legacy fields (keeping for backward compatibility)
     @Prop({ type: Date, default: null })
     end_date?: Date;

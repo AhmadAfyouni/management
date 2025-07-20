@@ -62,6 +62,7 @@ export class GetTaskDto {
     // Legacy fields
     over_all_time?: string;
     rate?: number;
+    comment?: string;
     end_date?: Date;
 
     // Nested subtasks for hierarchical display
@@ -124,6 +125,8 @@ export class GetTaskDto {
         // Legacy fields
         this.over_all_time = task.over_all_time;
         this.rate = task.rate;
+        this.comment = task.comment;
+
         this.end_date = task.end_date;
 
         // Handle nested subtasks if present

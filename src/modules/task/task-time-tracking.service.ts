@@ -208,17 +208,19 @@ export class TaskTimeTrackingService {
         }
     }
 
-    async rateTask(taskId: string, rating: number, userId: string): Promise<{ status: boolean, message: string }> {
+    async rateTask(taskId: string, rating: number, comment: string, status: TASK_STATUS, userId: string): Promise<{ status: boolean, message: string }> {
         const task = await this.taskModel.findById(taskId).exec();
         if (!task) {
             throw new NotFoundException('Task not found');
         }
-        if (task.emp?.toString() !== userId && task.assignee?.toString() !== userId) {
+        if (task.assignee?.toString() !== userId) {
             throw new ForbiddenException('You are not authorized to rate this task');
         }
         if (typeof rating !== 'number' || rating < 1 || rating > 5) {
             throw new BadRequestException('Rating must be a number between 1 and 5');
         }
+        task.comment = comment;
+        task.status = status;
         task.rating = rating;
         await task.save();
         return { status: true, message: 'Task rated successfully' };
