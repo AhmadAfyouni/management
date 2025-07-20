@@ -13,6 +13,7 @@ import { Project, ProjectDocument } from '../project/schema/project.schema';
 import { Emp, EmpDocument } from '../emp/schemas/emp.schema';
 import { Department, DepartmentDocument } from '../department/schema/department.schema';
 import { Section, SectionDocument } from '../section/schemas/section.schema';
+import { TaskTimeTrackingService } from './task-time-tracking.service';
 
 @Injectable()
 export class TaskCoreService {
@@ -26,6 +27,7 @@ export class TaskCoreService {
         private readonly sectionService: SectionService,
         private readonly notificationService: NotificationService,
         private readonly taskValidationService: TaskValidationService,
+        private readonly taskTimeTrackingService: TaskTimeTrackingService,
     ) { }
 
     private readonly defaultPopulateOptions = [
@@ -269,8 +271,11 @@ export class TaskCoreService {
             }
 
             const oldStatus = task.status;
+            const oldRate = task.rate;
             await this.taskValidationService.validateTaskUpdate(task, updateTaskDto, empId);
-
+            if (updateTaskDto.rate && oldRate !== updateTaskDto.rate) {
+                await this.taskTimeTrackingService.rateTask(id, updateTaskDto.rate, updateTaskDto.comment || "", updateTaskDto.status || task.status, empId);
+            }
             const updatedTask = await this.taskModel
                 .findByIdAndUpdate(id, updateTaskDto, { new: true })
                 .exec();
