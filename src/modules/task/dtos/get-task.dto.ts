@@ -1,6 +1,7 @@
 import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
 import { TASK_STATUS } from '../enums/task-status.enum';
 import { PRIORITY_TYPE } from '../enums/priority.enum';
+import { take } from 'rxjs';
 
 export class GetTaskDto {
     id: string;
@@ -61,6 +62,7 @@ export class GetTaskDto {
     // Legacy fields
     over_all_time?: string;
     rate?: number;
+    requiresRating: boolean;
     comment?: string;
     end_date?: Date;
 
@@ -133,6 +135,7 @@ export class GetTaskDto {
             // Legacy fields
             this.over_all_time = task?.over_all_time;
             this.rate = this.safeGetNumber(task?.rate);
+            this.requiresRating = task.requiresRating
             this.comment = task?.comment;
 
             // Handle nested subtasks if present
