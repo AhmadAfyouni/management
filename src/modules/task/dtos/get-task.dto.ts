@@ -61,7 +61,7 @@ export class GetTaskDto {
 
     // Legacy fields
     over_all_time?: string;
-    rate?: number;
+    rating?: number;
     requiresRating: boolean;
     comment?: string;
     end_date?: Date;
@@ -134,7 +134,7 @@ export class GetTaskDto {
 
             // Legacy fields
             this.over_all_time = task?.over_all_time;
-            this.rate = task?.rating || 0;
+            this.rating = task?.rating || 0;
             this.requiresRating = task.requiresRating
             this.comment = task?.comment;
 
