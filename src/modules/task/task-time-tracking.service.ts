@@ -103,7 +103,7 @@ export class TaskTimeTrackingService {
             if (!task) throw new NotFoundException('Task not found');
 
             // Enforce rating requirement before completion
-            if (task.requiresRating && (task.rating === undefined || task.rating === null)) {
+            if (task.requiresRating && (task.rate === undefined || task.rate === null)) {
                 throw new BadRequestException('You must provide a rating before completing this task.');
             }
 
@@ -226,7 +226,7 @@ export class TaskTimeTrackingService {
         }
         task.comment = comment;
         task.status = status;
-        if (status === TASK_STATUS.DONE) task.rating = rating;
+        if (status === TASK_STATUS.DONE) task.rate = rating;
         await task.save();
         return { status: true, message: 'Task rated successfully' };
     }

@@ -126,9 +126,6 @@ export class Task {
     @Prop({ type: String })
     over_all_time?: String;
 
-    @Prop({ type: Number, default: 0 })
-    rate: Number;
-
     // Validation fields
     @Prop({ type: Boolean, default: false })
     hasLoggedHours: boolean; // Track if any hours have been logged
@@ -139,8 +136,8 @@ export class Task {
     @Prop({ type: Boolean, default: false })
     requiresRating: boolean;
 
-    @Prop({ type: Number, required: false })
-    rating?: number;
+    @Prop({ type: Number, default: 0 })
+    rate: Number;
 
     @Prop({ default: null })
     comment?: string;
