@@ -279,9 +279,9 @@ export class TaskCoreService {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
 
-            if (updateTaskDto.status && oldStatus !== updateTaskDto.status) {
-                await this.notificationService.notifyTaskStatusChanged(updatedTask, empId);
-            }
+            // if (updateTaskDto.status && oldStatus !== updateTaskDto.status) {
+            //     await this.notificationService.notifyTaskStatusChanged(updatedTask, empId);
+            // }
 
             return { status: true, message: 'Task updated successfully' };
         } catch (error) {

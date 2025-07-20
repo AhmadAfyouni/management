@@ -134,7 +134,7 @@ export class GetTaskDto {
 
             // Legacy fields
             this.over_all_time = task?.over_all_time;
-            this.rate = this.safeGetNumber(task?.rate);
+            this.rate = task?.rating || 0;
             this.requiresRating = task.requiresRating
             this.comment = task?.comment;
 

@@ -678,32 +678,35 @@ export class TaskValidationService {
                 );
             }
         }
+        console.log("STEP 1");
+
 
         // Check if task is completed
         if (task.status === TASK_STATUS.DONE && oldStatus !== TASK_STATUS.DONE) {
             throw new ForbiddenException('You are not authorized to update this task because it is done');
         }
+        console.log("STEP 2");
 
         // Validate assignee if updated
         if (updateTaskDto.assignee) {
             await this.validateAssigneeIsActive(updateTaskDto.assignee);
         }
-
+        console.log("STEP 3");
         // Auto-calculate and validate dates with working hours
         if (this.hasDateUpdates(updateTaskDto)) {
             await this.autoCalculateEstimatedHours(updateTaskDto);
-
+            console.log("STEP 4");
             const mergedDates = this.mergeTaskDates(task, updateTaskDto);
             // await this.validateTaskDatesWithWorkingHours(mergedDates);
-
-            if (task.project_id) {
-                const project = await this.projectService.getProjectById(task.project_id.toString());
-                if (project) {
-                    // await this.validateTaskDatesAgainstProject(mergedDates, project);
-                }
-            }
+            console.log("STEP 5");
+            // if (task.project_id) {
+            //     const project = await this.projectService.getProjectById(task.project_id._id.toString());
+            //     if (project) {
+            //         // await this.validateTaskDatesAgainstProject(mergedDates, project);
+            //     }
+            // }
         }
-
+        console.log("STEP 6");
         // Validate unique task name in project
         // if (updateTaskDto.name && updateTaskDto.name !== task.name && task.project_id) {
         //     await this.validateUniqueTaskNameInProject(
@@ -712,15 +715,15 @@ export class TaskValidationService {
         //         task._id.toString()
         //     );
         // }
-
+        console.log("STEP 7");
         // Enhanced status update validation
         await this.validateStatusUpdate(task, updateTaskDto, empId, oldStatus);
-
+        console.log("STEP 8");
         // Priority update validation
         if (updateTaskDto.priority && task.assignee?.toString() !== empId) {
             updateTaskDto.priority = undefined;
         }
-
+        console.log("STEP 9");
         // Handle due date updates for subtasks
         await this.handleSubtaskDueDateUpdates(task, updateTaskDto);
     }
