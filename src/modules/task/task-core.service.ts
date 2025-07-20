@@ -299,19 +299,63 @@ export class TaskCoreService {
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: any }> {
         try {
             // Fetch task without populate to avoid casting issues
-            const task = await this.taskModel.findById(id)
-                .lean()
-                .exec();
+            const task = await this.taskModel.findById(id).lean().exec();
 
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
 
-            // Fetch related data separately
-            const enrichedTask = await this.enrichTaskWithRelatedData(task);
+            // Safely collect IDs for batch fetching
+            const empIds = new Set<string>();
+            const departmentIds = new Set<string>();
+            const projectIds = new Set<string>();
+            const sectionIds = new Set<string>();
 
-            // Fetch subtasks recursively
-            const subtasks = await this.fetchSubtasksRecursivelyNP(id);
+            // Safe helper function to add IDs
+            const safeAddId = (value: any, collection: Set<string>) => {
+                if (value) {
+                    const id = typeof value === 'string' ? value : value.toString();
+                    if (id && id !== 'undefined' && id !== 'null') {
+                        collection.add(id);
+                    }
+                }
+            };
+
+            safeAddId(task.emp, empIds);
+            safeAddId(task.assignee, empIds);
+            safeAddId(task.department_id, departmentIds);
+            safeAddId(task.project_id, projectIds);
+            safeAddId(task.section_id, sectionIds);
+
+            // Fetch all subtasks first to collect their IDs too
+            const allSubtasks = await this.getAllSubtasksFlat(id);
+            allSubtasks.forEach(subtask => {
+                safeAddId(subtask.emp, empIds);
+                safeAddId(subtask.assignee, empIds);
+                safeAddId(subtask.department_id, departmentIds);
+                safeAddId(subtask.project_id, projectIds);
+                safeAddId(subtask.section_id, sectionIds);
+            });
+
+            // Batch fetch related data
+            const [employees, departments, projects, sections]: any = await Promise.all([
+                empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(empIds) } }).lean().exec() : [],
+                departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(departmentIds) } }).lean().exec() : [],
+                projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(projectIds) } }).lean().exec() : [],
+                sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(sectionIds) } }).lean().exec() : []
+            ]);
+
+            // Create lookup maps
+            const empMap: any = new Map(employees.map((emp: any) => [emp._id.toString(), emp]));
+            const deptMap: any = new Map(departments.map((dept: any) => [dept._id.toString(), dept]));
+            const projMap: any = new Map(projects.map((proj: any) => [proj._id.toString(), proj]));
+            const sectionMap: any = new Map(sections.map((section: any) => [section._id.toString(), section]));
+
+            // Enrich main task
+            const enrichedTask = this.enrichSingleTask(task, empMap, deptMap, projMap, sectionMap);
+
+            // Build subtask hierarchy
+            const subtasks = this.buildSubtaskHierarchy(allSubtasks, id, empMap, deptMap, projMap, sectionMap);
             const taskWithSubtasks = { ...enrichedTask, subtasks };
 
             const taskDto = new GetTaskDto(taskWithSubtasks);
@@ -328,123 +372,120 @@ export class TaskCoreService {
     }
 
     /**
-     * Fetch subtasks recursively without populate
+     * Get all subtasks in a flat structure
      */
-    private async fetchSubtasksRecursivelyNP(parentId: string): Promise<any[]> {
-        try {
-            const subtasks = await this.taskModel.find({ parent_task: parentId })
-                .lean()
-                .exec();
+    private async getAllSubtasksFlat(parentId: string): Promise<any[]> {
+        const allSubtasks: any[] = [];
+        const visited = new Set<string>();
 
-            if (subtasks.length === 0) {
-                return [];
+        const fetchLevel = async (currentParentId: string) => {
+            if (visited.has(currentParentId)) {
+                return; // Prevent infinite loops
             }
+            visited.add(currentParentId);
 
-            // Enrich each subtask with related data
-            const enrichedSubtasks = await Promise.all(
-                subtasks.map(async (subtask) => {
-                    const enrichedSubtask = await this.enrichTaskWithRelatedData(subtask);
-                    const nestedSubtasks = await this.fetchSubtasksRecursivelyNP(subtask._id.toString());
-                    return { ...enrichedSubtask, subtasks: nestedSubtasks };
-                })
-            );
+            const subtasks = await this.taskModel.find({ parent_task: currentParentId }).lean().exec();
 
-            return enrichedSubtasks;
-        } catch (error) {
-            console.error('Error in fetchSubtasksRecursivelyNP:', error);
-            return [];
-        }
+            for (const subtask of subtasks) {
+                allSubtasks.push(subtask);
+                await fetchLevel(subtask._id.toString());
+            }
+        };
+
+        await fetchLevel(parentId);
+        return allSubtasks;
     }
 
     /**
-     * Enrich task with related data by fetching separately
+     * Build subtask hierarchy from flat list
      */
-    private async enrichTaskWithRelatedData(task: any): Promise<any> {
-        const enrichedTask = { ...task } as any;
+    private buildSubtaskHierarchy(
+        allSubtasks: any[],
+        parentId: string,
+        empMap: Map<string, any>,
+        deptMap: Map<string, any>,
+        projMap: Map<string, any>,
+        sectionMap: Map<string, any>
+    ): any[] {
+        const directSubtasks = allSubtasks.filter(task =>
+            task.parent_task && task.parent_task.toString() === parentId
+        );
 
-        try {
-            // Collect all IDs that need to be fetched
-            const empIds = [] as any;
-            const departmentIds = [] as any;
-            const projectIds = [] as any;
-            const sectionIds = [] as any;
+        return directSubtasks.map(subtask => {
+            const enrichedSubtask = this.enrichSingleTask(subtask, empMap, deptMap, projMap, sectionMap);
+            const nestedSubtasks = this.buildSubtaskHierarchy(
+                allSubtasks,
+                subtask._id.toString(),
+                empMap,
+                deptMap,
+                projMap,
+                sectionMap
+            );
+            return { ...enrichedSubtask, subtasks: nestedSubtasks };
+        });
+    }
 
-            if (task.emp) empIds.push(task.emp.toString());
-            if (task.assignee) empIds.push(task.assignee.toString());
-            if (task.department_id) departmentIds.push(task.department_id.toString());
-            if (task.project_id) projectIds.push(task.project_id.toString());
-            if (task.section_id) sectionIds.push(task.section_id.toString());
+    /**
+     * Safely enrich a single task with related data
+     */
+    private enrichSingleTask(
+        task: any,
+        empMap: Map<string, any>,
+        deptMap: Map<string, any>,
+        projMap: Map<string, any>,
+        sectionMap: Map<string, any>
+    ): any {
+        const enrichedTask = { ...task };
 
-            // Fetch related data in parallel
-            const [employees, departments, projects, sections]: any = await Promise.all([
-                empIds.length > 0 ? this.empModel.find({ _id: { $in: empIds } }).lean().exec() : [],
-                departmentIds.length > 0 ? this.departmentModel.find({ _id: { $in: departmentIds } }).lean().exec() : [],
-                projectIds.length > 0 ? this.projectModel.find({ _id: { $in: projectIds } }).lean().exec() : [],
-                sectionIds.length > 0 ? this.sectionModel.find({ _id: { $in: sectionIds } }).lean().exec() : []
-            ]);
+        // Safe helper to get ID string
+        const safeGetId = (value: any): string | null => {
+            if (!value) return null;
+            if (typeof value === 'string') return value;
+            if (value._id) return value._id.toString();
+            if (typeof value.toString === 'function') return value.toString();
+            return null;
+        };
 
-            // Create lookup maps
-            const empMap = new Map(employees.map(emp => [emp._id.toString(), emp]));
-            const deptMap = new Map(departments.map(dept => [dept._id.toString(), dept]));
-            const projMap = new Map(projects.map(proj => [proj._id.toString(), proj]));
-            const sectionMap = new Map(sections.map(section => [section._id.toString(), section]));
+        // Safe helper to get related data
+        const safeGetRelatedData = (value: any, map: Map<string, any>) => {
+            const id = safeGetId(value);
+            return id ? map.get(id) : null;
+        };
 
-            // Attach related data
-            if (task.emp) {
-                const empData = empMap.get(task.emp.toString());
-                enrichedTask.emp = empData || null;
-            }
+        // Attach employee data
+        const empData = safeGetRelatedData(task.emp, empMap);
+        enrichedTask.emp = empData || null;
 
-            if (task.assignee) {
-                const assigneeData = empMap.get(task.assignee.toString());
-                enrichedTask.assignee = assigneeData || null;
-            }
+        const assigneeData = safeGetRelatedData(task.assignee, empMap);
+        enrichedTask.assignee = assigneeData || null;
 
-            if (task.department_id) {
-                const deptData = deptMap.get(task.department_id.toString());
-                enrichedTask.department_id = deptData || task.department_id.toString();
-            }
+        // Attach organization data (return populated object or ID string)
+        const deptData = safeGetRelatedData(task.department_id, deptMap);
+        enrichedTask.department_id = deptData || safeGetId(task.department_id);
 
-            if (task.project_id) {
-                const projData = projMap.get(task.project_id.toString());
-                enrichedTask.project_id = projData || task.project_id.toString();
-            }
+        const projData = safeGetRelatedData(task.project_id, projMap);
+        enrichedTask.project_id = projData || safeGetId(task.project_id);
 
-            if (task.section_id) {
-                const sectionData = sectionMap.get(task.section_id.toString());
-                enrichedTask.section_id = sectionData || task.section_id.toString();
-            }
+        const sectionData = safeGetRelatedData(task.section_id, sectionMap);
+        enrichedTask.section_id = sectionData || safeGetId(task.section_id);
 
-            // Ensure proper ID conversion for arrays
-            if (enrichedTask.sub_tasks && Array.isArray(enrichedTask.sub_tasks)) {
-                enrichedTask.sub_tasks = enrichedTask.sub_tasks.map(id => id.toString());
-            }
+        // Handle arrays safely
+        enrichedTask.sub_tasks = Array.isArray(task.sub_tasks)
+            ? task.sub_tasks.map(id => safeGetId(id)).filter(id => id !== null)
+            : [];
 
-            if (enrichedTask.dependencies && Array.isArray(enrichedTask.dependencies)) {
-                enrichedTask.dependencies = enrichedTask.dependencies.map(id => id.toString());
-            }
+        enrichedTask.dependencies = Array.isArray(task.dependencies)
+            ? task.dependencies.map(id => safeGetId(id)).filter(id => id !== null)
+            : [];
 
-            if (enrichedTask.parent_task) {
-                enrichedTask.parent_task = enrichedTask.parent_task.toString();
-            }
+        // Handle parent task
+        enrichedTask.parent_task = safeGetId(task.parent_task);
 
-            return enrichedTask;
+        // Ensure other fields are safe
+        enrichedTask.files = Array.isArray(task.files) ? task.files : [];
+        enrichedTask.timeLogs = Array.isArray(task.timeLogs) ? task.timeLogs : [];
 
-        } catch (error) {
-            console.error('Error enriching task data:', error);
-            // Return task with string IDs if enrichment fails
-            return {
-                ...enrichedTask,
-                emp: null,
-                assignee: null,
-                department_id: task.department_id?.toString() || null,
-                project_id: task.project_id?.toString() || null,
-                section_id: task.section_id?.toString() || null,
-                parent_task: task.parent_task?.toString() || null,
-                sub_tasks: Array.isArray(task.sub_tasks) ? task.sub_tasks.map(id => id.toString()) : [],
-                dependencies: Array.isArray(task.dependencies) ? task.dependencies.map(id => id.toString()) : []
-            };
-        }
+        return enrichedTask;
     }
     private async fetchSubtasksRecursively(parentId: string): Promise<any[]> {
         const subtasks = await this.taskModel.find({ parent_task: parentId })
