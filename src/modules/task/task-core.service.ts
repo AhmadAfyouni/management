@@ -28,80 +28,241 @@ export class TaskCoreService {
         private readonly taskValidationService: TaskValidationService,
     ) { }
 
-    private readonly defaultPopulateOptions = [
-        {
-            path: "emp",
-            model: "Emp",
-            populate: [
-                {
-                    path: "job_id",
-                    model: "JobTitles",
-                    populate: {
-                        path: "category",
-                        model: "JobCategory",
-                    },
-                },
-                {
-                    path: "department_id",
-                    model: "Department",
-                },
-            ],
-        },
-        {
-            path: "assignee",
-            model: "Emp",
-            populate: [
-                {
-                    path: "job_id",
-                    model: "JobTitles",
-                    populate: {
-                        path: "category",
-                        model: "JobCategory",
-                    },
-                },
-                {
-                    path: "department_id",
-                    model: "Department",
-                },
-            ],
-        },
-        { path: "section_id" },
-        { path: "department_id" },
-        { path: "project_id" }
-    ];
+    // ==================== UTILITY METHODS ====================
 
-    async createTaskForDepartment(createTaskDto: CreateTaskDto) {
-        if (!createTaskDto.department_id) {
-            throw new BadRequestException('Department ID is required');
+    /**
+     * Safely extract ObjectId string from any value
+     */
+    private safeToObjectIdString(value: any): string | null {
+        if (!value) return null;
+
+        try {
+            // If it's already a valid ObjectId string
+            if (typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value)) {
+                return value;
+            }
+
+            // If it's an ObjectId object
+            if (value instanceof Types.ObjectId) {
+                return value.toString();
+            }
+
+            // If it's an object with _id
+            if (typeof value === 'object' && value._id) {
+                const id = value._id;
+                if (typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id)) {
+                    return id;
+                }
+                if (id instanceof Types.ObjectId) {
+                    return id.toString();
+                }
+            }
+
+            // If it's a stringified object (corrupted data), try to extract ObjectId
+            if (typeof value === 'string' && value.includes('ObjectId(')) {
+                const match = value.match(/ObjectId\('([0-9a-fA-F]{24})'\)/);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+
+            // Try to convert to string and validate
+            const stringValue = value.toString();
+            if (/^[0-9a-fA-F]{24}$/.test(stringValue)) {
+                return stringValue;
+            }
+
+            return null;
+        } catch (error) {
+            console.warn('Error converting value to ObjectId string:', error);
+            return null;
         }
+    }
 
-        const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
-        if (!manager) {
-            throw new NotFoundException("this department does not have manager");
-        }
+    /**
+     * Safely convert array of values to ObjectId strings
+     */
+    private safeArrayToObjectIdStrings(arr: any[]): string[] {
+        if (!Array.isArray(arr)) return [];
 
-        await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
-        await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
+        return arr
+            .map(item => this.safeToObjectIdString(item))
+            .filter((id): id is string => id !== null);
+    }
 
-        const section = await this.sectionService.createInitialSections(manager._id.toString()) as any;
-        createTaskDto.section_id = section._id.toString();
+    /**
+     * Clean corrupted task data
+     */
+    private cleanTaskData(task: any): any {
+        if (!task) return null;
 
-        const taskData = {
-            ...createTaskDto,
-            emp: manager._id.toString(),
-            department_id: createTaskDto.department_id,
+        const cleaned = {
+            _id: task._id,
+            name: task.name || '',
+            description: task.description || '',
+            priority: task.priority,
+            status: task.status,
+            createdAt: task.createdAt,
+            updatedAt: task.updatedAt,
+            due_date: task.due_date,
+            start_date: task.start_date,
+            actual_end_date: task.actual_end_date,
+            expected_end_date: task.expected_end_date,
+            estimated_hours: task.estimated_hours || 0,
+            actual_hours: task.actual_hours || 0,
+            totalTimeSpent: task.totalTimeSpent || 0,
+            startTime: task.startTime,
+            timeLogs: Array.isArray(task.timeLogs) ? task.timeLogs : [],
+            files: Array.isArray(task.files) ? task.files : [],
+            progress: task.progress || 0,
+            progressCalculationMethod: task.progressCalculationMethod || 'time_based',
+            hasLoggedHours: task.hasLoggedHours || false,
+            isActive: task.isActive !== undefined ? task.isActive : true,
+            isRecurring: task.isRecurring || false,
+            recurringType: task.recurringType,
+            intervalInDays: task.intervalInDays,
+            recurringEndDate: task.recurringEndDate,
+            isRoutineTask: task.isRoutineTask || false,
+            routineTaskId: task.routineTaskId,
+            boardPosition: task.boardPosition,
+            boardOrder: task.boardOrder,
+            over_all_time: task.over_all_time,
+            rate: task.rate,
+            comment: task.comment,
+            end_date: task.end_date,
+
+            // Clean reference fields
+            emp: this.safeToObjectIdString(task.emp),
+            assignee: this.safeToObjectIdString(task.assignee),
+            department_id: this.safeToObjectIdString(task.department_id),
+            project_id: this.safeToObjectIdString(task.project_id),
+            section_id: this.safeToObjectIdString(task.section_id),
+            parent_task: this.safeToObjectIdString(task.parent_task),
+
+            // Clean arrays
+            sub_tasks: this.safeArrayToObjectIdStrings(task.sub_tasks || []),
+            dependencies: this.safeArrayToObjectIdStrings(task.dependencies || [])
         };
 
-        const task = new this.taskModel(taskData);
-        const savedTask = await task.save();
+        return cleaned;
+    }
 
-        await this.notificationService.notifyTaskCreated(
-            savedTask,
-            manager._id.toString(),
-            savedTask.assignee?.toString()
-        );
+    /**
+     * Batch fetch and create lookup maps for related data
+     */
+    private async fetchRelatedData(tasks: any[]) {
+        // Collect all unique IDs
+        const empIds = new Set<string>();
+        const departmentIds = new Set<string>();
+        const projectIds = new Set<string>();
+        const sectionIds = new Set<string>();
 
-        return savedTask;
+        tasks.forEach(task => {
+            if (task.emp) empIds.add(task.emp);
+            if (task.assignee) empIds.add(task.assignee);
+            if (task.department_id) departmentIds.add(task.department_id);
+            if (task.project_id) projectIds.add(task.project_id);
+            if (task.section_id) sectionIds.add(task.section_id);
+        });
+
+        // Batch fetch all related data
+        const [employees, departments, projects, sections]: any = await Promise.all([
+            empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(empIds) } }).lean().exec() : [],
+            departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(departmentIds) } }).lean().exec() : [],
+            projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(projectIds) } }).lean().exec() : [],
+            sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(sectionIds) } }).lean().exec() : []
+        ]);
+
+        // Create lookup maps
+        return {
+            empMap: new Map(employees.map((emp: any) => [emp._id.toString(), emp])),
+            deptMap: new Map(departments.map((dept: any) => [dept._id.toString(), dept])),
+            projMap: new Map(projects.map((proj: any) => [proj._id.toString(), proj])),
+            sectionMap: new Map(sections.map((section: any) => [section._id.toString(), section]))
+        };
+    }
+
+    /**
+     * Enrich task with related data
+     */
+    private enrichTask(task: any, maps: any): any {
+        const enriched = { ...task };
+
+        // Attach employee data
+        if (task.emp) {
+            const empData = maps.empMap.get(task.emp);
+            enriched.emp = empData || null;
+        } else {
+            enriched.emp = null;
+        }
+
+        if (task.assignee) {
+            const assigneeData = maps.empMap.get(task.assignee);
+            enriched.assignee = assigneeData || null;
+        } else {
+            enriched.assignee = null;
+        }
+
+        // Attach organization data (return object if found, otherwise keep ID)
+        if (task.department_id) {
+            const deptData = maps.deptMap.get(task.department_id);
+            enriched.department_id = deptData || task.department_id;
+        }
+
+        if (task.project_id) {
+            const projData = maps.projMap.get(task.project_id);
+            enriched.project_id = projData || task.project_id;
+        }
+
+        if (task.section_id) {
+            const sectionData = maps.sectionMap.get(task.section_id);
+            enriched.section_id = sectionData || task.section_id;
+        }
+
+        return enriched;
+    }
+
+    // ==================== MAIN METHODS ====================
+
+    async createTaskForDepartment(createTaskDto: CreateTaskDto) {
+        try {
+            if (!createTaskDto.department_id) {
+                throw new BadRequestException('Department ID is required');
+            }
+
+            const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
+            if (!manager) {
+                throw new NotFoundException("This department does not have a manager");
+            }
+
+            await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
+            await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
+
+            const section = await this.sectionService.createInitialSections(manager._id.toString()) as any;
+            createTaskDto.section_id = section._id.toString();
+
+            const taskData = {
+                ...createTaskDto,
+                emp: manager._id.toString(),
+                department_id: createTaskDto.department_id,
+            };
+
+            const task = new this.taskModel(taskData);
+            const savedTask = await task.save();
+
+            await this.notificationService.notifyTaskCreated(
+                savedTask,
+                manager._id.toString(),
+                savedTask.assignee?.toString()
+            );
+
+            return savedTask;
+        } catch (error) {
+            if (error instanceof BadRequestException || error instanceof NotFoundException) {
+                throw error;
+            }
+            throw new InternalServerErrorException('Failed to create task for department', error.message);
+        }
     }
 
     async createTaskForEmp(createTaskDto: CreateTaskDto): Promise<{ status: boolean, message: string, data?: Task }> {
@@ -139,7 +300,7 @@ export class TaskCoreService {
             if (error instanceof BadRequestException || error instanceof NotFoundException) {
                 throw error;
             }
-            throw new InternalServerErrorException('Failed to create Task', error.message);
+            throw new InternalServerErrorException('Failed to create task', error.message);
         }
     }
 
@@ -151,22 +312,23 @@ export class TaskCoreService {
             if (!createTaskDto.department_id) {
                 throw new BadRequestException('Department ID is required');
             }
+
             const manager = await this.empService.findManagerByDepartment(createTaskDto.department_id);
             if (!manager) {
-                throw new NotFoundException("this department does not have manager");
+                throw new NotFoundException("This department does not have a manager");
             }
-
 
             // Validate project existence
             const project = await this.projectModel.findById(createTaskDto.project_id);
             if (!project) {
                 throw new NotFoundException(`Project with ID ${createTaskDto.project_id} not found`);
             }
+
             await this.taskValidationService.validateTaskDatesAgainstProject(createTaskDto, project);
 
             // Check if employee's department is part of the project
-            if (!project.departments.map((dept) => dept.toString()).includes(createTaskDto.department_id)) {
-                throw new ForbiddenException('Employee’s department is not associated with this project');
+            if (!project.departments.map(dept => dept.toString()).includes(createTaskDto.department_id)) {
+                throw new ForbiddenException('Employee department is not associated with this project');
             }
 
             // Validate task data
@@ -205,153 +367,88 @@ export class TaskCoreService {
 
     async getAllTasks(): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
-            // Fetch tasks without populate to avoid casting issues
-            const tasks = await this.taskModel.find({})
-                .lean()
-                .exec();
+            // Fetch all tasks without populate
+            const rawTasks = await this.taskModel.find({}).lean().exec();
 
-            // Get all unique IDs for batch fetching related data
-            const empIds = new Set<string>();
-            const departmentIds = new Set<string>();
-            const projectIds = new Set<string>();
-            const sectionIds = new Set<string>();
+            // Clean all tasks
+            const cleanedTasks = rawTasks.map(task => this.cleanTaskData(task)).filter(task => task !== null);
 
-            tasks.forEach(task => {
-                if (task.emp) empIds.add(task.emp.toString());
-                if (task.assignee) empIds.add(task.assignee.toString());
-                if (task.department_id) departmentIds.add(task.department_id.toString());
-                if (task.project_id) projectIds.add(task.project_id.toString());
-                if (task.section_id) sectionIds.add(task.section_id.toString());
-            });
+            // Fetch related data
+            const maps = await this.fetchRelatedData(cleanedTasks);
 
-            // Batch fetch related data
-            const [employees, departments, projects, sections] = await Promise.all([
-                empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(empIds) } }).lean().exec() : [],
-                departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(departmentIds) } }).lean().exec() : [],
-                projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(projectIds) } }).lean().exec() : [],
-                sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(sectionIds) } }).lean().exec() : []
-            ]);
+            // Enrich tasks with related data
+            const enrichedTasks = cleanedTasks.map(task => this.enrichTask(task, maps));
 
-            // Create lookup maps for quick access
-            const empMap = new Map((employees as any).map(emp => [emp._id.toString(), emp]));
-            const deptMap = new Map((departments as any).map(dept => [dept._id.toString(), dept]));
-            const projMap = new Map((projects as any).map(proj => [proj._id.toString(), proj]));
-            const sectionMap = new Map((sections as any).map(section => [section._id.toString(), section]));
-
-            // Process tasks and attach related data
-            const tasksDto = tasks.map(task => {
-                const processedTask = { ...task } as any;
-
-                // Attach employee data
-                if (task.emp) {
-                    const empData = empMap.get(task.emp.toString());
-                    processedTask.emp = empData || null;
+            // Convert to DTOs
+            const tasksDto = enrichedTasks.map(task => {
+                try {
+                    return new GetTaskDto(task);
+                } catch (error) {
+                    console.error(`Error creating DTO for task ${task._id}:`, error);
+                    return null;
                 }
-
-                if (task.assignee) {
-                    const assigneeData = empMap.get(task.assignee.toString());
-                    processedTask.assignee = assigneeData || null;
-                }
-
-                // Attach organization data
-                if (task.department_id) {
-                    const deptData = deptMap.get(task.department_id.toString());
-                    processedTask.department_id = deptData || task.department_id.toString();
-                }
-
-                if (task.project_id) {
-                    const projData = projMap.get(task.project_id.toString());
-                    processedTask.project_id = projData || task.project_id.toString();
-                }
-
-                if (task.section_id) {
-                    const sectionData = sectionMap.get(task.section_id.toString());
-                    processedTask.section_id = sectionData || task.section_id.toString();
-                }
-
-                // Ensure proper ID conversion for arrays
-                if (processedTask.sub_tasks && Array.isArray(processedTask.sub_tasks)) {
-                    processedTask.sub_tasks = processedTask.sub_tasks.map(id => id.toString());
-                }
-
-                if (processedTask.dependencies && Array.isArray(processedTask.dependencies)) {
-                    processedTask.dependencies = processedTask.dependencies.map(id => id.toString());
-                }
-
-                if (processedTask.parent_task) {
-                    processedTask.parent_task = processedTask.parent_task.toString();
-                }
-
-                return new GetTaskDto(processedTask);
-            });
+            }).filter((dto): dto is GetTaskDto => dto !== null);
 
             return {
                 status: true,
                 message: 'Tasks retrieved successfully',
                 data: tasksDto
             };
-
         } catch (error) {
             console.error('Error in getAllTasks:', error);
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
         }
     }
+
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: any }> {
         try {
-            // Fetch task without populate to avoid casting issues
-            const task = await this.taskModel.findById(id).lean().exec();
+            // Validate ObjectId
+            if (!Types.ObjectId.isValid(id)) {
+                throw new BadRequestException('Invalid task ID format');
+            }
 
-            if (!task) {
+            // Fetch main task
+            const rawTask = await this.taskModel.findById(id).lean().exec();
+            if (!rawTask) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
 
-            // Clean and validate the task data
-            const cleanedTask = this.cleanCorruptedTaskData(task);
+            // Clean main task
+            const cleanedTask = this.cleanTaskData(rawTask);
+            if (!cleanedTask) {
+                throw new InternalServerErrorException('Failed to process task data');
+            }
 
-            // Safely collect valid IDs for batch fetching
-            const validIds = this.collectValidIds(cleanedTask) as any;
+            // Fetch all subtasks recursively
+            const allSubtasks = await this.fetchAllSubtasks(id);
+            const cleanedSubtasks = allSubtasks.map(task => this.cleanTaskData(task)).filter(task => task !== null);
 
-            // Fetch all subtasks and clean them too
-            const allSubtasks = await this.getAllSubtasksFlat(id);
-            const cleanedSubtasks = allSubtasks.map(subtask => this.cleanCorruptedTaskData(subtask));
-
-            // Collect IDs from subtasks too
-            cleanedSubtasks.forEach(subtask => {
-                const subtaskIds = this.collectValidIds(subtask);
-                validIds.empIds.add(...subtaskIds.empIds);
-                validIds.departmentIds.add(...subtaskIds.departmentIds);
-                validIds.projectIds.add(...subtaskIds.projectIds);
-                validIds.sectionIds.add(...subtaskIds.sectionIds);
-            });
-
-            // Batch fetch related data using only valid IDs
-            const [employees, departments, projects, sections]: any = await Promise.all([
-                validIds.empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(validIds.empIds) } }).lean().exec() : [],
-                validIds.departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(validIds.departmentIds) } }).lean().exec() : [],
-                validIds.projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(validIds.projectIds) } }).lean().exec() : [],
-                validIds.sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(validIds.sectionIds) } }).lean().exec() : []
-            ]);
-
-            // Create lookup maps
-            const empMap: any = new Map(employees.map((emp: any) => [emp._id.toString(), emp]));
-            const deptMap: any = new Map(departments.map((dept: any) => [dept._id.toString(), dept]));
-            const projMap: any = new Map(projects.map((proj: any) => [proj._id.toString(), proj]));
-            const sectionMap: any = new Map(sections.map((section: any) => [section._id.toString(), section]));
+            // Fetch related data for all tasks
+            const allTasks = [cleanedTask, ...cleanedSubtasks];
+            const maps = await this.fetchRelatedData(allTasks);
 
             // Enrich main task
-            const enrichedTask = this.enrichSingleTask(cleanedTask, empMap, deptMap, projMap, sectionMap);
+            const enrichedTask = this.enrichTask(cleanedTask, maps);
 
             // Build subtask hierarchy
-            const subtasks = this.buildSubtaskHierarchy(cleanedSubtasks, id, empMap, deptMap, projMap, sectionMap);
+            const enrichedSubtasks = cleanedSubtasks.map(task => this.enrichTask(task, maps));
+            const subtasks = this.buildSubtaskHierarchy(enrichedSubtasks, id);
+
+            // Combine task with subtasks
             const taskWithSubtasks = { ...enrichedTask, subtasks };
 
+            // Create DTO
             const taskDto = new GetTaskDto(taskWithSubtasks);
 
-            return { status: true, message: 'Task retrieved successfully', data: taskDto };
+            return {
+                status: true,
+                message: 'Task retrieved successfully',
+                data: taskDto
+            };
         } catch (error) {
             console.error('Error in getTaskById:', error);
 
-            if (error instanceof NotFoundException) {
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
             throw new InternalServerErrorException('Failed to retrieve task', error.message);
@@ -359,111 +456,22 @@ export class TaskCoreService {
     }
 
     /**
-     * Clean corrupted task data
+     * Fetch all subtasks for a given parent task ID
      */
-    private cleanCorruptedTaskData(task: any): any {
-        const cleaned = { ...task };
-
-        // Helper function to check if a value is a valid ObjectId string
-        const isValidObjectId = (value: any): boolean => {
-            if (!value) return false;
-            if (typeof value !== 'string') return false;
-            return /^[0-9a-fA-F]{24}$/.test(value);
-        };
-
-        // Helper function to clean reference field
-        const cleanReferenceField = (value: any): string | null => {
-            if (!value) return null;
-
-            // If it's already a valid ObjectId string, return it
-            if (typeof value === 'string' && isValidObjectId(value)) {
-                return value;
-            }
-
-            // If it's an object with _id, extract the _id
-            if (typeof value === 'object' && value._id) {
-                const id = value._id.toString();
-                return isValidObjectId(id) ? id : null;
-            }
-
-            // If it's a stringified object (corrupted data), extract ObjectId if possible
-            if (typeof value === 'string' && value.includes('ObjectId(')) {
-                const match = value.match(/ObjectId\('([0-9a-fA-F]{24})'\)/);
-                if (match && match[1]) {
-                    return match[1];
-                }
-            }
-
-            // If none of the above, it's corrupted - return null
-            console.warn(`Corrupted reference field detected: ${JSON.stringify(value)}`);
-            return null;
-        };
-
-        // Clean all reference fields
-        cleaned.emp = cleanReferenceField(task.emp);
-        cleaned.assignee = cleanReferenceField(task.assignee);
-        cleaned.department_id = cleanReferenceField(task.department_id);
-        cleaned.project_id = cleanReferenceField(task.project_id);
-        cleaned.section_id = cleanReferenceField(task.section_id);
-        cleaned.parent_task = cleanReferenceField(task.parent_task);
-
-        // Clean arrays
-        if (Array.isArray(task.sub_tasks)) {
-            cleaned.sub_tasks = task.sub_tasks
-                .map(id => cleanReferenceField(id))
-                .filter(id => id !== null);
-        } else {
-            cleaned.sub_tasks = [];
-        }
-
-        if (Array.isArray(task.dependencies)) {
-            cleaned.dependencies = task.dependencies
-                .map(id => cleanReferenceField(id))
-                .filter(id => id !== null);
-        } else {
-            cleaned.dependencies = [];
-        }
-
-        // Ensure other fields are safe
-        cleaned.files = Array.isArray(task.files) ? task.files : [];
-        cleaned.timeLogs = Array.isArray(task.timeLogs) ? task.timeLogs : [];
-
-        return cleaned;
-    }
-
-    /**
-     * Collect valid IDs from cleaned task data
-     */
-    private collectValidIds(task: any) {
-        const empIds = new Set<string>();
-        const departmentIds = new Set<string>();
-        const projectIds = new Set<string>();
-        const sectionIds = new Set<string>();
-
-        if (task.emp) empIds.add(task.emp);
-        if (task.assignee) empIds.add(task.assignee);
-        if (task.department_id) departmentIds.add(task.department_id);
-        if (task.project_id) projectIds.add(task.project_id);
-        if (task.section_id) sectionIds.add(task.section_id);
-
-        return { empIds, departmentIds, projectIds, sectionIds };
-    }
-
-    /**
-     * Get all subtasks in a flat structure
-     */
-    private async getAllSubtasksFlat(parentId: string): Promise<any[]> {
+    private async fetchAllSubtasks(parentId: string): Promise<any[]> {
         const allSubtasks: any[] = [];
-        const visited = new Set<string>();
+        const processedIds = new Set<string>();
 
         const fetchLevel = async (currentParentId: string) => {
-            if (visited.has(currentParentId)) {
+            if (processedIds.has(currentParentId)) {
                 return; // Prevent infinite loops
             }
-            visited.add(currentParentId);
+            processedIds.add(currentParentId);
 
             try {
-                const subtasks = await this.taskModel.find({ parent_task: currentParentId }).lean().exec();
+                const subtasks = await this.taskModel.find({
+                    parent_task: currentParentId
+                }).lean().exec();
 
                 for (const subtask of subtasks) {
                     allSubtasks.push(subtask);
@@ -481,82 +489,29 @@ export class TaskCoreService {
     /**
      * Build subtask hierarchy from flat list
      */
-    private buildSubtaskHierarchy(
-        allSubtasks: any[],
-        parentId: string,
-        empMap: Map<string, any>,
-        deptMap: Map<string, any>,
-        projMap: Map<string, any>,
-        sectionMap: Map<string, any>
-    ): any[] {
-        const directSubtasks = allSubtasks.filter(task =>
-            task.parent_task && task.parent_task === parentId
+    private buildSubtaskHierarchy(subtasks: any[], parentId: string): any[] {
+        const directChildren = subtasks.filter(task =>
+            task.parent_task === parentId
         );
 
-        return directSubtasks.map(subtask => {
-            const enrichedSubtask = this.enrichSingleTask(subtask, empMap, deptMap, projMap, sectionMap);
-            const nestedSubtasks = this.buildSubtaskHierarchy(
-                allSubtasks,
-                subtask._id.toString(),
-                empMap,
-                deptMap,
-                projMap,
-                sectionMap
-            );
-            return { ...enrichedSubtask, subtasks: nestedSubtasks };
+        return directChildren.map(child => {
+            const childSubtasks = this.buildSubtaskHierarchy(subtasks, child._id.toString());
+            return { ...child, subtasks: childSubtasks };
         });
-    }
-
-    /**
-     * Safely enrich a single task with related data
-     */
-    private enrichSingleTask(
-        task: any,
-        empMap: Map<string, any>,
-        deptMap: Map<string, any>,
-        projMap: Map<string, any>,
-        sectionMap: Map<string, any>
-    ): any {
-        const enrichedTask = { ...task };
-
-        // Attach employee data
-        enrichedTask.emp = task.emp ? empMap.get(task.emp) || null : null;
-        enrichedTask.assignee = task.assignee ? empMap.get(task.assignee) || null : null;
-
-        // Attach organization data (return populated object or ID string)
-        const deptData = task.department_id ? deptMap.get(task.department_id) : null;
-        enrichedTask.department_id = deptData || task.department_id || null;
-
-        const projData = task.project_id ? projMap.get(task.project_id) : null;
-        enrichedTask.project_id = projData || task.project_id || null;
-
-        const sectionData = task.section_id ? sectionMap.get(task.section_id) : null;
-        enrichedTask.section_id = sectionData || task.section_id || null;
-
-        return enrichedTask;
-    }
-    private async fetchSubtasksRecursively(parentId: string): Promise<any[]> {
-        const subtasks = await this.taskModel.find({ parent_task: parentId })
-            .populate(this.defaultPopulateOptions)
-            .lean()
-            .exec();
-
-
-        return subtasks;
     }
 
     async updateTask(id: string, updateTaskDto: UpdateTaskDto, empId: string): Promise<{ status: boolean; message: string }> {
         try {
-            const task = await this.taskModel.findById(new Types.ObjectId(id))
-                .populate('project_id')
-                .exec();
+            if (!Types.ObjectId.isValid(id)) {
+                throw new BadRequestException('Invalid task ID format');
+            }
 
+            const task = await this.taskModel.findById(id).exec();
             if (!task) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
 
             const oldStatus = task.status;
-            // await this.taskValidationService.validateTaskUpdate(task, updateTaskDto, empId);
 
             const updatedTask = await this.taskModel
                 .findByIdAndUpdate(id, updateTaskDto, { new: true })
@@ -581,16 +536,21 @@ export class TaskCoreService {
 
     async deleteTask(id: string): Promise<{ status: boolean, message: string }> {
         try {
+            if (!Types.ObjectId.isValid(id)) {
+                throw new BadRequestException('Invalid task ID format');
+            }
+
             const result = await this.taskModel.findByIdAndDelete(id).exec();
             if (!result) {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
+
             return { status: true, message: 'Task deleted successfully' };
         } catch (error) {
-            if (error instanceof NotFoundException) {
+            if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
-            throw new InternalServerErrorException('Failed to delete task');
+            throw new InternalServerErrorException('Failed to delete task', error.message);
         }
     }
 }

@@ -1,7 +1,6 @@
 import { GetEmpDto } from 'src/modules/emp/dto/get-emp.dto';
 import { TASK_STATUS } from '../enums/task-status.enum';
 import { PRIORITY_TYPE } from '../enums/priority.enum';
-import { TaskDocument } from '../schema/task.schema';
 
 export class GetTaskDto {
     id: string;
@@ -69,71 +68,270 @@ export class GetTaskDto {
     subtasks?: GetTaskDto[];
 
     constructor(task: any) {
-        this.id = task._id.toString();
-        this.name = task.name;
-        this.description = task.description;
-        this.priority = task.priority || PRIORITY_TYPE.MEDIUM;
+        try {
+            // Required fields with safe fallbacks
+            this.id = this.safeGetId(task);
+            this.name = this.safeGetString(task?.name, 'Untitled Task');
+            this.description = this.safeGetString(task?.description, '');
+            this.priority = task?.priority || PRIORITY_TYPE.MEDIUM;
+            this.status = task?.status || TASK_STATUS.PENDING;
 
-        // إصلاح مشكلة emp و assignee
-        this.emp = (task.emp && task.emp._id) ? new GetEmpDto(task.emp) : null;
-        this.assignee = (task.assignee && task.assignee._id) ? new GetEmpDto(task.assignee) : null;
+            // Dates
+            this.createdAt = this.safeGetDate(task?.createdAt) as any;
+            this.updatedAt = this.safeGetDate(task?.updatedAt) as any;
+            this.due_date = this.safeGetDate(task?.due_date) as any;
+            this.start_date = this.safeGetDate(task?.start_date) as any;
+            this.actual_end_date = this.safeGetDate(task?.actual_end_date);
+            this.expected_end_date = this.safeGetDate(task?.expected_end_date);
+            this.end_date = this.safeGetDate(task?.end_date);
 
-        this.status = task.status;
-        this.createdAt = task.createdAt;
-        this.updatedAt = task.updatedAt;
-        this.due_date = task.due_date;
-        this.start_date = task.start_date;
-        this.actual_end_date = task.actual_end_date;
-        this.expected_end_date = task.expected_end_date;
+            // Employee references - safely create DTOs
+            this.emp = this.safeCreateEmpDto(task?.emp);
+            this.assignee = this.safeCreateEmpDto(task?.assignee);
 
-        // Time tracking
-        this.estimated_hours = task.estimated_hours || 0;
-        this.actual_hours = task.actual_hours || 0;
-        this.totalTimeSpent = task.totalTimeSpent || 0;
-        this.startTime = task.startTime;
-        this.timeLogs = task.timeLogs || [];
+            // Time tracking
+            this.estimated_hours = this.safeGetNumber(task?.estimated_hours, 0);
+            this.actual_hours = this.safeGetNumber(task?.actual_hours, 0);
+            this.totalTimeSpent = this.safeGetNumber(task?.totalTimeSpent, 0) as any;
+            this.startTime = this.safeGetDate(task?.startTime);
+            this.timeLogs = this.safeGetArray(task?.timeLogs);
 
-        // Files
-        this.files = task.files || [];
+            // Files
+            this.files = this.safeGetStringArray(task?.files);
 
-        // Status calculations
-        this.is_over_due = task.due_date < new Date() && task.status !== TASK_STATUS.DONE;
-        this.progress = task.progress || 0;
-        this.progressCalculationMethod = task.progressCalculationMethod || 'time_based';
-        this.hasLoggedHours = task.hasLoggedHours || false;
-        this.isActive = task.isActive !== undefined ? task.isActive : true;
+            // Status calculations
+            this.is_over_due = this.calculateOverdue(this.due_date, this.status);
+            this.progress = this.safeGetNumber(task?.progress, 0) as any;
+            this.progressCalculationMethod = this.safeGetString(task?.progressCalculationMethod, 'time_based');
+            this.hasLoggedHours = Boolean(task?.hasLoggedHours);
+            this.isActive = task?.isActive !== undefined ? Boolean(task.isActive) : true;
 
-        // Recurring fields
-        this.isRecurring = task.isRecurring || false;
-        this.recurringType = task.recurringType;
-        this.intervalInDays = task.intervalInDays;
-        this.recurringEndDate = task.recurringEndDate;
+            // Recurring fields
+            this.isRecurring = Boolean(task?.isRecurring);
+            this.recurringType = task?.recurringType;
+            this.intervalInDays = this.safeGetNumber(task?.intervalInDays);
+            this.recurringEndDate = this.safeGetDate(task?.recurringEndDate);
 
-        // Routine task fields
-        this.isRoutineTask = task.isRoutineTask || false;
-        this.routineTaskId = task.routineTaskId;
+            // Routine task fields
+            this.isRoutineTask = Boolean(task?.isRoutineTask);
+            this.routineTaskId = task?.routineTaskId;
 
-        // Relationships
-        this.parent_task = task.parent_task?.toString() || task.parent_task;
-        this.sub_tasks = task.sub_tasks || [];
+            // Relationships - safely convert to strings
+            this.parent_task = this.safeGetObjectIdString(task?.parent_task);
+            this.sub_tasks = this.safeGetObjectIdStringArray(task?.sub_tasks);
+            this.dependencies = this.safeGetObjectIdStringArray(task?.dependencies);
 
-        // Organization
-        this.section = task.section_id;
-        this.department = task.department_id;
-        this.project = task.project_id;
+            // Organization fields
+            this.section = task?.section_id || null;
+            this.department = task?.department_id || null;
+            this.project = task?.project_id || null;
 
-        // Legacy fields
-        this.over_all_time = task.over_all_time;
-        this.rate = task.rate;
-        this.comment = task.comment;
+            // Board customization
+            this.boardPosition = task?.boardPosition;
+            this.boardOrder = this.safeGetNumber(task?.boardOrder);
 
-        this.end_date = task.end_date;
+            // Legacy fields
+            this.over_all_time = task?.over_all_time;
+            this.rate = this.safeGetNumber(task?.rate);
+            this.comment = task?.comment;
 
-        // Handle nested subtasks if present
-        if (task.subtasks && Array.isArray(task.subtasks)) {
-            this.subtasks = task.subtasks.map((subtask: any) => new GetTaskDto(subtask));
+            // Handle nested subtasks if present
+            this.subtasks = this.safeCreateSubtaskDtos(task?.subtasks);
+
+        } catch (error) {
+            console.error('Error in GetTaskDto constructor:', error);
+            // Set safe defaults if constructor fails
+            this.setDefaults(task);
         }
     }
+
+    /**
+     * Safely get ID from task object
+     */
+    private safeGetId(task: any): string {
+        if (!task) return '';
+
+        if (task._id) {
+            return typeof task._id === 'string' ? task._id : task._id.toString();
+        }
+
+        if (task.id) {
+            return typeof task.id === 'string' ? task.id : task.id.toString();
+        }
+
+        return '';
+    }
+
+    /**
+     * Safely get string value with fallback
+     */
+    private safeGetString(value: any, fallback: string = ''): string {
+        if (value === null || value === undefined) return fallback;
+        return typeof value === 'string' ? value : String(value);
+    }
+
+    /**
+     * Safely get number value with optional fallback
+     */
+    private safeGetNumber(value: any, fallback?: number): number | undefined {
+        if (value === null || value === undefined) return fallback;
+        const num = Number(value);
+        return isNaN(num) ? fallback : num;
+    }
+
+    /**
+     * Safely get date value
+     */
+    private safeGetDate(value: any): Date | undefined {
+        if (!value) return undefined;
+
+        try {
+            const date = new Date(value);
+            return isNaN(date.getTime()) ? undefined : date;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Safely get array value
+     */
+    private safeGetArray(value: any): any[] {
+        return Array.isArray(value) ? value : [];
+    }
+
+    /**
+     * Safely get string array
+     */
+    private safeGetStringArray(value: any): string[] {
+        if (!Array.isArray(value)) return [];
+        return value.map(item => this.safeGetString(item)).filter(str => str !== '');
+    }
+
+    /**
+     * Safely convert value to ObjectId string
+     */
+    private safeGetObjectIdString(value: any): string | undefined {
+        if (!value) return undefined;
+
+        try {
+            if (typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value)) {
+                return value;
+            }
+
+            if (value._id) {
+                const id = typeof value._id === 'string' ? value._id : value._id.toString();
+                return /^[0-9a-fA-F]{24}$/.test(id) ? id : undefined;
+            }
+
+            const stringValue = value.toString();
+            return /^[0-9a-fA-F]{24}$/.test(stringValue) ? stringValue : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * Safely convert array to ObjectId string array
+     */
+    private safeGetObjectIdStringArray(value: any): string[] {
+        if (!Array.isArray(value)) return [];
+
+        return value
+            .map(item => this.safeGetObjectIdString(item))
+            .filter((id): id is string => id !== undefined);
+    }
+
+    /**
+     * Safely create employee DTO
+     */
+    private safeCreateEmpDto(empData: any): GetEmpDto | null {
+        if (!empData) return null;
+
+        // If it's just a string ID, return null (not populated)
+        if (typeof empData === 'string') return null;
+
+        // If it's an object with _id, try to create DTO
+        if (typeof empData === 'object' && empData._id) {
+            try {
+                return new GetEmpDto(empData);
+            } catch (error) {
+                console.warn('Failed to create GetEmpDto:', error);
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Safely create subtask DTOs
+     */
+    private safeCreateSubtaskDtos(subtasks: any): GetTaskDto[] | undefined {
+        if (!Array.isArray(subtasks) || subtasks.length === 0) {
+            return undefined;
+        }
+
+        return subtasks
+            .map(subtask => {
+                try {
+                    return new GetTaskDto(subtask);
+                } catch (error) {
+                    console.warn('Failed to create subtask DTO:', error);
+                    return null;
+                }
+            })
+            .filter((dto): dto is GetTaskDto => dto !== null);
+    }
+
+    /**
+     * Calculate if task is overdue
+     */
+    private calculateOverdue(dueDate: Date | undefined, status: TASK_STATUS): boolean {
+        if (!dueDate || status === TASK_STATUS.DONE) return false;
+
+        try {
+            return new Date(dueDate) < new Date();
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Set safe defaults if constructor fails
+     */
+    private setDefaults(task: any): void {
+        this.id = this.safeGetId(task);
+        this.name = 'Untitled Task';
+        this.description = '';
+        this.priority = PRIORITY_TYPE.MEDIUM;
+        this.emp = null;
+        this.assignee = null;
+        this.status = TASK_STATUS.PENDING;
+        this.createdAt = new Date();
+        this.updatedAt = new Date();
+        this.due_date = new Date();
+        this.start_date = new Date();
+        this.estimated_hours = 0;
+        this.actual_hours = 0;
+        this.totalTimeSpent = 0;
+        this.timeLogs = [];
+        this.files = [];
+        this.is_over_due = false;
+        this.progress = 0;
+        this.progressCalculationMethod = 'time_based';
+        this.hasLoggedHours = false;
+        this.isActive = true;
+        this.isRecurring = false;
+        this.isRoutineTask = false;
+        this.sub_tasks = [];
+        this.dependencies = [];
+        this.section = null;
+        this.department = null;
+        this.project = null;
+    }
+
+    // ==================== UTILITY METHODS ====================
 
     /**
      * Get formatted time spent
@@ -204,10 +402,16 @@ export class GetTaskDto {
      * Get days until due date
      */
     getDaysUntilDue(): number {
-        const now = new Date();
-        const due = new Date(this.due_date);
-        const diffTime = due.getTime() - now.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (!this.due_date) return 0;
+
+        try {
+            const now = new Date();
+            const due = new Date(this.due_date);
+            const diffTime = due.getTime() - now.getTime();
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        } catch {
+            return 0;
+        }
     }
 
     /**
