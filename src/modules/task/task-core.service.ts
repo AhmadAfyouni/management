@@ -305,44 +305,31 @@ export class TaskCoreService {
                 throw new NotFoundException(`Task with ID ${id} not found`);
             }
 
-            // Safely collect IDs for batch fetching
-            const empIds = new Set<string>();
-            const departmentIds = new Set<string>();
-            const projectIds = new Set<string>();
-            const sectionIds = new Set<string>();
+            // Clean and validate the task data
+            const cleanedTask = this.cleanCorruptedTaskData(task);
 
-            // Safe helper function to add IDs
-            const safeAddId = (value: any, collection: Set<string>) => {
-                if (value) {
-                    const id = typeof value === 'string' ? value : value.toString();
-                    if (id && id !== 'undefined' && id !== 'null') {
-                        collection.add(id);
-                    }
-                }
-            };
+            // Safely collect valid IDs for batch fetching
+            const validIds = this.collectValidIds(cleanedTask) as any;
 
-            safeAddId(task.emp, empIds);
-            safeAddId(task.assignee, empIds);
-            safeAddId(task.department_id, departmentIds);
-            safeAddId(task.project_id, projectIds);
-            safeAddId(task.section_id, sectionIds);
-
-            // Fetch all subtasks first to collect their IDs too
+            // Fetch all subtasks and clean them too
             const allSubtasks = await this.getAllSubtasksFlat(id);
-            allSubtasks.forEach(subtask => {
-                safeAddId(subtask.emp, empIds);
-                safeAddId(subtask.assignee, empIds);
-                safeAddId(subtask.department_id, departmentIds);
-                safeAddId(subtask.project_id, projectIds);
-                safeAddId(subtask.section_id, sectionIds);
+            const cleanedSubtasks = allSubtasks.map(subtask => this.cleanCorruptedTaskData(subtask));
+
+            // Collect IDs from subtasks too
+            cleanedSubtasks.forEach(subtask => {
+                const subtaskIds = this.collectValidIds(subtask);
+                validIds.empIds.add(...subtaskIds.empIds);
+                validIds.departmentIds.add(...subtaskIds.departmentIds);
+                validIds.projectIds.add(...subtaskIds.projectIds);
+                validIds.sectionIds.add(...subtaskIds.sectionIds);
             });
 
-            // Batch fetch related data
+            // Batch fetch related data using only valid IDs
             const [employees, departments, projects, sections]: any = await Promise.all([
-                empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(empIds) } }).lean().exec() : [],
-                departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(departmentIds) } }).lean().exec() : [],
-                projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(projectIds) } }).lean().exec() : [],
-                sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(sectionIds) } }).lean().exec() : []
+                validIds.empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(validIds.empIds) } }).lean().exec() : [],
+                validIds.departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(validIds.departmentIds) } }).lean().exec() : [],
+                validIds.projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(validIds.projectIds) } }).lean().exec() : [],
+                validIds.sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(validIds.sectionIds) } }).lean().exec() : []
             ]);
 
             // Create lookup maps
@@ -352,10 +339,10 @@ export class TaskCoreService {
             const sectionMap: any = new Map(sections.map((section: any) => [section._id.toString(), section]));
 
             // Enrich main task
-            const enrichedTask = this.enrichSingleTask(task, empMap, deptMap, projMap, sectionMap);
+            const enrichedTask = this.enrichSingleTask(cleanedTask, empMap, deptMap, projMap, sectionMap);
 
             // Build subtask hierarchy
-            const subtasks = this.buildSubtaskHierarchy(allSubtasks, id, empMap, deptMap, projMap, sectionMap);
+            const subtasks = this.buildSubtaskHierarchy(cleanedSubtasks, id, empMap, deptMap, projMap, sectionMap);
             const taskWithSubtasks = { ...enrichedTask, subtasks };
 
             const taskDto = new GetTaskDto(taskWithSubtasks);
@@ -372,6 +359,97 @@ export class TaskCoreService {
     }
 
     /**
+     * Clean corrupted task data
+     */
+    private cleanCorruptedTaskData(task: any): any {
+        const cleaned = { ...task };
+
+        // Helper function to check if a value is a valid ObjectId string
+        const isValidObjectId = (value: any): boolean => {
+            if (!value) return false;
+            if (typeof value !== 'string') return false;
+            return /^[0-9a-fA-F]{24}$/.test(value);
+        };
+
+        // Helper function to clean reference field
+        const cleanReferenceField = (value: any): string | null => {
+            if (!value) return null;
+
+            // If it's already a valid ObjectId string, return it
+            if (typeof value === 'string' && isValidObjectId(value)) {
+                return value;
+            }
+
+            // If it's an object with _id, extract the _id
+            if (typeof value === 'object' && value._id) {
+                const id = value._id.toString();
+                return isValidObjectId(id) ? id : null;
+            }
+
+            // If it's a stringified object (corrupted data), extract ObjectId if possible
+            if (typeof value === 'string' && value.includes('ObjectId(')) {
+                const match = value.match(/ObjectId\('([0-9a-fA-F]{24})'\)/);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+
+            // If none of the above, it's corrupted - return null
+            console.warn(`Corrupted reference field detected: ${JSON.stringify(value)}`);
+            return null;
+        };
+
+        // Clean all reference fields
+        cleaned.emp = cleanReferenceField(task.emp);
+        cleaned.assignee = cleanReferenceField(task.assignee);
+        cleaned.department_id = cleanReferenceField(task.department_id);
+        cleaned.project_id = cleanReferenceField(task.project_id);
+        cleaned.section_id = cleanReferenceField(task.section_id);
+        cleaned.parent_task = cleanReferenceField(task.parent_task);
+
+        // Clean arrays
+        if (Array.isArray(task.sub_tasks)) {
+            cleaned.sub_tasks = task.sub_tasks
+                .map(id => cleanReferenceField(id))
+                .filter(id => id !== null);
+        } else {
+            cleaned.sub_tasks = [];
+        }
+
+        if (Array.isArray(task.dependencies)) {
+            cleaned.dependencies = task.dependencies
+                .map(id => cleanReferenceField(id))
+                .filter(id => id !== null);
+        } else {
+            cleaned.dependencies = [];
+        }
+
+        // Ensure other fields are safe
+        cleaned.files = Array.isArray(task.files) ? task.files : [];
+        cleaned.timeLogs = Array.isArray(task.timeLogs) ? task.timeLogs : [];
+
+        return cleaned;
+    }
+
+    /**
+     * Collect valid IDs from cleaned task data
+     */
+    private collectValidIds(task: any) {
+        const empIds = new Set<string>();
+        const departmentIds = new Set<string>();
+        const projectIds = new Set<string>();
+        const sectionIds = new Set<string>();
+
+        if (task.emp) empIds.add(task.emp);
+        if (task.assignee) empIds.add(task.assignee);
+        if (task.department_id) departmentIds.add(task.department_id);
+        if (task.project_id) projectIds.add(task.project_id);
+        if (task.section_id) sectionIds.add(task.section_id);
+
+        return { empIds, departmentIds, projectIds, sectionIds };
+    }
+
+    /**
      * Get all subtasks in a flat structure
      */
     private async getAllSubtasksFlat(parentId: string): Promise<any[]> {
@@ -384,11 +462,15 @@ export class TaskCoreService {
             }
             visited.add(currentParentId);
 
-            const subtasks = await this.taskModel.find({ parent_task: currentParentId }).lean().exec();
+            try {
+                const subtasks = await this.taskModel.find({ parent_task: currentParentId }).lean().exec();
 
-            for (const subtask of subtasks) {
-                allSubtasks.push(subtask);
-                await fetchLevel(subtask._id.toString());
+                for (const subtask of subtasks) {
+                    allSubtasks.push(subtask);
+                    await fetchLevel(subtask._id.toString());
+                }
+            } catch (error) {
+                console.warn(`Error fetching subtasks for parent ${currentParentId}:`, error.message);
             }
         };
 
@@ -408,7 +490,7 @@ export class TaskCoreService {
         sectionMap: Map<string, any>
     ): any[] {
         const directSubtasks = allSubtasks.filter(task =>
-            task.parent_task && task.parent_task.toString() === parentId
+            task.parent_task && task.parent_task === parentId
         );
 
         return directSubtasks.map(subtask => {
@@ -437,53 +519,19 @@ export class TaskCoreService {
     ): any {
         const enrichedTask = { ...task };
 
-        // Safe helper to get ID string
-        const safeGetId = (value: any): string | null => {
-            if (!value) return null;
-            if (typeof value === 'string') return value;
-            if (value._id) return value._id.toString();
-            if (typeof value.toString === 'function') return value.toString();
-            return null;
-        };
-
-        // Safe helper to get related data
-        const safeGetRelatedData = (value: any, map: Map<string, any>) => {
-            const id = safeGetId(value);
-            return id ? map.get(id) : null;
-        };
-
         // Attach employee data
-        const empData = safeGetRelatedData(task.emp, empMap);
-        enrichedTask.emp = empData || null;
-
-        const assigneeData = safeGetRelatedData(task.assignee, empMap);
-        enrichedTask.assignee = assigneeData || null;
+        enrichedTask.emp = task.emp ? empMap.get(task.emp) || null : null;
+        enrichedTask.assignee = task.assignee ? empMap.get(task.assignee) || null : null;
 
         // Attach organization data (return populated object or ID string)
-        const deptData = safeGetRelatedData(task.department_id, deptMap);
-        enrichedTask.department_id = deptData || safeGetId(task.department_id);
+        const deptData = task.department_id ? deptMap.get(task.department_id) : null;
+        enrichedTask.department_id = deptData || task.department_id || null;
 
-        const projData = safeGetRelatedData(task.project_id, projMap);
-        enrichedTask.project_id = projData || safeGetId(task.project_id);
+        const projData = task.project_id ? projMap.get(task.project_id) : null;
+        enrichedTask.project_id = projData || task.project_id || null;
 
-        const sectionData = safeGetRelatedData(task.section_id, sectionMap);
-        enrichedTask.section_id = sectionData || safeGetId(task.section_id);
-
-        // Handle arrays safely
-        enrichedTask.sub_tasks = Array.isArray(task.sub_tasks)
-            ? task.sub_tasks.map(id => safeGetId(id)).filter(id => id !== null)
-            : [];
-
-        enrichedTask.dependencies = Array.isArray(task.dependencies)
-            ? task.dependencies.map(id => safeGetId(id)).filter(id => id !== null)
-            : [];
-
-        // Handle parent task
-        enrichedTask.parent_task = safeGetId(task.parent_task);
-
-        // Ensure other fields are safe
-        enrichedTask.files = Array.isArray(task.files) ? task.files : [];
-        enrichedTask.timeLogs = Array.isArray(task.timeLogs) ? task.timeLogs : [];
+        const sectionData = task.section_id ? sectionMap.get(task.section_id) : null;
+        enrichedTask.section_id = sectionData || task.section_id || null;
 
         return enrichedTask;
     }
