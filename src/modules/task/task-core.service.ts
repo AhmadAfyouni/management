@@ -322,7 +322,7 @@ export class TaskCoreService {
 
     private async fetchSubtasksRecursively(parentId: string): Promise<any[]> {
         const subtasks = await this.taskModel.find({ parent_task: parentId })
-            // .populate(this.defaultPopulateOptions)
+            .populate(this.defaultPopulateOptions)
             .lean()
             .exec();
 
