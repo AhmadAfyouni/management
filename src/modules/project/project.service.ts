@@ -155,23 +155,28 @@ export class ProjectService {
 
         // Calculate team information and time spent by each member
         const teamMap = new Map();
+        // For planned hours per member
+        const memberTasksMap = new Map();
 
         // Process all tasks to extract team member information
         projectTasks.forEach((task: any) => {
             if (task.emp) {
                 const empId = task.emp._id ? task.emp._id.toString() : task.emp.toString();
 
+                // Track all tasks for each member for planned hours
+                if (!memberTasksMap.has(empId)) {
+                    memberTasksMap.set(empId, []);
+                }
+                memberTasksMap.get(empId).push(task);
+
                 if (teamMap.has(empId)) {
                     // Add time spent to existing team member
                     const existingMember = teamMap.get(empId);
                     existingMember.totalTimeSpent += task.totalTimeSpent || 0;
                     existingMember.taskCount += 1;
-
                     // Update task status counts
                     if (task.status === TASK_STATUS.DONE) existingMember.completedTasks += 1;
-                    else if (task.status === TASK_STATUS.ONGOING) existingMember.ongoingTasks += 1;
-                    else if (task.status === TASK_STATUS.ON_TEST) existingMember.testingTasks += 1;
-                    else if (task.status === TASK_STATUS.PENDING) existingMember.pendingTasks += 1;
+                    else existingMember.incompleteTasks += 1;
                 } else {
                     // Create new team member entry
                     teamMap.set(empId, {
@@ -179,22 +184,34 @@ export class ProjectService {
                         totalTimeSpent: task.totalTimeSpent || 0,
                         taskCount: 1,
                         completedTasks: task.status === TASK_STATUS.DONE ? 1 : 0,
-                        ongoingTasks: task.status === TASK_STATUS.ONGOING ? 1 : 0,
-                        testingTasks: task.status === TASK_STATUS.ON_TEST ? 1 : 0,
-                        pendingTasks: task.status === TASK_STATUS.PENDING ? 1 : 0,
+                        incompleteTasks: task.status === TASK_STATUS.DONE ? 0 : 1,
                     });
                 }
             }
         });
 
-        // Convert team map to array and sort by total time spent (descending)
-        const team = Array.from(teamMap.values()).sort((a, b) => b.totalTimeSpent - a.totalTimeSpent);
+        // Convert team map to array and enrich with required fields
+        const team = Array.from(teamMap.values()).map(member => {
+            const empInfo = member.empInfo;
+            const empId = empInfo._id ? empInfo._id.toString() : empInfo.id;
+            const tasks = memberTasksMap.get(empId) || [];
+            // Sum estimated_hours for planned hours
+            const totalPlannedHours = tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
+            return {
+                name: empInfo.name,
+                department: empInfo.department?.name || (empInfo.department_id?.name || ''),
+                totalHoursWorked: (member.totalTimeSpent / 3600), // convert seconds to hours
+                totalPlannedHours,
+                completedTasks: member.completedTasks,
+                incompleteTasks: member.incompleteTasks,
+            };
+        }).sort((a, b) => b.totalHoursWorked - a.totalHoursWorked);
 
         // Calculate team statistics
         const teamStats = {
             totalMembers: team.length,
-            totalTeamTime: team.reduce((sum, member) => sum + member.totalTimeSpent, 0),
-            averageTimePerMember: team.length > 0 ? team.reduce((sum, member) => sum + member.totalTimeSpent, 0) / team.length : 0,
+            totalTeamTime: team.reduce((sum, member) => sum + member.totalHoursWorked, 0),
+            averageTimePerMember: team.length > 0 ? team.reduce((sum, member) => sum + member.totalHoursWorked, 0) / team.length : 0,
             mostActiveMembers: team.slice(0, 3), // Top 3 members by time spent
         };
 
