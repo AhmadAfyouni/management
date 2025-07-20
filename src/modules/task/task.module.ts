@@ -22,6 +22,7 @@ import { DepartmentModule } from '../department/depratment.module';
 import { SectionModule } from '../section/section.module';
 import { CompanySettingsModule } from '../company-settings/company-settings.module';
 import { Section, SectionSchema } from '../section/schemas/section.schema';
+import { Department, DepartmentSchema } from '../department/schema/department.schema';
 
 @Module({
     imports: [
@@ -37,8 +38,9 @@ import { Section, SectionSchema } from '../section/schemas/section.schema';
             { name: JobTitles.name, schema: JobTitlesSchema },
             { name: Emp.name, schema: EmpSchema },
             { name: Section.name, schema: SectionSchema },
+            { name: Department.name, schema: DepartmentSchema },
         ]),
-        CompanySettingsModule
+        CompanySettingsModule,
     ],
     providers: [
         TaskCoreService,

@@ -10,12 +10,18 @@ import { SectionService } from '../section/section.service';
 import { NotificationService } from '../notification/notification.service';
 import { TaskValidationService } from './task-validation.service';
 import { Project, ProjectDocument } from '../project/schema/project.schema';
+import { Emp, EmpDocument } from '../emp/schemas/emp.schema';
+import { Department, DepartmentDocument } from '../department/schema/department.schema';
+import { Section, SectionDocument } from '../section/schemas/section.schema';
 
 @Injectable()
 export class TaskCoreService {
     constructor(
         @InjectModel(Task.name) private taskModel: Model<TaskDocument>,
         @InjectModel(Project.name) private projectModel: Model<ProjectDocument>,
+        @InjectModel(Emp.name) private empModel: Model<EmpDocument>,
+        @InjectModel(Department.name) private departmentModel: Model<DepartmentDocument>,
+        @InjectModel(Section.name) private sectionModel: Model<SectionDocument>,
         private readonly empService: EmpService,
         private readonly sectionService: SectionService,
         private readonly notificationService: NotificationService,
@@ -199,44 +205,97 @@ export class TaskCoreService {
 
     async getAllTasks(): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
+            // Fetch tasks without populate to avoid casting issues
             const tasks = await this.taskModel.find({})
-                .populate(this.defaultPopulateOptions)
                 .lean()
                 .exec();
 
-            // Ensure reference fields are only _id or string
-            const getId = (val: any) => {
-                if (!val) return undefined;
-                if (typeof val === 'string') return val;
-                if (val._id) return val._id.toString();
-                return val.toString();
+            // Get all unique IDs for batch fetching related data
+            const empIds = new Set<string>();
+            const departmentIds = new Set<string>();
+            const projectIds = new Set<string>();
+            const sectionIds = new Set<string>();
+
+            tasks.forEach(task => {
+                if (task.emp) empIds.add(task.emp.toString());
+                if (task.assignee) empIds.add(task.assignee.toString());
+                if (task.department_id) departmentIds.add(task.department_id.toString());
+                if (task.project_id) projectIds.add(task.project_id.toString());
+                if (task.section_id) sectionIds.add(task.section_id.toString());
+            });
+
+            // Batch fetch related data
+            const [employees, departments, projects, sections] = await Promise.all([
+                empIds.size > 0 ? this.empModel.find({ _id: { $in: Array.from(empIds) } }).lean().exec() : [],
+                departmentIds.size > 0 ? this.departmentModel.find({ _id: { $in: Array.from(departmentIds) } }).lean().exec() : [],
+                projectIds.size > 0 ? this.projectModel.find({ _id: { $in: Array.from(projectIds) } }).lean().exec() : [],
+                sectionIds.size > 0 ? this.sectionModel.find({ _id: { $in: Array.from(sectionIds) } }).lean().exec() : []
+            ]);
+
+            // Create lookup maps for quick access
+            const empMap = new Map((employees as any).map(emp => [emp._id.toString(), emp]));
+            const deptMap = new Map((departments as any).map(dept => [dept._id.toString(), dept]));
+            const projMap = new Map((projects as any).map(proj => [proj._id.toString(), proj]));
+            const sectionMap = new Map((sections as any).map(section => [section._id.toString(), section]));
+
+            // Process tasks and attach related data
+            const tasksDto = tasks.map(task => {
+                const processedTask = { ...task } as any;
+
+                // Attach employee data
+                if (task.emp) {
+                    const empData = empMap.get(task.emp.toString());
+                    processedTask.emp = empData || null;
+                }
+
+                if (task.assignee) {
+                    const assigneeData = empMap.get(task.assignee.toString());
+                    processedTask.assignee = assigneeData || null;
+                }
+
+                // Attach organization data
+                if (task.department_id) {
+                    const deptData = deptMap.get(task.department_id.toString());
+                    processedTask.department_id = deptData || task.department_id.toString();
+                }
+
+                if (task.project_id) {
+                    const projData = projMap.get(task.project_id.toString());
+                    processedTask.project_id = projData || task.project_id.toString();
+                }
+
+                if (task.section_id) {
+                    const sectionData = sectionMap.get(task.section_id.toString());
+                    processedTask.section_id = sectionData || task.section_id.toString();
+                }
+
+                // Ensure proper ID conversion for arrays
+                if (processedTask.sub_tasks && Array.isArray(processedTask.sub_tasks)) {
+                    processedTask.sub_tasks = processedTask.sub_tasks.map(id => id.toString());
+                }
+
+                if (processedTask.dependencies && Array.isArray(processedTask.dependencies)) {
+                    processedTask.dependencies = processedTask.dependencies.map(id => id.toString());
+                }
+
+                if (processedTask.parent_task) {
+                    processedTask.parent_task = processedTask.parent_task.toString();
+                }
+
+                return new GetTaskDto(processedTask);
+            });
+
+            return {
+                status: true,
+                message: 'Tasks retrieved successfully',
+                data: tasksDto
             };
 
-            const tasksDto = tasks.map(task => {
-                // Patch reference fields to only _id
-                if (task.department_id && typeof task.department_id === 'object') {
-                    task.department_id = getId(task.department_id);
-                }
-                if (task.project_id && typeof task.project_id === 'object') {
-                    task.project_id = getId(task.project_id);
-                }
-                if (task.emp && typeof task.emp === 'object') {
-                    task.emp = getId(task.emp);
-                }
-                if (task.assignee && typeof task.assignee === 'object') {
-                    task.assignee = getId(task.assignee);
-                }
-                if (task.section_id && typeof task.section_id === 'object') {
-                    task.section_id = getId(task.section_id);
-                }
-                return new GetTaskDto(task);
-            });
-            return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
+            console.error('Error in getAllTasks:', error);
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
         }
     }
-
     async getTaskById(id: string): Promise<{ status: boolean, message: string, data?: any }> {
         try {
             const task = await this.taskModel.findById(id)
