@@ -132,7 +132,7 @@ export class TaskSubtaskService {
         return this.taskModel.find({ parent_task: parent_id }).exec();
     }
 
-    async getSubTaskByParentTask(parentId: string) {
+    async getSubTaskByParentTask(parentId: string, empId: string) {
         try {
             const tasks = await this.taskModel.find({ parent_task: parentId })
                 .populate([

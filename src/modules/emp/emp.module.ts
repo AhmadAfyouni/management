@@ -9,6 +9,7 @@ import { JobTitlesModule } from "../job-titles/job-titles.module";
 import { EmpController } from "./emp.controller";
 import { EmpService } from "./emp.service";
 import { Emp, EmpSchema } from "./schemas/emp.schema";
+import { SectionModule } from "../section/section.module";
 @Global()
 @Module(
     {
@@ -18,6 +19,7 @@ import { Emp, EmpSchema } from "./schemas/emp.schema";
             forwardRef(() => DepartmentModule),
             forwardRef(() => JobTitlesModule),
             FileModule,
+            SectionModule,
         ],
 
         controllers: [EmpController],

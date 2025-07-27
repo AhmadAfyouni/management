@@ -6,6 +6,7 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import "dotenv/config"
 import { JwtStrategy } from "../../common/utils/jwt.strategy";
+import { SectionModule } from "../section/section.module";
 @Module({
     imports: [
         EmpModule,
@@ -13,6 +14,7 @@ import { JwtStrategy } from "../../common/utils/jwt.strategy";
             secret: process.env.JWT_SECRET,
             signOptions: { expiresIn: '20d' },
         }),
+        SectionModule,
     ],
     providers: [AuthService, JwtStrategy],
     controllers: [AuthController],

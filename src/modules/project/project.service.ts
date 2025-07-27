@@ -81,7 +81,7 @@ export class ProjectService {
             }
             const updateFields: any = {};
             if (updateProjectDto.status === ProjectStatus.COMPLETED) {
-                const tasks = await this.taskQueryService.getProjectTaskDetails(id);
+                const tasks = await this.taskQueryService.getProjectTaskDetails(id, empId);
                 const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE || task.status === TASK_STATUS.CLOSED || task.status === TASK_STATUS.CANCELED);
                 if (tasks.length !== completedTasks.length) {
                     throw new BadRequestException('Project cannot be marked as completed because some tasks are not completed');
@@ -114,12 +114,12 @@ export class ProjectService {
         }
     }
 
-    async canCompleteProject(id: string): Promise<boolean> {
+    async canCompleteProject(id: string, empId: string): Promise<boolean> {
         const project = await this.projectModel.findById(new Types.ObjectId(id)).exec();
         if (!project) {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
-        const tasks = await this.taskQueryService.getProjectTaskDetails(id);
+        const tasks = await this.taskQueryService.getProjectTaskDetails(id, empId);
         const completedTasks = tasks.filter((task) => task.status === TASK_STATUS.DONE).length;
         return tasks.length === completedTasks;
     }
@@ -230,8 +230,8 @@ export class ProjectService {
         };
     }
 
-    async getTaskDetailsProject(departmentId: string, projectId: string) {
-        const tasks = await this.taskQueryService.getTaskProjectByDepartmentId(projectId, departmentId);
+    async getTaskDetailsProject(departmentId: string, projectId: string, empId: string) {
+        const tasks = await this.taskQueryService.getTaskProjectByDepartmentId(projectId, departmentId, empId);
         return tasks;
     }
 

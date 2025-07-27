@@ -15,6 +15,7 @@ import { DepartmentService } from '../department/depratment.service';
 import { FileService } from '../file-manager/file-manager.service';
 import { PaginationService } from 'src/common/services/pagination.service';
 import { PaginatedResult, PaginationOptions } from 'src/common/interfaces/pagination.interface';
+import { SectionService } from '../section/section.service';
 
 @Injectable()
 export class EmpService {
@@ -26,6 +27,7 @@ export class EmpService {
         private readonly departmentService: DepartmentService,
         private readonly fileService: FileService, // Using fixed FileService
         private readonly paginationService: PaginationService,
+        private readonly sectionService: SectionService,
     ) { }
 
     async getAllEmp(options: PaginationOptions = {}): Promise<PaginatedResult<GetEmpDto>> {
@@ -268,7 +270,11 @@ export class EmpService {
                 }
             }
 
+
+            // create initial section for this employee
+            await this.sectionService.createInitialSections(empId);
             // Return the updated employee with populated file data
+
             return await this.empModel.findById(empId)
                 .populate({
                     path: "job_id",

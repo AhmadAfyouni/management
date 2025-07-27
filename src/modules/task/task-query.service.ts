@@ -55,6 +55,55 @@ export class TaskQueryService {
         { path: "project_id" }
     ];
 
+    /**
+     * Helper method to validate and fix section_id for tasks based on employee's available sections
+     */
+    private async validateAndFixTaskSections(tasks: any[], empId: string): Promise<any[]> {
+        try {
+            // Fetch all sections for the employee
+            const userSections = await this.sectionModel.find({ emp: empId }).lean().exec();
+
+            if (!userSections || userSections.length === 0) {
+                // If no sections found, return tasks as is
+                return tasks;
+            }
+
+            const userSectionIds = userSections.map((s: any) => s._id.toString());
+            const firstSectionId = userSections[0] as any;
+
+            // Process each task
+            return tasks.map(task => {
+                if (task.section_id && !userSectionIds.includes(task.section_id._id?.toString() || task.section_id.toString())) {
+                    // If section_id is not for this user, set to firstSectionId
+                    task.section_id = firstSectionId;
+                }
+                return task;
+            });
+        } catch (error) {
+            console.error('Error validating task sections:', error);
+            return tasks; // Return original tasks if validation fails
+        }
+    }
+
+    /**
+     * Helper method to convert tasks to DTOs with section validation
+     */
+    private async convertTasksToDto(tasks: any[], empId: string): Promise<GetTaskDto[]> {
+        const validatedTasks = await this.validateAndFixTaskSections(tasks, empId);
+
+        return validatedTasks
+            .filter(task => task && task._id)
+            .map((task) => {
+                try {
+                    return new GetTaskDto(task);
+                } catch (error) {
+                    console.error(`Error creating GetTaskDto for task ${task._id}:`, error);
+                    return null;
+                }
+            })
+            .filter(task => task !== null);
+    }
+
     async paginate(query: any, page: number, limit: number) {
         const skip = (page - 1) * limit;
         const [total, data] = await Promise.all([
@@ -75,14 +124,14 @@ export class TaskQueryService {
         };
     }
 
-    async getTasksByDepartmentId(departmentId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+    async getTasksByDepartmentId(departmentId: string, empId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
             const tasks = await this.taskModel.find({ department_id: departmentId, project_id: null })
                 .populate(this.defaultPopulateOptions)
                 .lean()
                 .exec();
 
-            const tasksDto = tasks.map(task => new GetTaskDto(task));
+            const tasksDto = await this.convertTasksToDto(tasks, empId);
             return { status: true, message: 'Tasks retrieved successfully', data: tasksDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve tasks', error.message);
@@ -96,29 +145,32 @@ export class TaskQueryService {
                 .lean()
                 .exec();
 
-            const taskDto = tasks.map((task) => new GetTaskDto(task));
+            const taskDto = await this.convertTasksToDto(tasks, empId);
             return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve project tasks', error.message);
         }
     }
 
-    async getProjectTaskDetails(projectId: string) {
+    async getProjectTaskDetails(projectId: string, empId: string) {
         try {
             const objectId = new Types.ObjectId(projectId);
             const tasks = await this.taskModel.find({ project_id: objectId }).lean().exec();
-            return tasks.map((task) => ({
+
+            const tasksWithOverdue = tasks.map((task) => ({
                 ...task,
                 is_over_due: task.due_date < new Date() && task.status !== 'DONE'
             }));
+
+            return await this.validateAndFixTaskSections(tasksWithOverdue, empId);
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve project task details', error.message);
         }
     }
 
-    async getTaskProjectByDepartmentId(projectId: string, departmentId: string) {
+    async getTaskProjectByDepartmentId(projectId: string, departmentId: string, empId: string) {
         try {
-            const { info } = await this.buildFullTaskList({ projectId, departmentId }, "");
+            const { info } = await this.buildFullTaskList({ projectId, departmentId }, empId);
             return info;
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve project tasks by department', error.message);
@@ -132,7 +184,7 @@ export class TaskQueryService {
                 .lean()
                 .exec();
 
-            const taskDto = tasks.map((task) => new GetTaskDto(task));
+            const taskDto = await this.convertTasksToDto(tasks, empId);
             return { status: true, message: 'Tasks retrieved successfully', data: taskDto };
         } catch (error) {
             console.error("Error fetching tasks:", error);
@@ -155,8 +207,7 @@ export class TaskQueryService {
                 .lean()
                 .exec();
 
-            const taskDto = weeklyTasks.map((task) => new GetTaskDto(task));
-
+            const taskDto = await this.convertTasksToDto(weeklyTasks, userId);
             return { status: true, message: 'Weekly tasks retrieved successfully', data: taskDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve weekly tasks', error.message);
@@ -177,24 +228,43 @@ export class TaskQueryService {
                 .lean()
                 .exec();
 
-            const taskDto = monthlyTasks.map((task) => new GetTaskDto(task));
-
+            const taskDto = await this.convertTasksToDto(monthlyTasks, userId);
             return { status: true, message: 'Monthly tasks retrieved successfully', data: taskDto };
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve monthly tasks', error.message);
         }
     }
 
-    async getOnTestTask(department_id: string) {
+    async getOnTestTask(department_id: string, empId: string): Promise<GetTaskDto[]> {
         try {
             const tasks = await this.taskModel.find({ department_id, status: 'ON_TEST' })
                 .populate(this.defaultPopulateOptions)
                 .lean()
                 .exec();
 
-            return tasks.map((task) => new GetTaskDto(task));
+            return await this.convertTasksToDto(tasks, empId);
         } catch (error) {
             throw new InternalServerErrorException('Failed to retrieve on-test tasks', error.message);
+        }
+    }
+
+    async getTaskById(taskId: string, empId: string): Promise<{ status: boolean, message: string, data?: GetTaskDto }> {
+        try {
+            const task = await this.taskModel.findById(taskId)
+                .populate(this.defaultPopulateOptions)
+                .lean()
+                .exec();
+
+            if (!task) {
+                return { status: false, message: 'Task not found' };
+            }
+
+            const validatedTasks = await this.validateAndFixTaskSections([task], empId);
+            const taskDto = new GetTaskDto(validatedTasks[0]);
+
+            return { status: true, message: 'Task retrieved successfully', data: taskDto };
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to retrieve task', error.message);
         }
     }
 
@@ -217,37 +287,18 @@ export class TaskQueryService {
                 query.project_id = null;
             }
 
-            // Fetch all sections for the user
-            const userSections = await this.sectionModel.find({ emp: empId }).lean().exec();
-            const userSectionIds = userSections.map((s: any) => s._id.toString());
-            const firstSectionId = userSections[0] as any;
-
             const parentTasks = await this.taskModel
                 .find(query)
                 .populate(this.defaultPopulateOptions)
                 .lean()
                 .exec();
 
-            const taskDtos = parentTasks
-                .filter(task => task && task._id)
-                .map((task) => {
-                    try {
-                        // If section_id is not for this user, set to firstSectionId
-                        if (task.section_id && !userSectionIds.includes(task.section_id._id.toString())) {
-                            task.section_id = firstSectionId;
-                        }
-                        return new GetTaskDto(task);
-                    } catch (error) {
-                        console.error(`Error creating GetTaskDto for task ${task._id}:`, error);
-                        return null;
-                    }
-                })
-                .filter(task => task !== null);
+            const taskDtos = await this.convertTasksToDto(parentTasks, empId);
 
             const fullList: any[] = [];
 
             for (const task of taskDtos) {
-                await this.collectTasksRecursively(task!, fullList);
+                await this.collectTasksRecursively(task!, fullList, empId);
             }
 
             return { tree: fullList, info: taskDtos };
@@ -257,7 +308,7 @@ export class TaskQueryService {
         }
     }
 
-    async collectTasksRecursively(task: GetTaskDto, fullList: any[]): Promise<void> {
+    async collectTasksRecursively(task: GetTaskDto, fullList: any[], empId: string): Promise<void> {
         fullList.push({
             id: task.id,
             name: task.name,
@@ -271,20 +322,28 @@ export class TaskQueryService {
                 .lean()
                 .exec();
 
-            const subTaskDtos = subTasks
-                .filter(subTask => subTask && subTask._id)
-                .map((subTask) => {
-                    try {
-                        return new GetTaskDto(subTask);
-                    } catch (error) {
-                        console.error(`Error creating GetTaskDto for subtask ${subTask._id}:`, error);
-                        return null;
-                    }
-                })
-                .filter(subTask => subTask !== null);
+            const subTaskDtos = await this.convertTasksToDto(subTasks, empId);
+
+            for (const subTask of subTaskDtos) {
+                await this.collectTasksRecursively(subTask, fullList, empId);
+            }
 
         } catch (error) {
             console.error(`Error processing subtasks for task ${task.id}:`, error);
+        }
+    }
+
+    async getAllTasks(empId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+        try {
+            const tasks = await this.taskModel.find({})
+                .populate(this.defaultPopulateOptions)
+                .lean()
+                .exec();
+
+            const taskDtos = await this.convertTasksToDto(tasks, empId);
+            return { status: true, message: 'All tasks retrieved successfully', data: taskDtos };
+        } catch (error) {
+            throw new InternalServerErrorException('Failed to retrieve all tasks', error.message);
         }
     }
 }

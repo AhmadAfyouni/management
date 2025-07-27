@@ -8,31 +8,29 @@ import { CreateEmpDto } from "../emp/dto/create-emp.dto";
 import "dotenv/config"
 import { GetEmpDto } from "../emp/dto/get-emp.dto";
 import { EmpDocument } from "../emp/schemas/emp.schema";
+import { SectionService } from "../section/section.service";
 
 @Injectable()
 export class AuthService {
     constructor(
         private readonly empService: EmpService,
         private readonly jwtService: JwtService,
+        private readonly sectionService: SectionService,
     ) { }
     async validateUser(email: string, pass: string): Promise<EmpDocument | null> {
         try {
-            
-            
             const user = await this.empService.findByEmail(email);
             if (user && (await bcrypt.compare(pass, user.password))) {
                 return user;
             }
             return null;
         } catch (error) {
-            
             throw new UnauthorizedException('Validation failed');
         }
     }
 
     async login(user: EmpDocument) {
         try {
-            
             const payload: JwtPayload = {
                 email: user.email,
                 sub: user._id.toString(),
@@ -43,7 +41,7 @@ export class AuthService {
                 accessibleEmps: (user.job_id as any).accessibleEmps || [],
                 accessibleJobTitles: (user.job_id as any).accessibleJobTitles || [],
             };
-            
+            await this.sectionService.createInitialSections(user._id.toString());
             return {
                 status: true,
                 message: 'Login successful',
@@ -87,9 +85,13 @@ export class AuthService {
         } catch (e) {
             if (e.code === 11000) {
                 const duplicateField = Object.keys(e.keyValue)[0];
-                throw new ConflictException(`${duplicateField.charAt(0).toUpperCase() + duplicateField.slice(1)} already exists.`);
+                throw new ConflictException(
+                    `${duplicateField.charAt(0).toUpperCase() + duplicateField.slice(1)} already exists.`,
+                );
             } else {
-                throw new InternalServerErrorException('An unexpected error occurred during registration.' + e.message);
+                throw new InternalServerErrorException(
+                    'An unexpected error occurred during registration.' + e.message,
+                );
             }
         }
     }

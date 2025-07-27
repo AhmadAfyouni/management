@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsMongoId, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsMongoId, IsOptional, IsEnum } from 'class-validator';
 
 export class CreateSectionDto {
     @IsString()
@@ -8,4 +8,8 @@ export class CreateSectionDto {
     @IsOptional()
     @IsMongoId()
     emp: string;
+
+    @IsOptional()
+    @IsEnum(["default", "normar"])
+    type: "default" | "normal"
 }

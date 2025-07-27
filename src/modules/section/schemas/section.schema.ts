@@ -8,7 +8,6 @@ export type SectionDocument = Section & Document;
 
 @Schema({ timestamps: true })
 export class Section {
-
     _id: Types.ObjectId;
 
     @Prop({ required: true })
@@ -17,6 +16,8 @@ export class Section {
     @Prop({ type: Types.ObjectId, ref: Emp.name, required: false })
     emp?: Types.ObjectId;
 
+    @Prop({ enum: ['default', 'normal'], default: 'normal' })
+    type: string;
 }
 
 export const SectionSchema = SchemaFactory.createForClass(Section);

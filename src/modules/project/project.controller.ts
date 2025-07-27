@@ -76,7 +76,7 @@ export class ProjectController {
     }
 
     @Get("complete-project/:projectId")
-    async canCompleteProject(@Param('projectId') projectId: string) {
-        return await this.projectService.canCompleteProject(projectId);
+    async canCompleteProject(@Param('projectId') projectId: string, @GetAccount() empId: string) {
+        return await this.projectService.canCompleteProject(projectId, empId);
     }
 }

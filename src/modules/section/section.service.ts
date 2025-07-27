@@ -25,11 +25,12 @@ export class SectionService {
         for (const name of sectionsToCreate) {
             const existingSection = await this.sectionModel.findOne({
                 name,
-                emp: empId
+                emp: empId,
+                type: 'default'
             });
 
             if (!existingSection) {
-                section = await this.createSection({ name, emp: empId });
+                section = await this.createSection({ name, emp: empId, type: 'default' });
             } else {
                 section = existingSection;
             }
@@ -78,6 +79,11 @@ export class SectionService {
         const sectionToDelete = await this.sectionModel.findById(id).exec();
         if (!sectionToDelete) {
             throw new NotFoundException(`Section with ID ${id} not found`);
+        }
+        if (sectionToDelete.type == "default") {
+            throw new NotFoundException(
+                `Cannot delete default section ${sectionToDelete.name}`,
+            );
         }
 
         // Get or create a default section to move tasks to
