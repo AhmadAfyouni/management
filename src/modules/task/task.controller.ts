@@ -4,7 +4,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { RequiredPermissions, Roles } from 'src/common/decorators/role.decorator';
 import { UserRole } from 'src/config/role.enum';
 import { PermissionsEnum } from 'src/config/permissions.enum';
-import { GetAccount, GetDepartment } from 'src/common/decorators/user-guard';
+import { GetAccount, GetDepartment, IsAdmin } from 'src/common/decorators/user-guard';
 import { CreateSubTaskDto, CreateTaskDto } from './dtos/create-task.dto';
 import { UpdateTaskDto } from './dtos/update-task.dto';
 import { TASK_STATUS } from './enums/task-status.enum';
@@ -119,11 +119,11 @@ export class TasksController {
         }
     }
 
-    @Roles(UserRole.ADMIN)
+    // @Roles(UserRole.ADMIN)
     @RequiredPermissions(PermissionsEnum.TASK_SEARCH_AND_VIEW)
     @Get('get-all-tasks')
-    async getAllTasks(@GetAccount() empId: string) {
-        return this.taskQueryService.getAllTasks(empId);
+    async getAllTasks(@GetAccount() empId: string, @IsAdmin() isAdmin: boolean) {
+        return this.taskQueryService.getAllTasks(empId, isAdmin);
     }
 
     // @Roles(UserRole.PRIMARY_USER, UserRole.SECONDARY_USER)

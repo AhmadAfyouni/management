@@ -334,9 +334,13 @@ export class TaskQueryService {
         }
     }
 
-    async getAllTasks(empId: string): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
+    async getAllTasks(empId: string, isAdmin: boolean): Promise<{ status: boolean, message: string, data: GetTaskDto[] }> {
         try {
-            const tasks = await this.taskModel.find({})
+            const query: any = {};
+            if (!isAdmin) {
+                query.$or = [{ emp: empId }, { assignee: empId }];
+            }
+            const tasks = await this.taskModel.find(query)
                 .populate(this.defaultPopulateOptions)
                 .lean()
                 .exec();
