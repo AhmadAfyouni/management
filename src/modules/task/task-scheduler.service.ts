@@ -255,7 +255,7 @@ export class TaskSchedulerService {
      */
     private async createMainRoutineTaskContainer(employee: any, jobTitle: any): Promise<TaskDocument> {
         // Get section for the employee
-        const section = await this.sectionService.createInitialSections(employee._id.toString());
+        const sections = await this.sectionService.createInitialSections(employee._id.toString(), employee._id.toString());
 
         const mainTask = new this.taskModel({
             name: `📋 Daily Routine – ${jobTitle.title}`,
@@ -263,7 +263,8 @@ export class TaskSchedulerService {
             emp: employee._id,
             assignee: employee._id,
             department_id: employee.department_id,
-            section_id: (section as any)._id,
+            section_id: (sections[0] as any)._id,
+            manager_section_id: (sections[1] as any)._id,
             status: TASK_STATUS.ONGOING,
             priority: PRIORITY_TYPE.MEDIUM,
             isRoutineTask: true,
@@ -299,7 +300,7 @@ export class TaskSchedulerService {
         parentTaskId: Types.ObjectId,
     ): Promise<TaskDocument> {
         const dueDate = this.calculateRoutineTaskDueDate(routineTaskDef);
-        const section = await this.sectionService.createInitialSections(employee._id.toString());
+        const sections = await this.sectionService.createInitialSections(employee._id.toString(), employee._id.toString());
 
         const task = new this.taskModel({
             name: routineTaskDef.name,
@@ -307,7 +308,8 @@ export class TaskSchedulerService {
             emp: employee._id,
             assignee: employee._id,
             department_id: employee.department_id,
-            section_id: (section as any)._id,
+            section_id: (sections[0] as any)._id,
+            manager_section_id: (sections[1] as any)._id,
             parent_task: parentTaskId,
             status: TASK_STATUS.PENDING,
             priority: this.mapPriority(routineTaskDef.priority),
@@ -340,7 +342,7 @@ export class TaskSchedulerService {
         parentTaskId: Types.ObjectId,
     ): Promise<number> {
         let created = 0;
-        const section = await this.sectionService.createInitialSections(employee._id.toString());
+        const sections = await this.sectionService.createInitialSections(employee._id.toString(), employee._id.toString());
 
         for (const subTaskDef of subTaskDefs) {
             const subTask = new this.taskModel({
@@ -349,7 +351,8 @@ export class TaskSchedulerService {
                 emp: employee._id,
                 assignee: employee._id,
                 department_id: employee.department_id,
-                section_id: (section as any)._id,
+                section_id: (sections[0] as any)._id,
+                manager_section_id: (sections[1] as any)._id,
                 parent_task: parentTaskId,
                 status: TASK_STATUS.PENDING,
                 priority: PRIORITY_TYPE.LOW,
