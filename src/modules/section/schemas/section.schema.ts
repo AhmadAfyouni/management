@@ -18,6 +18,9 @@ export class Section {
 
     @Prop({ enum: ['default', 'normal'], default: 'normal' })
     type: string;
+
+    @Prop({ enum: ['BY_ME', 'FOR_ME'], default: 'FOR_ME' })
+    type_section: string;
 }
 
 export const SectionSchema = SchemaFactory.createForClass(Section);

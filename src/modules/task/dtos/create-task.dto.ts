@@ -41,6 +41,10 @@ export class CreateTaskDto {
     @IsOptional()
     section_id?: string;
 
+    @IsMongoId()
+    @IsOptional()
+    manager_section_id?: string;
+
     @IsDate()
     @Type(() => Date)
     @IsNotEmpty()

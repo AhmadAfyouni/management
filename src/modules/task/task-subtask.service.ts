@@ -79,13 +79,13 @@ export class TaskSubtaskService {
             await this.taskValidationService.validateEmployeeMembershipForSubtask(parentTask, emp, createTaskDto.assignee);
 
             if (parentTask.project_id) {
-                createTaskDto.project_id = parentTask.project_id.toString();
-                await this.taskValidationService.validateOngoingProjectRequirement(parentTask.project_id.toString());
-                const project = await this.projectService.getProjectById(parentTask.project_id.toString());
+                createTaskDto.project_id = parentTask.project_id._id.toString();
+                await this.taskValidationService.validateOngoingProjectRequirement(parentTask.project_id._id.toString());
+                const project = await this.projectService.getProjectById(parentTask.project_id._id.toString());
                 if (project) {
                     // await this.taskValidationService.validateTaskDatesAgainstProject(createTaskDto, project);
                 }
-                await this.taskValidationService.validateUniqueTaskNameInProject(createTaskDto.name, parentTask.project_id.toString());
+                await this.taskValidationService.validateUniqueTaskNameInProject(createTaskDto.name, parentTask.project_id._id.toString());
             }
 
             await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
@@ -97,8 +97,9 @@ export class TaskSubtaskService {
             createTaskDto.emp = empId;
             createTaskDto.department_id = getId(parentTask.department_id) || getId(emp.department_id);
 
-            const section = await this.sectionService.createInitialSections(empId) as any;
-            createTaskDto.section_id = getId(section);
+            const sections = await this.sectionService.createInitialSections(empId, createTaskDto.assignee!);
+            createTaskDto.section_id = sections[0]._id.toString();
+            createTaskDto.manager_section_id = sections[1]._id.toString();
 
             const subtask = new this.taskModel(createTaskDto);
             await subtask.save();
@@ -139,6 +140,7 @@ export class TaskSubtaskService {
                     { path: "emp", model: "Emp" },
                     { path: "assignee", model: "Emp" },
                     { path: "section_id" },
+                    { path: "manager_section_id" },
                     { path: "department_id" },
                     { path: "project_id" }
                 ])

@@ -68,6 +68,7 @@ export class TaskCoreService {
             ],
         },
         { path: "section_id" },
+        { path: "manager_section_id" },
         { path: "department_id" },
         { path: "project_id" }
     ];
@@ -85,8 +86,9 @@ export class TaskCoreService {
         await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
         await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
 
-        const section = await this.sectionService.createInitialSections(manager._id.toString()) as any;
-        createTaskDto.section_id = section._id.toString();
+        const sections = await this.sectionService.createInitialSections(manager._id.toString(), createTaskDto.assignee!);
+        createTaskDto.section_id = sections[0]._id.toString();
+        createTaskDto.manager_section_id = sections[1]._id.toString();
 
         const taskData = {
             ...createTaskDto,
@@ -120,9 +122,9 @@ export class TaskCoreService {
             await this.taskValidationService.autoCalculateEstimatedHours(createTaskDto);
             await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
 
-            await this.sectionService.createInitialSections(createTaskDto.emp);
-            const section_id = await this.sectionService.getRecentlySectionId(createTaskDto.emp);
-            createTaskDto.section_id = section_id;
+            const sections = await this.sectionService.createInitialSections(createTaskDto.emp, createTaskDto.assignee!);
+            createTaskDto.section_id = sections[0]._id.toString();
+            createTaskDto.manager_section_id = sections[1]._id.toString();
 
             const task = new this.taskModel({
                 ...createTaskDto,
@@ -176,9 +178,9 @@ export class TaskCoreService {
             await this.taskValidationService.validateTaskDatesWithWorkingHours(createTaskDto);
 
             // Assign section
-            await this.sectionService.createInitialSections(manager._id.toString());
-            const section_id = await this.sectionService.getRecentlySectionId(manager._id.toString());
-            createTaskDto.section_id = section_id;
+            const sections = await this.sectionService.createInitialSections(manager._id.toString(), createTaskDto.assignee!);
+            createTaskDto.section_id = sections[0]._id.toString();
+            createTaskDto.manager_section_id = sections[1]._id.toString();
 
             // Create task
             const task = new this.taskModel({

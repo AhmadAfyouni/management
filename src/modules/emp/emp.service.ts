@@ -272,7 +272,7 @@ export class EmpService {
 
 
             // create initial section for this employee
-            await this.sectionService.createInitialSections(empId);
+            await this.sectionService.createInitialSections(empId, empId);
             // Return the updated employee with populated file data
 
             return await this.empModel.findById(empId)

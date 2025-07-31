@@ -41,7 +41,7 @@ export class AuthService {
                 accessibleEmps: (user.job_id as any).accessibleEmps || [],
                 accessibleJobTitles: (user.job_id as any).accessibleJobTitles || [],
             };
-            await this.sectionService.createInitialSections(user._id.toString());
+            await this.sectionService.createInitialSections(user._id.toString(), user._id.toString());
             return {
                 status: true,
                 message: 'Login successful',

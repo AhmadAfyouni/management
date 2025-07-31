@@ -94,6 +94,9 @@ export class Task {
     @Prop({ type: Types.ObjectId, ref: Section.name, required: false })
     section_id?: Types.ObjectId;
 
+    @Prop({ type: Types.ObjectId, ref: Section.name, required: false })
+    manager_section_id?: Types.ObjectId;
+
     // Progress calculation fields
     @Prop({ type: Number, default: 0, min: 0, max: 100 })
     progress: number;

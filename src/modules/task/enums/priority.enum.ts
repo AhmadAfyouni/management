@@ -1,4 +1,4 @@
-export enum PRIORITY_TYPE{
+export enum PRIORITY_TYPE {
     LOW = "LOW",
     MEDIUM = "MEDIUM",
     HIGH = "HIGH",

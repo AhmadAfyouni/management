@@ -19,9 +19,9 @@ export class SectionService {
         return section.save();
     }
 
-    async createInitialSections(empId: string): Promise<Section[]> {
+    async createInitialSections(empId: string, assignee: string): Promise<Section[]> {
         const sectionsToCreate = ['Recently Assigned'];
-        let section;
+        let section: Section[] = [];
         for (const name of sectionsToCreate) {
             const existingSection = await this.sectionModel.findOne({
                 name,
@@ -30,7 +30,31 @@ export class SectionService {
             });
 
             if (!existingSection) {
-                section = await this.createSection({ name, emp: empId, type: 'default' });
+                const sectionForMe = await this.createSection({ name, emp: empId, type: 'default', type_section: 'FOR_ME' });
+                section.push(sectionForMe);
+            } else {
+                section.push(existingSection);
+            }
+        }
+        const sectionByMe = await this.createInitialSectionsByMe(empId, assignee);
+        section.push(sectionByMe);
+        return section;
+    }
+
+
+    async createInitialSectionsByMe(empId: string, assignee: string): Promise<Section> {
+        const sectionsToCreate = ['Recently Assigned'];
+        let section;
+        for (const name of sectionsToCreate) {
+            const existingSection = await this.sectionModel.findOne({
+                name,
+                emp: assignee,
+                type: 'default',
+                type_section: 'BY_ME',
+            });
+
+            if (!existingSection) {
+                section = await this.createSection({ name, emp: assignee, type: 'default', type_section: 'BY_ME' });
             } else {
                 section = existingSection;
             }
@@ -39,32 +63,14 @@ export class SectionService {
         return section;
     }
 
-    async getRecentlySectionId(empId: string): Promise<string> {
-        const query = {
-            name: 'Recently Assigned',
-            emp: empId
-        };
 
-        const recentlySection = await this.sectionModel.findOne(query).exec();
 
-        if (!recentlySection) {
-            throw new NotFoundException(`Recently Assigned section not found for employee ${empId}`);
-        }
-
-        return recentlySection._id.toString();
-    }
 
     async getSectionsByEmployee(empId: string): Promise<Section[]> {
         return await this.sectionModel.find({ emp: empId }).exec();
     }
 
-    async getSectionById(id: string): Promise<Section> {
-        const section = await this.sectionModel.findById(id).exec();
-        if (!section) {
-            throw new NotFoundException(`Section with ID ${id} not found`);
-        }
-        return section;
-    }
+
 
     async updateSection(id: string, updateSectionDto: UpdateSectionDto): Promise<Section> {
         const updatedSection = await this.sectionModel.findByIdAndUpdate(id, updateSectionDto, { new: true }).exec();
@@ -87,7 +93,7 @@ export class SectionService {
         }
 
         // Get or create a default section to move tasks to
-        const defaultSection = await this.createInitialSections(empId);
+        const defaultSection = await this.createInitialSections(empId, empId);
 
         // Find all tasks in the section to be deleted
         const tasks = await this.taskModel.find({ section_id: id });

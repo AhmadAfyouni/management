@@ -54,7 +54,7 @@ export class GetTaskDto {
     section: any;
     department: any;
     project?: any;
-
+    manager_section_id?: any;
     // Board customization
     boardPosition?: string;
     boardOrder?: number;
@@ -127,7 +127,7 @@ export class GetTaskDto {
             this.section = task?.section_id || null;
             this.department = task?.department_id || null;
             this.project = task?.project_id || null;
-
+            this.manager_section_id = task?.manager_section_id || null;
             // Board customization
             this.boardPosition = task?.boardPosition;
             this.boardOrder = this.safeGetNumber(task?.boardOrder);
@@ -330,6 +330,7 @@ export class GetTaskDto {
         this.sub_tasks = [];
         this.dependencies = [];
         this.section = null;
+        this.manager_section_id = null;
         this.department = null;
         this.project = null;
     }

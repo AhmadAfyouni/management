@@ -10,6 +10,10 @@ export class CreateSectionDto {
     emp: string;
 
     @IsOptional()
-    @IsEnum(["default", "normar"])
+    @IsEnum(["default", "normal"])
     type: "default" | "normal"
+
+    @IsOptional()
+    @IsEnum(["BY_ME", "FOR_ME"])
+    type_section?: "BY_ME" | "FOR_ME"
 }
