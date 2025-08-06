@@ -262,7 +262,19 @@ export class TaskQueryService {
                 return { status: false, message: 'Task not found' };
             }
             const validatedTasks = await this.validateAndFixTaskSections([task], empId);
-            const taskDto = new GetTaskDto(validatedTasks[0]);
+            const mainTask = validatedTasks[0];
+
+            // Manually fetch sub_tasks as full objects and map to GetTaskDto
+            let subTasks: any[] = [];
+            if (mainTask && Array.isArray(mainTask.sub_tasks) && mainTask.sub_tasks.length > 0) {
+                subTasks = await this.taskModel.find({ _id: { $in: mainTask.sub_tasks } })
+                    .populate(this.defaultPopulateOptions)
+                    .lean()
+                    .exec();
+                subTasks = await this.convertTasksToDto(subTasks, empId);
+            }
+
+            const taskDto = new GetTaskDto({ ...mainTask, sub_tasks: subTasks });
 
             return { status: true, message: 'Task retrieved successfully', data: taskDto };
         } catch (error) {

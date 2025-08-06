@@ -120,7 +120,12 @@ export class GetTaskDto {
 
             // Relationships - safely convert to strings
             this.parent_task = this.safeGetObjectIdString(task?.parent_task);
-            this.sub_tasks = this.safeGetObjectIdStringArray(task?.sub_tasks);
+            // If sub_tasks are populated (array of objects), map to GetTaskDto, else map to array of IDs
+            if (Array.isArray(task?.sub_tasks) && task.sub_tasks.length > 0 && typeof task.sub_tasks[0] === 'object' && task.sub_tasks[0] !== null && (task.sub_tasks[0]._id || task.sub_tasks[0].id)) {
+                this.sub_tasks = task.sub_tasks.map((st: any) => new GetTaskDto(st));
+            } else {
+                this.sub_tasks = this.safeGetObjectIdStringArray(task?.sub_tasks);
+            }
             this.dependencies = this.safeGetObjectIdStringArray(task?.dependencies);
 
             // Organization fields
