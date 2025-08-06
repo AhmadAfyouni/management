@@ -54,8 +54,7 @@ export class TaskQueryService {
         { path: "section_id" },
         { path: "manager_section_id" },
         { path: "department_id" },
-        { path: "project_id" },
-        { path: "sub_tasks" }
+        { path: "project_id" }
     ];
 
     /**
