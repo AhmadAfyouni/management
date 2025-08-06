@@ -47,7 +47,7 @@ export class GetTaskDto {
 
     // Relationships
     parent_task?: string;
-    subTasks: string[];
+    sub_tasks: string[];
     dependencies: string[];
 
     // Organization
@@ -122,9 +122,9 @@ export class GetTaskDto {
             this.parent_task = this.safeGetObjectIdString(task?.parent_task);
             // If sub_tasks are populated (array of objects), map to GetTaskDto, else map to array of IDs
             if (Array.isArray(task?.sub_tasks) && task.sub_tasks.length > 0 && typeof task.sub_tasks[0] === 'object' && task.sub_tasks[0] !== null && (task.sub_tasks[0]._id || task.sub_tasks[0].id)) {
-                this.subTasks = task.sub_tasks.map((st: any) => new GetTaskDto(st));
+                this.sub_tasks = task.sub_tasks.map((st: any) => new GetTaskDto(st));
             } else {
-                this.subTasks = this.safeGetObjectIdStringArray(task?.sub_tasks);
+                this.sub_tasks = this.safeGetObjectIdStringArray(task?.sub_tasks);
             }
             this.dependencies = this.safeGetObjectIdStringArray(task?.dependencies);
 
@@ -332,7 +332,7 @@ export class GetTaskDto {
         this.isActive = true;
         this.isRecurring = false;
         this.isRoutineTask = false;
-        this.subTasks = [];
+        this.sub_tasks = [];
         this.dependencies = [];
         this.section = null;
         this.managerSection = null;
@@ -436,7 +436,7 @@ export class GetTaskDto {
         if (this.parent_task) {
             return '🔗 Subtask';
         }
-        if (this.subTasks.length > 0) {
+        if (this.sub_tasks.length > 0) {
             return '📁 Parent Task';
         }
         return '📋 Regular';
