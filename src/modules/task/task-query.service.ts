@@ -272,7 +272,7 @@ export class TaskQueryService {
                     .exec();
             }
 
-            const taskDto = new GetTaskDto({ ...mainTask, sub_tasks: subTasks });
+            const taskDto = new GetTaskDto({ ...mainTask, subTasks: subTasks });
 
             return { status: true, message: 'Task retrieved successfully', data: taskDto };
         } catch (error) {
