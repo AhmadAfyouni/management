@@ -5,6 +5,7 @@ import { GetTaskDto } from './dtos/get-task.dto';
 import { GetTreeDto } from './dtos/get-tree.dto';
 import { Task, TaskDocument } from './schema/task.schema';
 import { Section, SectionDocument } from '../section/schemas/section.schema';
+import path from 'path';
 
 @Injectable()
 export class TaskQueryService {
@@ -53,7 +54,8 @@ export class TaskQueryService {
         { path: "section_id" },
         { path: "manager_section_id" },
         { path: "department_id" },
-        { path: "project_id" }
+        { path: "project_id" },
+        { path: "sub_tasks" }
     ];
 
     /**
@@ -259,7 +261,6 @@ export class TaskQueryService {
             if (!task) {
                 return { status: false, message: 'Task not found' };
             }
-
             const validatedTasks = await this.validateAndFixTaskSections([task], empId);
             const taskDto = new GetTaskDto(validatedTasks[0]);
 
