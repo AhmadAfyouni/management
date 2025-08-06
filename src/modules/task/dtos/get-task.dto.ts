@@ -123,8 +123,10 @@ export class GetTaskDto {
             // If sub_tasks are populated (array of objects), map to GetTaskDto, else map to array of IDs
             if (Array.isArray(task?.sub_tasks) && task.sub_tasks.length > 0 && typeof task.sub_tasks[0] === 'object' && task.sub_tasks[0] !== null && (task.sub_tasks[0]._id || task.sub_tasks[0].id)) {
                 this.sub_tasks = task.sub_tasks.map((st: any) => new GetTaskDto(st));
+                this.subtasks = task.sub_tasks.map((st: any) => new GetTaskDto(st));
             } else {
                 this.sub_tasks = this.safeGetObjectIdStringArray(task?.sub_tasks);
+                this.subtasks = this.safeGetObjectIdStringArray(task?.sub_tasks) as any;
             }
             this.dependencies = this.safeGetObjectIdStringArray(task?.dependencies);
 
