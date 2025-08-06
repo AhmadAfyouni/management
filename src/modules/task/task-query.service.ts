@@ -271,7 +271,6 @@ export class TaskQueryService {
                     .populate(this.defaultPopulateOptions)
                     .lean()
                     .exec();
-                subTasks = await this.convertTasksToDto(subTasks, empId);
             }
 
             const taskDto = new GetTaskDto({ ...mainTask, sub_tasks: subTasks });
