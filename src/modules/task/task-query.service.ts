@@ -271,7 +271,7 @@ export class TaskQueryService {
                     .lean()
                     .exec();
             }
-            mainTask.sub_tasks = subTasks;
+            mainTask.subTasks = subTasks;
 
             const taskDto = new GetTaskDto(mainTask);
 
