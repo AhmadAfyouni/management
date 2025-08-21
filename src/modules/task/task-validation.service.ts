@@ -890,7 +890,7 @@ export class TaskValidationService {
         }
 
         if (task.emp?.toString() !== empId) {
-            throw new ForbiddenException('You are not authorized to update this task status');
+            throw new ForbiddenException(`You are not authorized to update this task status  ${task.emp?.toString()} not equal to ${empId}`);
         }
     }
 
