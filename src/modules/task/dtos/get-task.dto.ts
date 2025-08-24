@@ -21,6 +21,7 @@ export class GetTaskDto {
     // Time tracking fields
     estimated_hours?: number;
     actual_hours?: number;
+
     totalTimeSpent: number;
     startTime?: Date;
     timeLogs: { start: Date; end?: Date }[];

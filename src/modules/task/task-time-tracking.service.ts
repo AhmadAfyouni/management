@@ -113,6 +113,7 @@ export class TaskTimeTrackingService {
             }
 
             task.status = TASK_STATUS.DONE;
+            task.actual_end_date = new Date();
 
             let durationInSeconds = 0;
             if (task.timeLogs?.length > 0) {
