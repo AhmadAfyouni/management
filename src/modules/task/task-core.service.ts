@@ -14,6 +14,7 @@ import { Emp, EmpDocument } from '../emp/schemas/emp.schema';
 import { Department, DepartmentDocument } from '../department/schema/department.schema';
 import { Section, SectionDocument } from '../section/schemas/section.schema';
 import { TaskTimeTrackingService } from './task-time-tracking.service';
+import { TASK_STATUS } from './enums/task-status.enum';
 
 @Injectable()
 export class TaskCoreService {
@@ -277,6 +278,9 @@ export class TaskCoreService {
             await this.taskValidationService.validateTaskUpdate(task, updateTaskDto, empId);
             if (updateTaskDto.rate && oldRate !== updateTaskDto.rate) {
                 await this.taskTimeTrackingService.rateTask(id, updateTaskDto.rate, updateTaskDto.comment || "", updateTaskDto.status || task.status, empId);
+            }
+            if (updateTaskDto.status === TASK_STATUS.ON_TEST) {
+                updateTaskDto.actual_end_date = new Date();
             }
             const updatedTask = await this.taskModel
                 .findByIdAndUpdate(id, updateTaskDto, { new: true })
